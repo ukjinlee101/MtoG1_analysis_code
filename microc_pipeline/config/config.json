@@ -1,0 +1,6 @@
+{
+  "fastqDir" : "/athena/apostoloulab/scratch/ukl4001/MicroC_MtoG1_Batch123_pooled/fastq",
+  "software" : "/athena/apostoloulab/scratch/collab/Software/Ucsctools/",
+  "REF_DIR" : "/athena/apostoloulab/scratch/collab/Genome/Mus_Musculus/UCSC/mm10/Sequence/WholeGenomeFasta",
+  "BWA_DIR" : "/athena/apostoloulab/scratch/collab/Genome/Mus_Musculus/UCSC/mm10/Sequence/BWAIndex/version0.6.0",
+}

@@ -1,0 +1,79 @@
+{
+    "__default__" : {
+        "partition" : "scu-cpu",
+        "account" : "apostoloulab",
+        "time" : "2:00:00",
+        "threads" : "8",
+        "mem" : "16G"
+    },
+    "alignment" : {
+        "time" : "24:00:00",
+        "threads" : "16",
+        "mem" : "64G"
+    },
+    "SAMtoPAIRSAM" : {
+        "time" : "24:00:00",
+        "threads" : "16",
+        "mem" : "64G"
+    },
+    "mergePairs" : {
+        "time" : "24:00:00",
+        "threads" : "16",
+        "mem" : "64G"
+    },
+    "dedup" : {
+        "time" : "24:00:00",
+        "threads" : "16",
+        "mem" : "64G"
+    },
+    "classifyDup" : {
+        "time" : "24:00:00",
+        "threads" : "16",
+        "mem" : "64G"
+    },
+    "makeHic" : {
+        "time" : "24:00:00",
+        "threads" : "32",
+        "mem" : "256G"
+    },
+    "makeHicBatch" : {
+        "time" : "24:00:00",
+        "threads" : "32",
+        "mem" : "256G"
+    },
+    "makeHicPooled" : {
+        "time" : "24:00:00",
+        "threads" : "32",
+        "mem" : "512G"
+    },
+   "hictomcool" : {
+        "time" : "24:00:00",
+        "threads" : "32",
+        "mem" : "256G"
+    },
+   "hictomcoolBatch" : {
+        "time" : "24:00:00",
+        "threads" : "32",
+        "mem" : "256G"
+    },
+   "hictomcoolPooled" : {
+        "time" : "24:00:00",
+        "threads" : "32",
+        "mem" : "512G"
+    },
+   "normCool" : {
+        "time" : "6:00:00",
+        "threads" : "16",
+        "mem" : "32G"
+    },
+   "normCoolBatch" : {
+        "time" : "6:00:00",
+        "threads" : "16",
+        "mem" : "64G"
+    },
+   "normCoolPooled" : {
+        "time" : "6:00:00",
+        "threads" : "16",
+        "mem" : "128G"
+    }
+}
