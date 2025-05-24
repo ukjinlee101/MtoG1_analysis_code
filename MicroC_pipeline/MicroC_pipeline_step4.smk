@@ -5,6 +5,9 @@
 ###############################################################################
 # REFERENCE
 # https://micro-c.readthedocs.io/en/latest/before_you_begin.html
+
+# .hic and .mcool file have KR, SCALE, VC, VC_SQRT normalization column. However, .mcool will not have 'sum' metadata calculated.
+# hicConvertFormat extracts cool file of specific resolution from mcool file and calculate weight column based on the KR column. Weight = 1/KR.
 ###############################################################################
 
 ### Importing python packages
@@ -28,6 +31,7 @@ sampleRepList = ["G1DMSO_B1R1", "G1DMSO_B1R2", "G1DMSO_B1R3",
 				"G1dTAG_B3R1", "G1dTAG_B3R2", "G1dTAG_B3R3"]
 resList = [1000, 2500, 5000, 10000, 25000, 100000]
 
+
 ###############################################################################
 # RULES
 rule all:
@@ -44,20 +48,21 @@ rule normCool:
 		mcool = "result/mcool/{sampleRep}_allRes.mcool"
 	output:
 		success = "result/log/success/normCool_{sampleRep}_{res}.ok",
-		mcool = "result/mcool_norm/{sampleRep}_{res}bp_KR.mcool",
-		exp = "result/mcool_norm/{sampleRep}_{res}bp_KR_exp.tsv"
+		cool = "result/cool_norm/{sampleRep}_{res}bp_KR.cool",
+		exp = "result/cool_norm/{sampleRep}_{res}bp_KR_exp.tsv"
 	params:
 		res = "{res}"
 	shell:
 		"""
 
 		hicConvertFormat -m {input.mcool}:://resolutions/{params.res} --inputFormat cool \
-			--outputFormat cool -o {output.mcool} --correction_name KR
-		cooltools expected-cis -p 16 -o {output.exp} {output.mcool}
+			--outputFormat cool -o {output.cool} --correction_name KR
+		cooltools expected-cis -p 16 -o {output.exp} {output.cool}
 
 		# Made it?
 		touch {output.success}
 		"""
+
 
 rule normCoolBatch:
 	conda: "hicexplorer"
@@ -66,20 +71,21 @@ rule normCoolBatch:
 		mcool = "result/mcool_batch/{sampleBatch}_allRes.mcool"
 	output:
 		success = "result/log/success/normCoolBatch_{sampleBatch}_{res}.ok",
-		mcool = "result/mcool_norm_batch/{sampleBatch}_{res}bp_KR.mcool",
-		exp = "result/mcool_norm_batch/{sampleBatch}_{res}bp_KR_exp.tsv"
+		cool = "result/cool_norm_batch/{sampleBatch}_{res}bp_KR.cool",
+		exp = "result/cool_norm_batch/{sampleBatch}_{res}bp_KR_exp.tsv"
 	params:
 		res = "{res}"
 	shell:
 		"""
 
 		hicConvertFormat -m {input.mcool}:://resolutions/{params.res} --inputFormat cool \
-			--outputFormat cool -o {output.mcool} --correction_name KR
-		cooltools expected-cis -p 16 -o {output.exp} {output.mcool}
+			--outputFormat cool -o {output.cool} --correction_name KR
+		cooltools expected-cis -p 16 -o {output.exp} {output.cool}
 
 		# Made it?
 		touch {output.success}
 		"""
+
 
 rule normCoolPooled:
 	conda: "hicexplorer"
@@ -88,16 +94,16 @@ rule normCoolPooled:
 		mcool = "result/mcool_pooled/{sample}_pooled_allRes.mcool"
 	output:
 		success = "result/log/success/normCoolPooled_{sample}_{res}.ok",
-		mcool = "result/mcool_norm_pooled/{sample}_pooled_{res}bp_KR.mcool",
-		exp = "result/mcool_norm_pooled/{sample}_pooled_{res}bp_KR_exp.tsv"
+		cool = "result/cool_norm_pooled/{sample}_pooled_{res}bp_KR.cool",
+		exp = "result/cool_norm_pooled/{sample}_pooled_{res}bp_KR_exp.tsv"
 	params:
 		res = "{res}"
 	shell:
 		"""
 
 		hicConvertFormat -m {input.mcool}:://resolutions/{params.res} --inputFormat cool \
-			--outputFormat cool -o {output.mcool} --correction_name KR
-		cooltools expected-cis -p 16 -o {output.exp} {output.mcool}
+			--outputFormat cool -o {output.cool} --correction_name KR
+		cooltools expected-cis -p 16 -o {output.exp} {output.cool}
 
 		# Made it?
 		touch {output.success}
