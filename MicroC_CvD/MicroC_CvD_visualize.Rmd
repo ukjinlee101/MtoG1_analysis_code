@@ -1,0 +1,200 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Importing packages
+```{r}
+# LIST OF PACKAGES
+pkgs = c(
+  "tidyverse",
+  "here",
+  "svglite",
+  "ggplot2",
+  "ggrepel",
+  "stringr",
+  "BiocManager",
+  "RColorBrewer",
+  "viridis",
+  "magick",
+  "nlme",
+  "ashr",
+  "factoextra",
+  "plotly",
+  "remotes",
+  "cowplot",
+  "gridExtra",
+  "eulerr", "data.table", "clusterProfiler", "zoo"
+)
+bio_pkgs = c("biomaRt",
+             "DESeq2",
+             "ComplexHeatmap",
+             "apeglm",
+             "vsn",
+             "sva",
+             "limma",
+             "mixOmics", "plotgardener", "org.Mm.eg.db")
+
+# INSTALL PACKAGES
+#install.packages(pkgs)
+#BiocManager::install(bio_pkgs)
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+
+#remotes::install_github("EvaYiwenWang/PLSDAbatch")
+require(PLSDAbatch)
+
+# CLEANING
+rm(pkgs, bio_pkgs)
+
+options(scipen = 999)
+```
+
+# Figure parameters
+```{r}
+source(here("script", "figure_parameter.R"))
+```
+
+# Parameters
+```{r}
+dataDir <- here("../data", "cvd")
+figDir <- here("../figure", "cvd")
+dir.create(figDir, showWarnings = FALSE, recursive = TRUE)
+```
+
+# Functions
+```{r}
+read_cvd <- function(name, resolution, subsample) {
+  smooth_f   <- here(dataDir, paste0(name, "_", resolution, "bp_downsampled-", subsample, "M_cvd_smooth.tsv"))
+  deriv_f    <- here(dataDir, paste0(name, "_", resolution, "bp_downsampled-", subsample, "M_cvd_smooth_merged_derivative.tsv"))
+  dt         <- fread(smooth_f) %>%
+                  dplyr::select(distance = dist_bp, contact_frequency = balanced.avg.smoothed.agg) %>%
+                  distinct()
+  dt$derivative <- fread(deriv_f)[[1]]
+  dt
+}
+
+# function to build the two-panel plot for a given pair
+make_plot_pair <- function(name1, name2,  resolution = 1000, subsample = 300, cols, outname) {
+  tb1 <- read_cvd(name1, resolution = resolution, subsample = subsample) %>%
+    mutate(sample = name1)
+  tb2 <- read_cvd(name2, resolution = resolution, subsample = subsample) %>%
+    mutate(sample = name2)
+  
+  df_full <- bind_rows(tb1, tb2)
+  
+  
+  ### Define common axis
+  common_x <- scale_x_log10(
+    limits = c(5e3, 1e8),
+    breaks = 10^(3:8),
+    labels = label_kb_mb,
+    expand = c(0,0)
+  )
+  
+  ### Define commone theme
+  base_theme <-  theme_classic() +
+    theme(
+      legend.position      = c(1, 1),
+      legend.justification = c("right", "top"),
+      legend.background    = element_rect(fill = "transparent", colour = NA),
+      legend.key           = element_rect(fill = "transparent", colour = NA),
+      legend.title         = element_blank(),
+      legend.text          = element_text(size = fontSizeS, family = fontType, color = "#000000"),
+      legend.spacing    = unit(0.1, "cm"),
+      legend.spacing.x  = unit(0.1, "cm"),
+      legend.margin     = margin(0, 0, 0, 0),   # no extra margin around the legend
+      legend.key.width  = unit(0.5, "cm"),      # narrower key swatches
+      legend.key.height = unit(0.3, "cm"),      # shorter key swatches
+      plot.title      = element_text(hjust = .5, size = fontSizeM, family = fontType),
+      axis.title      = element_text(size = fontSizeM, family = fontType, color = "#000000"),
+      axis.text       = element_text(size = fontSizeS, family = fontType, color = "#000000"),
+      axis.text.x = element_text(
+        margin = margin(t = 3),   # 5 pts of top margin
+        color  = "#000000"
+      ),
+      axis.line       = element_line(size = lineThick*mmToLineUnit, lineend = "square", color = "#000000"),
+      axis.ticks      = element_line(size = lineThick*mmToLineUnit, lineend = "square", color = "#000000"),
+      panel.background = element_rect(fill = "transparent")
+    )
+  
+  
+  # long for contact
+  df1 <- df_full %>%
+    dplyr::select(distance, sample, contact_frequency) %>%
+    mutate(sample = factor(sample, levels = c(name1, name2))) %>%
+    dplyr::filter(distance > 0)
+  
+  p1 <- ggplot(df1, aes(distance, contact_frequency, colour = sample)) +
+    geom_line(size = lineMedium * mmToLineUnit) +
+    scale_y_log10(labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+    annotation_logticks(sides = "b", outside = TRUE, linewidth = lineThick/2.13, 
+                        short = unit(0.5, "mm"), mid = unit(1, "mm"), long = unit(1.5, "mm")) +
+    coord_cartesian(clip = "off") +
+    scale_color_manual(values = cols) +
+    labs(x = "Genomic separation (s)", y = "Contact Probability P(s)") + common_x + base_theme
+  
+
+  # long for slope/derivative
+  df2 <- df_full %>%
+    dplyr::select(distance, sample, slope = derivative) %>%
+    mutate(sample = factor(sample, levels = c(name1, name2))) %>%
+    dplyr::filter(distance > 0)
+  
+  p2 <- ggplot(df2, aes(distance, slope, colour = sample)) +
+    geom_line(size = lineMedium * mmToLineUnit) +
+    annotation_logticks(sides = "b", outside = TRUE, linewidth = lineThick/2.13, 
+                        short = unit(0.5, "mm"), mid = unit(1, "mm"), long = unit(1.5, "mm")) +
+    coord_cartesian(clip = "off") +
+    scale_color_manual(values = cols) +
+    common_x + base_theme +
+    theme(legend.position = "none") +
+    labs(x = "Genomic separation (s)", y = "dP(s)/ds")
+
+  
+  # align vertically, keeping left/right axes in line
+  
+  
+  # save
+  width <- panelSize(1.5)*mmToInch
+  height <- panelSize(2.2)*mmToInch
+  
+  for(ext in c("pdf","png")) {
+    fn <- here(figDir, paste0("contact_vs_distance_downsampled_", outname, ".", ext))
+    if (ext=="pdf") {
+      pdf(fn, width = width, height = height)
+    } else {
+      png(fn, width = width, height = height, units = "in", res = 600)
+    }
+    print(
+      plot_grid(
+        p1, p2,
+        ncol        = 1,
+        rel_heights = c(2, 1),
+        align       = "v",
+        axis        = "lr"
+      )
+    )
+    dev.off()
+  }
+}
+```
+
+
+# Run
+```{r}
+make_plot_pair("G1DMSO_pooled", "G1dTAG_pooled",
+               resolution = 1000, subsample = 300,
+               c("black", "#F28E2C"), "G1DMSOvsdTAG")
+
+make_plot_pair("G1DMSO_pooled", "G1A485_pooled",
+               resolution = 1000, subsample = 300,
+               c("black", "#F28E2C"), "G1DMSOvsA485")
+
+make_plot_pair("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
+               resolution = 1000, subsample = 300,
+               c("black", "#F28E2C"), "AsyncUTvsAID")
+
+```
