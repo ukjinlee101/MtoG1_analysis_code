@@ -1,0 +1,14 @@
+{
+    "__default__" : {
+        "partition" : "scu-cpu",
+        "account" : "apostoloulab",
+        "time" : "2:00:00",
+        "threads" : "8",
+        "mem" : "16G"
+    },
+    "genomedisco" : {
+        "time" : "24:00:00",
+        "threads" : "4",
+        "mem" : "16G"
+    }
+}

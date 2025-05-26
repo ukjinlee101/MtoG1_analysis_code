@@ -1,0 +1,1769 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cluster nodes: 500
+Job stats:
+job            count
+-----------  -------
+all                1
+genomedisco       45
+total             46
+
+Select jobs to execute...
+
+[Mon May 26 10:41:24 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_2.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_2.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_2.ok
+    jobid: 2
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_2.ok
+    wildcards: num=2
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_2
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_2.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_2.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_2
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_2.ok
+		
+Submitted job 2 with external jobid 'Submitted batch job 2365383'.
+
+[Mon May 26 10:41:27 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_33.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_33.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_33.ok
+    jobid: 33
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_33.ok
+    wildcards: num=33
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_33
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_33.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_33.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_33
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_33.ok
+		
+Submitted job 33 with external jobid 'Submitted batch job 2365384'.
+
+[Mon May 26 10:41:27 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_18.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_18.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_18.ok
+    jobid: 18
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_18.ok
+    wildcards: num=18
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_18
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_18.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_18.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_18
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_18.ok
+		
+Submitted job 18 with external jobid 'Submitted batch job 2365385'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_11.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_11.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_11.ok
+    jobid: 11
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_11.ok
+    wildcards: num=11
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_11
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_11.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_11.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_11
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_11.ok
+		
+Submitted job 11 with external jobid 'Submitted batch job 2365386'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_41.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_41.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_41.ok
+    jobid: 41
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_41.ok
+    wildcards: num=41
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_41
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_41.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_41.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_41
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_41.ok
+		
+Submitted job 41 with external jobid 'Submitted batch job 2365387'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_26.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_26.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_26.ok
+    jobid: 26
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_26.ok
+    wildcards: num=26
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_26
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_26.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_26.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_26
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_26.ok
+		
+Submitted job 26 with external jobid 'Submitted batch job 2365388'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_4.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_4.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_4.ok
+    jobid: 4
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_4.ok
+    wildcards: num=4
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_4
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_4.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_4.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_4
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_4.ok
+		
+Submitted job 4 with external jobid 'Submitted batch job 2365389'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_34.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_34.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_34.ok
+    jobid: 34
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_34.ok
+    wildcards: num=34
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_34
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_34.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_34.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_34
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_34.ok
+		
+Submitted job 34 with external jobid 'Submitted batch job 2365390'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_19.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_19.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_19.ok
+    jobid: 19
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_19.ok
+    wildcards: num=19
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_19
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_19.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_19.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_19
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_19.ok
+		
+Submitted job 19 with external jobid 'Submitted batch job 2365391'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_12.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_12.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_12.ok
+    jobid: 12
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_12.ok
+    wildcards: num=12
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_12
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_12.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_12.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_12
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_12.ok
+		
+Submitted job 12 with external jobid 'Submitted batch job 2365392'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_42.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_42.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_42.ok
+    jobid: 42
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_42.ok
+    wildcards: num=42
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_42
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_42.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_42.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_42
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_42.ok
+		
+Submitted job 42 with external jobid 'Submitted batch job 2365393'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_27.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_27.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_27.ok
+    jobid: 27
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_27.ok
+    wildcards: num=27
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_27
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_27.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_27.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_27
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_27.ok
+		
+Submitted job 27 with external jobid 'Submitted batch job 2365394'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_5.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_5.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_5.ok
+    jobid: 5
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_5.ok
+    wildcards: num=5
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_5
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_5.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_5.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_5
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_5.ok
+		
+Submitted job 5 with external jobid 'Submitted batch job 2365395'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_35.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_35.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_35.ok
+    jobid: 35
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_35.ok
+    wildcards: num=35
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_35
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_35.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_35.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_35
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_35.ok
+		
+Submitted job 35 with external jobid 'Submitted batch job 2365396'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_20.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_20.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_20.ok
+    jobid: 20
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_20.ok
+    wildcards: num=20
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_20
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_20.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_20.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_20
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_20.ok
+		
+Submitted job 20 with external jobid 'Submitted batch job 2365397'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_13.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_13.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_13.ok
+    jobid: 13
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_13.ok
+    wildcards: num=13
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_13
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_13.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_13.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_13
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_13.ok
+		
+Submitted job 13 with external jobid 'Submitted batch job 2365398'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_43.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_43.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_43.ok
+    jobid: 43
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_43.ok
+    wildcards: num=43
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_43
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_43.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_43.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_43
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_43.ok
+		
+Submitted job 43 with external jobid 'Submitted batch job 2365399'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_28.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_28.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_28.ok
+    jobid: 28
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_28.ok
+    wildcards: num=28
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_28
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_28.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_28.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_28
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_28.ok
+		
+Submitted job 28 with external jobid 'Submitted batch job 2365400'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_6.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_6.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_6.ok
+    jobid: 6
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_6.ok
+    wildcards: num=6
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_6
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_6.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_6.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_6
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_6.ok
+		
+Submitted job 6 with external jobid 'Submitted batch job 2365401'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_36.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_36.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_36.ok
+    jobid: 36
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_36.ok
+    wildcards: num=36
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_36
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_36.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_36.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_36
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_36.ok
+		
+Submitted job 36 with external jobid 'Submitted batch job 2365402'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_21.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_21.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_21.ok
+    jobid: 21
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_21.ok
+    wildcards: num=21
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_21
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_21.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_21.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_21
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_21.ok
+		
+Submitted job 21 with external jobid 'Submitted batch job 2365403'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_14.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_14.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_14.ok
+    jobid: 14
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_14.ok
+    wildcards: num=14
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_14
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_14.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_14.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_14
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_14.ok
+		
+Submitted job 14 with external jobid 'Submitted batch job 2365404'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_44.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_44.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_44.ok
+    jobid: 44
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_44.ok
+    wildcards: num=44
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_44
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_44.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_44.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_44
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_44.ok
+		
+Submitted job 44 with external jobid 'Submitted batch job 2365405'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_29.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_29.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_29.ok
+    jobid: 29
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_29.ok
+    wildcards: num=29
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_29
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_29.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_29.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_29
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_29.ok
+		
+Submitted job 29 with external jobid 'Submitted batch job 2365406'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_7.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_7.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_7.ok
+    jobid: 7
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_7.ok
+    wildcards: num=7
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_7
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_7.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_7.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_7
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_7.ok
+		
+Submitted job 7 with external jobid 'Submitted batch job 2365407'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_37.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_37.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_37.ok
+    jobid: 37
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_37.ok
+    wildcards: num=37
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_37
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_37.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_37.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_37
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_37.ok
+		
+Submitted job 37 with external jobid 'Submitted batch job 2365408'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_22.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_22.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_22.ok
+    jobid: 22
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_22.ok
+    wildcards: num=22
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_22
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_22.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_22.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_22
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_22.ok
+		
+Submitted job 22 with external jobid 'Submitted batch job 2365409'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_15.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_15.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_15.ok
+    jobid: 15
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_15.ok
+    wildcards: num=15
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_15
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_15.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_15.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_15
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_15.ok
+		
+Submitted job 15 with external jobid 'Submitted batch job 2365410'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_1.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_1.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_1.ok
+    jobid: 1
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_1.ok
+    wildcards: num=1
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_1
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_1.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_1.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_1
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_1.ok
+		
+Submitted job 1 with external jobid 'Submitted batch job 2365411'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_45.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_45.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_45.ok
+    jobid: 45
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_45.ok
+    wildcards: num=45
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_45
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_45.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_45.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_45
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_45.ok
+		
+Submitted job 45 with external jobid 'Submitted batch job 2365412'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_30.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_30.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_30.ok
+    jobid: 30
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_30.ok
+    wildcards: num=30
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_30
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_30.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_30.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_30
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_30.ok
+		
+Submitted job 30 with external jobid 'Submitted batch job 2365413'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_8.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_8.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_8.ok
+    jobid: 8
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_8.ok
+    wildcards: num=8
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_8
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_8.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_8.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_8
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_8.ok
+		
+Submitted job 8 with external jobid 'Submitted batch job 2365414'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_38.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_38.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_38.ok
+    jobid: 38
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_38.ok
+    wildcards: num=38
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_38
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_38.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_38.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_38
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_38.ok
+		
+Submitted job 38 with external jobid 'Submitted batch job 2365415'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_23.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_23.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_23.ok
+    jobid: 23
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_23.ok
+    wildcards: num=23
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_23
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_23.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_23.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_23
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_23.ok
+		
+Submitted job 23 with external jobid 'Submitted batch job 2365416'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_16.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_16.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_16.ok
+    jobid: 16
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_16.ok
+    wildcards: num=16
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_16
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_16.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_16.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_16
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_16.ok
+		
+Submitted job 16 with external jobid 'Submitted batch job 2365417'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_31.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_31.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_31.ok
+    jobid: 31
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_31.ok
+    wildcards: num=31
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_31
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_31.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_31.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_31
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_31.ok
+		
+Submitted job 31 with external jobid 'Submitted batch job 2365418'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_9.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_9.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_9.ok
+    jobid: 9
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_9.ok
+    wildcards: num=9
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_9
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_9.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_9.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_9
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_9.ok
+		
+Submitted job 9 with external jobid 'Submitted batch job 2365419'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_39.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_39.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_39.ok
+    jobid: 39
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_39.ok
+    wildcards: num=39
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_39
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_39.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_39.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_39
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_39.ok
+		
+Submitted job 39 with external jobid 'Submitted batch job 2365420'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_24.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_24.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_24.ok
+    jobid: 24
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_24.ok
+    wildcards: num=24
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_24
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_24.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_24.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_24
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_24.ok
+		
+Submitted job 24 with external jobid 'Submitted batch job 2365421'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_17.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_17.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_17.ok
+    jobid: 17
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_17.ok
+    wildcards: num=17
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_17
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_17.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_17.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_17
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_17.ok
+		
+Submitted job 17 with external jobid 'Submitted batch job 2365422'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_3.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_3.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_3.ok
+    jobid: 3
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_3.ok
+    wildcards: num=3
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_3
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_3.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_3.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_3
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_3.ok
+		
+Submitted job 3 with external jobid 'Submitted batch job 2365423'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_32.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_32.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_32.ok
+    jobid: 32
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_32.ok
+    wildcards: num=32
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_32
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_32.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_32.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_32
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_32.ok
+		
+Submitted job 32 with external jobid 'Submitted batch job 2365424'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_10.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_10.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_10.ok
+    jobid: 10
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_10.ok
+    wildcards: num=10
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_10
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_10.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_10.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_10
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_10.ok
+		
+Submitted job 10 with external jobid 'Submitted batch job 2365425'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_40.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_40.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_40.ok
+    jobid: 40
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_40.ok
+    wildcards: num=40
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_40
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_40.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_40.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_40
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_40.ok
+		
+Submitted job 40 with external jobid 'Submitted batch job 2365426'.
+
+[Mon May 26 10:41:28 2025]
+rule genomedisco:
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_25.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_25.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_25.ok
+    jobid: 25
+    reason: Missing output files: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_25.ok
+    wildcards: num=25
+    threads: 4
+    resources: mem_mb=1000, mem_mib=954, disk_mb=1000, disk_mib=954, tmpdir=<TBD>
+
+
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_25
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_25.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_25.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_25
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_25.ok
+		
+Submitted job 25 with external jobid 'Submitted batch job 2365427'.
+[Mon May 26 10:41:48 2025]
+Error in rule genomedisco:
+    jobid: 2
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_2.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_2.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_2.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_2
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_2.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_2.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_2
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_2.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365383
+
+Error executing rule genomedisco on cluster (jobid: 2, external: Submitted batch job 2365383, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.2.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:48 2025]
+Error in rule genomedisco:
+    jobid: 33
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_33.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_33.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_33.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_33
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_33.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_33.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_33
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_33.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365384
+
+Error executing rule genomedisco on cluster (jobid: 33, external: Submitted batch job 2365384, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.33.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:48 2025]
+Error in rule genomedisco:
+    jobid: 18
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_18.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_18.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_18.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_18
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_18.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_18.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_18
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_18.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365385
+
+Error executing rule genomedisco on cluster (jobid: 18, external: Submitted batch job 2365385, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.18.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:48 2025]
+Error in rule genomedisco:
+    jobid: 11
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_11.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_11.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_11.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_11
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_11.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_11.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_11
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_11.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365386
+
+Error executing rule genomedisco on cluster (jobid: 11, external: Submitted batch job 2365386, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.11.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:48 2025]
+Error in rule genomedisco:
+    jobid: 41
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_41.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_41.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_41.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_41
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_41.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_41.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_41
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_41.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365387
+
+Error executing rule genomedisco on cluster (jobid: 41, external: Submitted batch job 2365387, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.41.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:48 2025]
+Error in rule genomedisco:
+    jobid: 26
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_26.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_26.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_26.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_26
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_26.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_26.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_26
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_26.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365388
+
+Error executing rule genomedisco on cluster (jobid: 26, external: Submitted batch job 2365388, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.26.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:48 2025]
+Error in rule genomedisco:
+    jobid: 4
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_4.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_4.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_4.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_4
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_4.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_4.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_4
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_4.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365389
+
+Error executing rule genomedisco on cluster (jobid: 4, external: Submitted batch job 2365389, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.4.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:48 2025]
+Error in rule genomedisco:
+    jobid: 34
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_34.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_34.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_34.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_34
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_34.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_34.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_34
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_34.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365390
+
+Error executing rule genomedisco on cluster (jobid: 34, external: Submitted batch job 2365390, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.34.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:48 2025]
+Error in rule genomedisco:
+    jobid: 19
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_19.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_19.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_19.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_19
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_19.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_19.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_19
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_19.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365391
+
+Error executing rule genomedisco on cluster (jobid: 19, external: Submitted batch job 2365391, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.19.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:48 2025]
+Error in rule genomedisco:
+    jobid: 12
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_12.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_12.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_12.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_12
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_12.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_12.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_12
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_12.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365392
+
+Error executing rule genomedisco on cluster (jobid: 12, external: Submitted batch job 2365392, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.12.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:49 2025]
+Error in rule genomedisco:
+    jobid: 42
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_42.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_42.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_42.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_42
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_42.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_42.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_42
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_42.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365393
+
+Error executing rule genomedisco on cluster (jobid: 42, external: Submitted batch job 2365393, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.42.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:49 2025]
+Error in rule genomedisco:
+    jobid: 27
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_27.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_27.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_27.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_27
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_27.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_27.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_27
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_27.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365394
+
+Error executing rule genomedisco on cluster (jobid: 27, external: Submitted batch job 2365394, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.27.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:49 2025]
+Error in rule genomedisco:
+    jobid: 5
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_5.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_5.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_5.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_5
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_5.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_5.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_5
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_5.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365395
+
+Error executing rule genomedisco on cluster (jobid: 5, external: Submitted batch job 2365395, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.5.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:49 2025]
+Error in rule genomedisco:
+    jobid: 35
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_35.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_35.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_35.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_35
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_35.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_35.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_35
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_35.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365396
+
+Error executing rule genomedisco on cluster (jobid: 35, external: Submitted batch job 2365396, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.35.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:49 2025]
+Error in rule genomedisco:
+    jobid: 20
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_20.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_20.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_20.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_20
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_20.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_20.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_20
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_20.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365397
+
+Error executing rule genomedisco on cluster (jobid: 20, external: Submitted batch job 2365397, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.20.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:49 2025]
+Error in rule genomedisco:
+    jobid: 13
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_13.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_13.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_13.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_13
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_13.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_13.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_13
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_13.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365398
+
+Error executing rule genomedisco on cluster (jobid: 13, external: Submitted batch job 2365398, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.13.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:49 2025]
+Error in rule genomedisco:
+    jobid: 43
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_43.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_43.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_43.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_43
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_43.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_43.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_43
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_43.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365399
+
+Error executing rule genomedisco on cluster (jobid: 43, external: Submitted batch job 2365399, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.43.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:49 2025]
+Error in rule genomedisco:
+    jobid: 28
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_28.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_28.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_28.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_28
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_28.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_28.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_28
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_28.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365400
+
+Error executing rule genomedisco on cluster (jobid: 28, external: Submitted batch job 2365400, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.28.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:49 2025]
+Error in rule genomedisco:
+    jobid: 6
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_6.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_6.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_6.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_6
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_6.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_6.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_6
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_6.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365401
+
+Error executing rule genomedisco on cluster (jobid: 6, external: Submitted batch job 2365401, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.6.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:49 2025]
+Error in rule genomedisco:
+    jobid: 36
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_36.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_36.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_36.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_36
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_36.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_36.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_36
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_36.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365402
+
+Error executing rule genomedisco on cluster (jobid: 36, external: Submitted batch job 2365402, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.36.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:50 2025]
+Error in rule genomedisco:
+    jobid: 21
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_21.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_21.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_21.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_21
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_21.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_21.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_21
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_21.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365403
+
+Error executing rule genomedisco on cluster (jobid: 21, external: Submitted batch job 2365403, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.21.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:50 2025]
+Error in rule genomedisco:
+    jobid: 14
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_14.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_14.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_14.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_14
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_14.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_14.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_14
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_14.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365404
+
+Error executing rule genomedisco on cluster (jobid: 14, external: Submitted batch job 2365404, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.14.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:50 2025]
+Error in rule genomedisco:
+    jobid: 44
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_44.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_44.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_44.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_44
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_44.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_44.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_44
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_44.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365405
+
+Error executing rule genomedisco on cluster (jobid: 44, external: Submitted batch job 2365405, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.44.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:50 2025]
+Error in rule genomedisco:
+    jobid: 29
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_29.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_29.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_29.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_29
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_29.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_29.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_29
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_29.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365406
+
+Error executing rule genomedisco on cluster (jobid: 29, external: Submitted batch job 2365406, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.29.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:50 2025]
+Error in rule genomedisco:
+    jobid: 7
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_7.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_7.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_7.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_7
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_7.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_7.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_7
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_7.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365407
+
+Error executing rule genomedisco on cluster (jobid: 7, external: Submitted batch job 2365407, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.7.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:50 2025]
+Error in rule genomedisco:
+    jobid: 37
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_37.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_37.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_37.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_37
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_37.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_37.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_37
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_37.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365408
+
+Error executing rule genomedisco on cluster (jobid: 37, external: Submitted batch job 2365408, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.37.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:50 2025]
+Error in rule genomedisco:
+    jobid: 22
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_22.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_22.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_22.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_22
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_22.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_22.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_22
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_22.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365409
+
+Error executing rule genomedisco on cluster (jobid: 22, external: Submitted batch job 2365409, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.22.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:50 2025]
+Error in rule genomedisco:
+    jobid: 15
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_15.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_15.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_15.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_15
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_15.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_15.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_15
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_15.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365410
+
+Error executing rule genomedisco on cluster (jobid: 15, external: Submitted batch job 2365410, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.15.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:50 2025]
+Error in rule genomedisco:
+    jobid: 1
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_1.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_1.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_1.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_1
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_1.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_1.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_1
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_1.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365411
+
+Error executing rule genomedisco on cluster (jobid: 1, external: Submitted batch job 2365411, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.1.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:50 2025]
+Error in rule genomedisco:
+    jobid: 45
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_45.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_45.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_45.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_45
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_45.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_45.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_45
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_45.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365412
+
+Error executing rule genomedisco on cluster (jobid: 45, external: Submitted batch job 2365412, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.45.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:51 2025]
+Error in rule genomedisco:
+    jobid: 30
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_30.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_30.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_30.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_30
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_30.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_30.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_30
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_30.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365413
+
+Error executing rule genomedisco on cluster (jobid: 30, external: Submitted batch job 2365413, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.30.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:51 2025]
+Error in rule genomedisco:
+    jobid: 8
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_8.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_8.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_8.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_8
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_8.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_8.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_8
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_8.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365414
+
+Error executing rule genomedisco on cluster (jobid: 8, external: Submitted batch job 2365414, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.8.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:51 2025]
+Error in rule genomedisco:
+    jobid: 38
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_38.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_38.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_38.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_38
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_38.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_38.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_38
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_38.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365415
+
+Error executing rule genomedisco on cluster (jobid: 38, external: Submitted batch job 2365415, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.38.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:51 2025]
+Error in rule genomedisco:
+    jobid: 23
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_23.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_23.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_23.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_23
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_23.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_23.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_23
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_23.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365416
+
+Error executing rule genomedisco on cluster (jobid: 23, external: Submitted batch job 2365416, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.23.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:51 2025]
+Error in rule genomedisco:
+    jobid: 16
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_16.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_16.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_16.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_16
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_16.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_16.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_16
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_16.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365417
+
+Error executing rule genomedisco on cluster (jobid: 16, external: Submitted batch job 2365417, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.16.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:51 2025]
+Error in rule genomedisco:
+    jobid: 31
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_31.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_31.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_31.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_31
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_31.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_31.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_31
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_31.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365418
+
+Error executing rule genomedisco on cluster (jobid: 31, external: Submitted batch job 2365418, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.31.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:51 2025]
+Error in rule genomedisco:
+    jobid: 9
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_9.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_9.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_9.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_9
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_9.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_9.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_9
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_9.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365419
+
+Error executing rule genomedisco on cluster (jobid: 9, external: Submitted batch job 2365419, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.9.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:51 2025]
+Error in rule genomedisco:
+    jobid: 39
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_39.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_39.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_39.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_39
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_39.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_39.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_39
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_39.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365420
+
+Error executing rule genomedisco on cluster (jobid: 39, external: Submitted batch job 2365420, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.39.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:51 2025]
+Error in rule genomedisco:
+    jobid: 24
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_24.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_24.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_24.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_24
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_24.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_24.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_24
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_24.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365421
+
+Error executing rule genomedisco on cluster (jobid: 24, external: Submitted batch job 2365421, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.24.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:51 2025]
+Error in rule genomedisco:
+    jobid: 17
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_17.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_17.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_17.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_17
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_17.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_17.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_17
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_17.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365422
+
+Error executing rule genomedisco on cluster (jobid: 17, external: Submitted batch job 2365422, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.17.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:52 2025]
+Error in rule genomedisco:
+    jobid: 3
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_3.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_3.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_3.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_3
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_3.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_3.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_3
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_3.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365423
+
+Error executing rule genomedisco on cluster (jobid: 3, external: Submitted batch job 2365423, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.3.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:52 2025]
+Error in rule genomedisco:
+    jobid: 32
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_32.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_32.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_32.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_32
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_32.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_32.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_32
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_32.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365424
+
+Error executing rule genomedisco on cluster (jobid: 32, external: Submitted batch job 2365424, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.32.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:52 2025]
+Error in rule genomedisco:
+    jobid: 10
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_10.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_10.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_10.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_10
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_10.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_10.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_10
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_10.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365425
+
+Error executing rule genomedisco on cluster (jobid: 10, external: Submitted batch job 2365425, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.10.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:52 2025]
+Error in rule genomedisco:
+    jobid: 40
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_40.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_40.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_40.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_40
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_40.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_40.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_40
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_40.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365426
+
+Error executing rule genomedisco on cluster (jobid: 40, external: Submitted batch job 2365426, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.40.sh). For error details see the cluster log and the log files of the involved rule(s).
+[Mon May 26 10:41:52 2025]
+Error in rule genomedisco:
+    jobid: 25
+    input: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_25.samples, /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_25.pairs
+    output: /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_25.ok
+    conda-env: genomedisco_python2
+    shell:
+        
+		mkdir -p /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_25
+
+		genomedisco run_all --metadata_samples /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_25.samples 					 --metadata_pairs /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/metadata/metadata_25.pairs 					 --bins /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10/mm10.bin.10kb.bed.gz 					 --parameters_file /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/parameters.txt 					 --outdir /athena/apostoloulab/scratch/ukl4001/data/GenomeDSICO/comparison_25
+
+		# Made it?
+		touch /athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_25.ok
+		
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+    cluster_jobid: Submitted batch job 2365427
+
+Error executing rule genomedisco on cluster (jobid: 25, external: Submitted batch job 2365427, jobscript: /athena/cayuga_0007/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/.snakemake/tmp.l47r6ox6/snakejob.genomedisco.25.sh). For error details see the cluster log and the log files of the involved rule(s).
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message
+Complete log: .snakemake/log/2025-05-26T104123.636863.snakemake.log

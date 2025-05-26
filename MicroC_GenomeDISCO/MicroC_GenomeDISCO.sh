@@ -13,18 +13,13 @@
 # MAKING BED FILE OF ALL BINS USED IN THE ANALYSIS
 SCRDIR="../script"
 REFDIR="../reference/mm10"
-"$SCRDIR"/binGenome.py  ${REFDIR}/mm10.chrom.sizes.canonical 100000 ${REFDIR}/mm10.bin.100kb.bed.gz
+"$SCRDIR"/binGenome.py  ${REFDIR}/mm10.chrom.sizes.canonical 50000 ${REFDIR}/mm10.bin.50kb.bed.gz
 
 # MAKE BINNED MATRIX FROM HIC
-240623_dumpHic
+./binHiC.sh
 
-# Run correlation locally
-cd /Volumes/UKJIN_SSD/Genomics_03_Analysis_Working/data_vault_2024summer
-genomedisco run_all --metadata_samples source/genomedisco/metadata.samples --metadata_pairs source/genomedisco/metadata/metadata.pairs --bins reference/mm10.bin.10kb.bed.gz --outdir result/genomedisco
-genomedisco summary --metadata_samples source/genomedisco/metadata.samples --metadata_pairs source/genomedisco/metadata/metadata.pairs --bins reference/mm10.bin.10kb.bed.gz --outdir result/genomedisco
-genomedisco cleanup --outdir result/genomedisco
+# MAKE METADATA
+./makeMetaData.sh
 
-# Run correlation on cayuga
-000_rcloneToBox.sh Box:/Genomics_00_Archive_UkJin/MicroC_240613_16465-merged_G1A485/result/hic ./hic
-000_rcloneToBox.sh Box:/Genomics_00_Archive_UkJin/MicroC_231120_14995-15390_RAD21/result/hic ./hic_rad21
-sbatch genomedisco_concordance_1.sh
+# RUN
+sbatch runSnakemake.sh MicroC_GenomeDISCO_pipeline.smk

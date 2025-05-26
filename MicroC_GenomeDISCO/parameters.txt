@@ -1,0 +1,9 @@
+GenomeDISCO|subsampling	lowest
+GenomeDISCO|tmin	3
+GenomeDISCO|tmax	3
+GenomeDISCO|norm	sqrtvc
+GenomeDISCO|scoresByStep	no
+GenomeDISCO|removeDiag	yes
+GenomeDISCO|transition	yes
+SGE|text	"-l h_vmem=3G"
+slurm|text	"--mem 3G"
