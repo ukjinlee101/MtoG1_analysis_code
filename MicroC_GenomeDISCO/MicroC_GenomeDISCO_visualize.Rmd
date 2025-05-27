@@ -116,6 +116,19 @@ score_A485 <- list.files(dataDir,
 
 scores <- bind_rows(score_DMSO, score_dTAG, score_A485)
 scores$condition <- factor(scores$condition, c("G1DMSO", "G1dTAG", "G1A485"))
+
+samples <- c(
+ "B1R1", "B1R2", "B1R3",
+ "B2R1", "B2R2", "B2R3",
+ "B3R1", "B3R2", "B3R3"
+)
+
+# Generate all unique pairwise combinations in a systematic order
+new_levels <- apply(combn(samples, 2), 2, paste, collapse = "_")
+
+# Apply the new, correctly ordered levels to your data frame
+scores$combination <- factor(scores$combination, levels = new_levels)
+
 ```
 
 # Draw
