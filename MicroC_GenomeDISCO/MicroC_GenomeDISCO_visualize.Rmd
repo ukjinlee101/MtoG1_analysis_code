@@ -1,0 +1,177 @@
+---
+title: "R Notebook"
+---
+
+# Importing packages
+```{r}
+# LIST OF PACKAGES
+pkgs = c(
+  "tidyverse",
+  "here",
+  "svglite",
+  "ggplot2",
+  "ggrepel",
+  "stringr",
+  "BiocManager",
+  "RColorBrewer",
+  "viridis",
+  "magick",
+  "nlme",
+  "ashr",
+  "factoextra",
+  "plotly",
+  "remotes",
+  "cowplot",
+  "gridExtra",
+  "eulerr", "data.table", "clusterProfiler", "zoo", "tibble", "dplyr", "purrr",
+  "ggbeeswarm"
+)
+bio_pkgs = c("biomaRt",
+             "DESeq2",
+             "ComplexHeatmap",
+             "apeglm",
+             "vsn",
+             "sva",
+             "limma",
+             "mixOmics", "plotgardener", "org.Mm.eg.db")
+
+# INSTALL PACKAGES
+#install.packages(pkgs)
+#BiocManager::install(bio_pkgs)
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+
+#remotes::install_github("EvaYiwenWang/PLSDAbatch")
+require(PLSDAbatch)
+
+# CLEANING
+rm(pkgs, bio_pkgs)
+
+options(scipen = 999)
+```
+
+# Figure parameters
+```{r}
+source(here("script", "figure_parameter.R"))
+```
+
+# Parameters
+```{r}
+dataDir <- here("../data", "GenomeDSICO")
+figDir <- here("../figure", "GenomeDSICO")
+dir.create(figDir, showWarnings = FALSE, recursive = TRUE)
+```
+
+# Import scores
+```{r}
+score_DMSO <- list.files(dataDir,
+                         pattern = "^G1DMSO",
+                         full.names = TRUE) %>%
+  map_dfr(~ fread(.x) %>%
+            transmute(
+              condition    = word(V1, 1, sep = fixed("_")),
+              combination  = str_c(
+                                word(V1, 2, sep = fixed("_")),
+                                word(V2, 2, sep = fixed("_")),
+                                sep = "_"
+                              ),
+              chr          = V3,
+              score        = V4
+            )
+          )
+
+score_dTAG <- list.files(dataDir,
+                         pattern = "^G1dTAG",
+                         full.names = TRUE) %>%
+  map_dfr(~ fread(.x) %>%
+            transmute(
+              condition    = word(V1, 1, sep = fixed("_")),
+              combination  = str_c(
+                                word(V1, 2, sep = fixed("_")),
+                                word(V2, 2, sep = fixed("_")),
+                                sep = "_"
+                              ),
+              chr          = V3,
+              score        = V4
+            )
+          )
+
+score_A485 <- list.files(dataDir,
+                         pattern = "^G1A485",
+                         full.names = TRUE) %>%
+  map_dfr(~ fread(.x) %>%
+            transmute(
+              condition    = word(V1, 1, sep = fixed("_")),
+              combination  = str_c(
+                                word(V1, 2, sep = fixed("_")),
+                                word(V2, 2, sep = fixed("_")),
+                                sep = "_"
+                              ),
+              chr          = V3,
+              score        = V4
+            )
+          )
+
+scores <- bind_rows(score_DMSO, score_dTAG, score_A485)
+scores$condition <- factor(scores$condition, c("G1DMSO", "G1dTAG", "G1A485"))
+```
+
+# Draw
+```{r}
+
+p <- ggplot(scores, aes(x = combination, y = score)) +
+  geom_beeswarm(size = 0.3) +   
+  geom_hline(yintercept = 0.8,
+             linetype    = "dashed", color = "#000000",
+             size        = lineThick * mmToLineUnit) +
+  scale_y_continuous(
+    breaks = seq(0, 1, by = 0.2)
+  ) +
+  coord_cartesian(ylim = c(0, 1), expand = TRUE, clip = "off") +
+  facet_wrap(~ condition, scales = "free_x", nrow = 1) +
+  labs(
+    x = "Pairwise Comparison",
+    y = "GenomeDISCO Score") +
+  theme_classic() +
+  theme(
+    panel.ontop   = TRUE,
+    legend.position      = c(1, 1),
+    legend.justification = c("right", "top"),
+    legend.background    = element_rect(fill = "transparent", colour = NA),
+    legend.key           = element_rect(fill = "transparent", colour = NA),
+    legend.title         = element_blank(),
+    plot.title      = element_text(hjust = .5, size = fontSizeM, family = fontType),
+    axis.title      = element_text(size = fontSizeM, family = fontType, color = "#000000"),
+    axis.text       = element_text(size = 5, family = fontType, color = "#000000"),
+    axis.line = element_blank(),
+    #axis.line       = element_line(size = lineThick*mmToLineUnit, lineend = "square", color = "#000000"),
+    axis.ticks      = element_line(size = lineThick*mmToLineUnit, lineend = "square", color = "#000000"),
+    panel.background = element_rect(fill = "transparent"),
+    panel.border     = element_rect(color = "#000000",
+                                    fill  = NA,
+                                    linewidth = lineThick * mmToLineUnit),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    strip.background = element_rect(fill = "grey95", linewidth = lineThick * mmToLineUnit, color = "#000000"),
+    strip.text = element_text(size = fontSizeM),
+
+  )
+
+
+# save
+width <- panelSize(4.8)*mmToInch
+height <- panelSize(1.5)*mmToInch
+
+for(ext in c("svg","png")) {
+  fn <- here(figDir, paste0("genomeDISCO_scores", ".", ext))
+  if (ext=="svg") {
+    svglite(fn, width = width, height = height)
+  } else {
+    png(fn, width = width, height = height, units = "in", res = 600)
+  }
+  print(p)
+  dev.off()
+}
+
+```
