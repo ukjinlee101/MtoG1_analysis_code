@@ -1,0 +1,474 @@
+---
+title: "R Notebook"
+---
+
+# IMPORTING REQUIRED PACKAGES
+```{r}
+# LIST OF PACKAGES
+pkgs = c(
+  "tidyverse",
+  "here",
+  "svglite",
+  "ggplot2",
+  "ggrepel",
+  "stringr",
+  "BiocManager",
+  "RColorBrewer",
+  "viridis",
+  "magick",
+  "nlme",
+  "ashr",
+  "factoextra",
+  "plotly",
+  "remotes",
+  "cowplot",
+  "gridExtra",
+  "eulerr", "data.table", "clusterProfiler", "zoo", "dplyr"
+)
+bio_pkgs = c("biomaRt",
+             "DESeq2",
+             "ComplexHeatmap",
+             "apeglm",
+             "vsn",
+             "sva",
+             "limma",
+             "mixOmics", "plotgardener", "org.Mm.eg.db")
+
+# INSTALL PACKAGES
+#install.packages(pkgs)
+#BiocManager::install(bio_pkgs)
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+
+#remotes::install_github("EvaYiwenWang/PLSDAbatch")
+require(PLSDAbatch)
+require(GENOVA)
+# CLEANING
+rm(pkgs, bio_pkgs)
+
+options(scipen = 999)
+```
+# Parameters
+```{r}
+dataDir <- here("../data/TAD")
+coolDir <- here("../data/cool_norm_pooled")
+outDir <- here("../figure/TAD")
+dir.create(outDir, recursive = TRUE, showWarnings = FALSE)
+refDir <- here("reference", "mm10")
+rdsDir <- here("../data/rds")
+dir.create(rdsDir, recursive = TRUE, showWarnings = FALSE)
+
+centromere <- fread(here(refDir, "mm10.gap.txt")) %>% dplyr::filter(V8 == "centromere") %>% dplyr::select(V2, V3, V4)
+
+```
+
+# Functions
+```{r}
+convertBoundaryToTAD = function(df){
+  temp = df %>% dplyr::mutate(anchor1s = start,
+                              anchor1e = end,
+                              anchor2s = lead(start, order_by = row_number()),
+                              anchor2e = lead(end, order_by = row_number()),
+                              chrom1 = chrom,
+                              start1 = (anchor1s + anchor1e)/2,
+                              end1 = (anchor2s + anchor2e)/2,
+                              chrom2 = chrom,
+                              start2 = (anchor1s + anchor1e)/2,
+                              end2 = (anchor2s + anchor2e)/2) %>%
+    dplyr::select(chrom1, start1, end1, chrom2, start2, end2)
+  temp = temp[-nrow(temp),]
+  return(temp)
+}
+
+filterChrContact <- function(contacts, chrIdx){
+  chr_contacts <- contacts
+  chr_contacts$MAT <- chr_contacts$MAT %>% 
+    dplyr::filter(V1 <= chrIdx$sE & V1 >= chrIdx$sI &
+                    V2 <= chrIdx$sE & V2 >= chrIdx$sI)
+  chr_contacts$IDX <- chr_contacts$IDX %>%
+    dplyr::filter(V1 == chrIdx$V1)
+  chr_contacts$CENTROMERES <- chr_contacts$CENTROMERES %>%
+    dplyr::filter(chrom == chrIdx$V1)
+  chr_contacts$CHRS <- chrIdx$V1
+  
+  return(chr_contacts)
+}
+```
+
+# Pre-processing TAD boundaries from cooltools
+```{r}
+# Processing boundaries from python
+boundaries.25kb = fread(here(dataDir, "TAD_boundaries_25kb_G1DMSO_pooled.tsv"))
+
+boundaries.25kb.125kb = boundaries.25kb %>% dplyr::filter(is_boundary_125000_otsu == TRUE) %>%
+  dplyr::select(chrom, start, end)
+bedpe = bind_rows(boundaries.25kb.125kb %>% group_split(chrom) %>%
+                    purrr::map(convertBoundaryToTAD))
+fwrite(bedpe, here(dataDir, "TAD_25kb_125kb_otsu_G1DMSO_pooled.bedpe"), col.names = FALSE, row.names = FALSE,
+       sep = '\t')
+bed <- bedpe  %>%
+  dplyr::select(c(1, 2, 6))
+fwrite(bed, here(dataDir, "TAD_25kb_125kb_otsu_G1DMSO_pooled.bed"), col.names = FALSE, row.names = FALSE,
+       sep = '\t')
+
+temp = boundaries.25kb %>% dplyr::filter(is_boundary_125000_otsu == TRUE) %>%
+  dplyr::select(chrom, start, end)
+fwrite(temp, here(dataDir, "TAD_25kb_125kb_otsu_boundaries_G1DMSO_pooled.bed"), col.names = FALSE, row.names = FALSE, sep = '\t')
+
+# Processing boundaries from python
+boundaries.25kb = fread(here(dataDir, "TAD_boundaries_25kb_GSE178982_AsyncUT_pooled.tsv"))
+
+boundaries.25kb.125kb = boundaries.25kb %>% dplyr::filter(is_boundary_125000_otsu == TRUE) %>%
+  dplyr::select(chrom, start, end)
+bedpe = bind_rows(boundaries.25kb.125kb %>% group_split(chrom) %>%
+                    purrr::map(convertBoundaryToTAD))
+fwrite(bedpe, here(dataDir, "TAD_25kb_125kb_otsu_GSE178982_AsyncUT_pooled.bedpe"), col.names = FALSE, row.names = FALSE,
+       sep = '\t')
+bed <- bedpe  %>%
+  dplyr::select(c(1, 2, 6))
+fwrite(bed, here(dataDir, "TAD_25kb_125kb_otsu_GSE178982_AsyncUT_pooled.bed"), col.names = FALSE, row.names = FALSE,
+       sep = '\t')
+
+
+temp = boundaries.25kb %>% dplyr::filter(is_boundary_125000_otsu == TRUE) %>%
+  dplyr::select(chrom, start, end)
+fwrite(temp, here(dataDir, "TAD_25kb_125kb_otsu_boundaries_GSE178982_AsyncUT_pooled.bed"), col.names = FALSE, row.names = FALSE, sep = '\t')
+```
+
+# Load contact matrix
+```{r}
+# GENOVA:load_contacts will use "weight" column from the cool file. Thus, use the KR adjusted cool file from specific resolution when importing.
+
+
+#for(binSize in c(100e3, 25e3)){
+for(binSize in c(25e3)){
+  for(expName in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled",
+                   "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled")){
+    contacts = load_contacts(signal_path = here(coolDir, paste0(expName, "_", binSize, "bp_KR.cool")),
+                             sample_name = expName,
+                             resolution = binSize,
+                             colour = "blue",
+                             verbose = T, balancing = T,
+                             centromeres = centromere[, 1:3])
+    saveRDS(contacts,
+            file = here(rdsDir, paste0(expName, "_", binSize, "bp_KR_balanced.rds")))
+    print(paste0(expName, " saved."))
+    rm(contacts)
+  }
+}
+```
+
+## ADA plot
+```{r}
+
+metaTAD <- function(contacts.control, contacts.cond1, contacts.cond2, 
+                    binSize, TADcalls, nameList, note, figureDir, name){
+  ### PARAMETERS
+  idxChr = contacts.control$IDX %>% 
+    group_by(V1) %>% 
+    dplyr::summarise(sI = min(V4), sE = max(V4))
+  
+  scoreResults = list()
+  
+  ### MAKE DIRECTORY
+  outDir = here(figureDir, paste0(c(name, "ATA", "binSize", binSize), collapse = "_"))
+  dir.create(file.path(outDir), showWarnings = FALSE, recursive = TRUE)
+  
+  ### ITERATION PER CHROMOSOME
+  for(j in c(1:nrow(idxChr))){
+    print(paste0("Iteration ", j, " started"))
+    # Parameter
+    chrIdx = idxChr[j,]
+    if(chrIdx$V1 == "chrM"){
+      next()
+    }
+    
+    # Filter chromosome specific contact
+    chr_contacts.control <- filterChrContact(contacts.control, chrIdx)
+    chr_contacts.cond1 <- filterChrContact(contacts.cond1, chrIdx)
+    chr_contacts.cond2 <- filterChrContact(contacts.cond2, chrIdx)
+    
+    # Experiment list
+    explist = list("control" = chr_contacts.control,
+                   "cond1" = chr_contacts.cond1,
+                   "cond2" = chr_contacts.cond2)
+    explist <- setNames(explist, nameList)
+    explist <- sync_indices(explist)
+    
+    # TAD analysis
+    if(nrow(data.frame(TADcalls[, 1:3]) %>% dplyr::filter(chrom == chrIdx$V1)) < 2){
+      next()
+    }
+    TADcalls.chr <- TADcalls %>% dplyr::filter(chrom == chrIdx$V1)
+    
+    ATA = ATA(explist,
+              bed = data.frame(TADcalls.chr[, 1:3]))
+    ATA.plot = visualise(ATA,
+                         metric = "lfc", contrast = nameList[1],
+                         focus = 1, raw = T)
+    
+    
+    tadLim = round(max(abs((ATA.plot$data%>%filter(mode=='Change' & value!=0))$value)),2)
+    
+    # Remove Diagonal of the Matrix
+    # Define a helper function to check if a point is within 1 bin distance from the diagonal
+    is_near_diagonal <- function(x, y, slope, b, binSize) {
+      abs(y - slope * x - b) <= binSize
+    }
+    slope = -1
+    b = max(ATA.plot$data$x)+min(ATA.plot$data$x)
+    
+    temp <- ATA.plot$data %>%
+      filter(mode == 'Individual' & !is_near_diagonal(x, y, slope, b, binSize))
+    temp$name = factor(temp$name, levels = nameList)
+    upLim <- 7
+    lowLim <- 2
+    metaTAD = ggplot(temp, aes(x=x,y=y)) +
+      geom_tile(aes(fill= (pmax(pmin(log(value), upLim), lowLim)))) +
+      facet_grid(~name) +
+      coord_fixed() + labs(fill='log(value)') +
+      # scico::scale_fill_scico(palette = "lajolla", limits = c(lowLim, upLim)) +
+      scale_fill_viridis_c(
+        option = "viridis",
+        limits = c(lowLim, upLim)
+      ) +
+      theme_classic() + labs(x = NULL, y = NULL) +
+      
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+            axis.text.y = element_blank(), axis.ticks.y = element_blank())
+    # metaTAD = ggplot(temp, aes(x=x,y=y)) +
+    #   geom_tile(aes(fill= log(value))) +
+    #   facet_grid(~name) +
+    #   coord_fixed() + labs(fill='log(value)') +
+    #   scico::scale_fill_scico(palette = "lajolla") + theme_classic() + labs(x = NULL, y = NULL) +
+    #   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+    #         axis.text.y = element_blank(), axis.ticks.y = element_blank())
+    # 
+    difflim <- 1
+    
+    metaTAD_Diff_cond1 = ggplot(ATA.plot$data %>%
+                                  filter(mode == 'Change' &
+                                           name == nameList[2] &
+                                           !is_near_diagonal(x, y, slope, b, binSize)),
+                                aes(x = x, y = y)) +
+      geom_tile(aes(fill = (pmax(pmin(value, difflim), -difflim)))) + facet_grid(~name) +
+      coord_fixed() +  labs(fill='diff') +
+      scico::scale_fill_scico(palette = "cork", limits = c(-difflim, difflim))  + theme_classic()+ labs(x = NULL, y = NULL) +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+            axis.text.y = element_blank(), axis.ticks.y = element_blank())
+    # metaTAD_Diff_cond1 = ggplot(ATA.plot$data %>%
+    #                              filter(mode == 'Change' &
+    #                                       name == nameList[2] &
+    #                                       ((y - slope * x - b) != 0)),
+    #                            aes(x = x, y = y)) +
+    #  geom_tile(aes(fill = value)) + facet_grid(~name) +
+    #  coord_fixed() +  labs(fill='diff') +
+    #  scico::scale_fill_scico(palette = "cork")  + theme_classic()+ labs(x = NULL, y = NULL) +
+    #  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+    #        axis.text.y = element_blank(), axis.ticks.y = element_blank())
+    metaTAD_Diff_cond2 = ggplot(ATA.plot$data %>%
+                                  filter(mode == 'Change' &
+                                           name == nameList[3] &
+                                          !is_near_diagonal(x, y, slope, b, binSize)),
+                                aes(x = x, y = y)) +
+      geom_tile(aes(fill = (pmax(pmin(value, difflim), -difflim)))) + facet_grid(~name) +
+      coord_fixed() +labs(fill='diff') +
+      scico::scale_fill_scico(palette = "cork", limits = c(-difflim, difflim))  + theme_classic()+ labs(x = NULL, y = NULL) +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+            axis.text.y = element_blank(), axis.ticks.y = element_blank())
+    
+    # metaTAD_Diff_cond2 = ggplot(ATA.plot$data %>%
+    #                              filter(mode == 'Change' &
+    #                                       name == nameList[3] &
+    #                                       ((y - slope * x - b) != 0)),
+    #                            aes(x = x, y = y)) +
+    #  geom_tile(aes(fill = value)) + facet_grid(~name) +
+    #  coord_fixed() +labs(fill='diff') +
+    #  scico::scale_fill_scico(palette = "cork")  + theme_classic()+ labs(x = NULL, y = NULL) +
+    #  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+    #        axis.text.y = element_blank(), axis.ticks.y = element_blank())
+    
+    title <- ggdraw() + draw_label(chrIdx$V1, fontface='bold', x=0.5, hjust=0.5)
+    
+    plot <- plot_grid(metaTAD,
+                      plot_grid(metaTAD_Diff_cond1, metaTAD_Diff_cond2, nrow = 1),
+                      ncol = 1,
+                      rel_height = c(1, 1))
+    ###
+    fileName = paste(c("ATA", binSize, chrIdx$V1, note), collapse = "_")
+    width= 9
+    height = 6
+    svglite(here(outDir, paste0(fileName, ".svg")), width = width, height =height)
+    print(plot_grid(title, plot, ncol = 1, rel_heights = c(0.1, 1)))
+    dev.off()
+    png(here(outDir, paste0(fileName, ".png")), width = width, height =height, res = 600, unit = "in")
+    print(plot_grid(title, plot, ncol = 1, rel_heights = c(0.1, 1)))
+    dev.off()
+  }
+}
+
+metaTADfor2 <- function(contacts.control, contacts.cond1, 
+                    binSize, TADcalls, nameList, note, figureDir, name){
+  ### PARAMETERS
+  idxChr = contacts.control$IDX %>% 
+    group_by(V1) %>% 
+    dplyr::summarise(sI = min(V4), sE = max(V4))
+  
+  scoreResults = list()
+  
+  ### MAKE DIRECTORY
+  outDir = here(figureDir, paste0(c(name, "ATA", "binSize", binSize), collapse = "_"))
+  dir.create(file.path(outDir), showWarnings = FALSE, recursive = TRUE)
+  
+  ### ITERATION PER CHROMOSOME
+  for(j in c(1:nrow(idxChr))){
+    print(paste0("Iteration ", j, " started"))
+    # Parameter
+    chrIdx = idxChr[j,]
+    if(chrIdx$V1 == "chrM"){
+      next()
+    }
+    
+    # Filter chromosome specific contact
+    chr_contacts.control <- filterChrContact(contacts.control, chrIdx)
+    chr_contacts.cond1 <- filterChrContact(contacts.cond1, chrIdx)
+
+    # Experiment list
+    explist = list("control" = chr_contacts.control,
+                   "cond1" = chr_contacts.cond1)
+    explist <- setNames(explist, nameList)
+    explist <- sync_indices(explist)
+    
+    # TAD analysis
+    if(nrow(data.frame(TADcalls[, 1:3]) %>% dplyr::filter(chrom == chrIdx$V1)) < 2){
+      next()
+    }
+    TADcalls.chr <- TADcalls %>% dplyr::filter(chrom == chrIdx$V1)
+    
+    ATA = ATA(explist,
+              bed = data.frame(TADcalls.chr[, 1:3]))
+    ATA.plot = visualise(ATA,
+                         metric = "lfc", contrast = nameList[1],
+                         focus = 1, raw = T)
+    
+    
+    tadLim = round(max(abs((ATA.plot$data%>%filter(mode=='Change' & value!=0))$value)),2)
+    
+    # Remove Diagonal of the Matrix
+    # Define a helper function to check if a point is within 1 bin distance from the diagonal
+    is_near_diagonal <- function(x, y, slope, b, binSize) {
+      abs(y - slope * x - b) <= binSize
+    }
+    slope = -1
+    b = max(ATA.plot$data$x)+min(ATA.plot$data$x)
+    
+    temp <- ATA.plot$data %>%
+      filter(mode == 'Individual' & !is_near_diagonal(x, y, slope, b, binSize))
+    temp$name = factor(temp$name, levels = nameList)
+    upLim <- 7
+    lowLim <- 2
+    metaTAD = ggplot(temp, aes(x=x,y=y)) +
+      geom_tile(aes(fill= (pmax(pmin(log(value), upLim), lowLim)))) +
+      facet_grid(~name) +
+      coord_fixed() + labs(fill='log(value)') +
+      # scico::scale_fill_scico(palette = "lajolla", limits = c(lowLim, upLim)) +
+      scale_fill_viridis_c(
+        option = "viridis",
+        limits = c(lowLim, upLim)
+      ) +
+      theme_classic() + labs(x = NULL, y = NULL) +
+      
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+            axis.text.y = element_blank(), axis.ticks.y = element_blank())
+    # metaTAD = ggplot(temp, aes(x=x,y=y)) +
+    #   geom_tile(aes(fill= log(value))) +
+    #   facet_grid(~name) +
+    #   coord_fixed() + labs(fill='log(value)') +
+    #   scico::scale_fill_scico(palette = "lajolla") + theme_classic() + labs(x = NULL, y = NULL) +
+    #   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+    #         axis.text.y = element_blank(), axis.ticks.y = element_blank())
+    # 
+    difflim <- 1
+    
+    metaTAD_Diff_cond1 = ggplot(ATA.plot$data %>%
+                                  filter(mode == 'Change' &
+                                           name == nameList[2] &
+                                           !is_near_diagonal(x, y, slope, b, binSize)),
+                                aes(x = x, y = y)) +
+      geom_tile(aes(fill = (pmax(pmin(value, difflim), -difflim)))) + facet_grid(~name) +
+      coord_fixed() +  labs(fill='diff') +
+      scico::scale_fill_scico(palette = "cork", limits = c(-difflim, difflim))  + theme_classic()+ labs(x = NULL, y = NULL) +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+            axis.text.y = element_blank(), axis.ticks.y = element_blank())
+    # metaTAD_Diff_cond1 = ggplot(ATA.plot$data %>%
+    #                              filter(mode == 'Change' &
+    #                                       name == nameList[2] &
+    #                                       ((y - slope * x - b) != 0)),
+    #                            aes(x = x, y = y)) +
+    #  geom_tile(aes(fill = value)) + facet_grid(~name) +
+    #  coord_fixed() +  labs(fill='diff') +
+    #  scico::scale_fill_scico(palette = "cork")  + theme_classic()+ labs(x = NULL, y = NULL) +
+    #  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+    #        axis.text.y = element_blank(), axis.ticks.y = element_blank())
+   
+    
+    title <- ggdraw() + draw_label(chrIdx$V1, fontface='bold', x=0.5, hjust=0.5)
+    
+    plot <- plot_grid(metaTAD,
+                      metaTAD_Diff_cond1,
+                      ncol = 1,
+                      rel_height = c(1, 1))
+    ###
+    fileName = paste(c("ATA", binSize, chrIdx$V1, note), collapse = "_")
+    width= 6
+    height = 6
+    svglite(here(outDir, paste0(fileName, ".svg")), width = width, height =height)
+    print(plot_grid(title, plot, ncol = 1, rel_heights = c(0.1, 1)))
+    dev.off()
+    png(here(outDir, paste0(fileName, ".png")), width = width, height =height, res = 600, unit = "in")
+    print(plot_grid(title, plot, ncol = 1, rel_heights = c(0.1, 1)))
+    dev.off()
+  }
+}
+```
+
+```{r}
+TADcalls.125kb = as_tibble(fread(here(dataDir, "TAD_25kb_125kb_otsu_G1DMSO.bedpe"))[, 1:3])
+colnames(TADcalls.125kb) = c("chrom", "start", "end")
+
+library(GENOVA)
+outDir <- here("../../figure/TAD")
+rdsDir <- here("../../RDS")
+binSize <- 25e3
+contacts.DMSO = readRDS(here(rdsDir, paste0("G1.DMSO_", binSize, ".rds")))
+contacts.dTAG = readRDS(here(rdsDir, paste0("G1.dTAG_", binSize, ".rds")))
+contacts.A485 = readRDS(here(rdsDir, paste0("G1.A485_", binSize, ".rds")))
+# metaTAD(contacts.DMSO, contacts.dTAG, contacts.A485,
+#         binSize, TADcalls.75kb, c("G1.DMSO", "G1.dTAG", "G1.A485"), paste0(binSize, "_TAD-25kb-75kb"),
+#         outDir)
+metaTAD(contacts.DMSO, contacts.dTAG, contacts.A485,
+        binSize, TADcalls.125kb, c("G1.DMSO", "G1.dTAG", "G1.A485"), paste0(binSize, "_TAD-25kb-125kb"),
+        outDir, "G1")
+# metaTAD(contacts.DMSO, contacts.dTAG, contacts.A485,
+#         binSize, TADcalls.250kb, c("G1.DMSO", "G1.dTAG", "G1.A485"), paste0(binSize, "_TAD-25kb-250kb"),
+#         outDir)
+```
+
+
+
+```{r}
+TADcalls.125kb = as_tibble(fread(here(dataDir, "TAD_25kb_125kb_otsu_AsyncUT.bedpe"))[, 1:3])
+colnames(TADcalls.125kb) = c("chrom", "start", "end")
+library(GENOVA)
+outDir <- here("../../figure/TAD")
+rdsDir <- here("../../RDS")
+binSize <- 25e3
+
+contacts.UT = readRDS(here(rdsDir, paste0("Async.UT_", binSize, ".rds")))
+contacts.AID = readRDS(here(rdsDir, paste0("Async.AID_", binSize, ".rds")))
+metaTADfor2(contacts.UT, contacts.AID,
+        binSize, TADcalls.125kb, c("Async.UT", "Async.AID"), paste0(binSize, "_TAD-25kb-125kb"),
+        outDir, "Async")
+```
