@@ -3,12 +3,14 @@
 ###############################################################################
 
 ###############################################################################
+
 # REFERENCE
 # https://micro-c.readthedocs.io/en/latest/before_you_begin.html
-
 # .hic and .mcool file have KR, SCALE, VC, VC_SQRT normalization column. However, .mcool will not have 'sum' metadata calculated.
 # hicConvertFormat extracts cool file of specific resolution from mcool file and calculate weight column based on the KR column. Weight = 1/KR.
+# However, for consistency with other dataset, KR column will be calculated again using cooler balance. KR balancing for Jucier and Cooler are therotically same, but numerically different.
 ###############################################################################
+
 
 ### Importing python packages
 import os
@@ -29,41 +31,17 @@ sampleRepList = ["G1DMSO_B1R1", "G1DMSO_B1R2", "G1DMSO_B1R3",
 				"G1A485_B3R1", "G1A485_B3R2", "G1A485_B3R3",
 				"G1dTAG_B1R1", "G1dTAG_B1R2", "G1dTAG_B1R3",
 				"G1dTAG_B3R1", "G1dTAG_B3R2", "G1dTAG_B3R3"]
-resList = [1000, 2500, 5000, 10000, 25000, 100000]
-
-
+resList = [100000, 25000, 10000, 5000, 2500, 1000]
 ###############################################################################
 # RULES
 rule all:
 	input:
-		#expand("result/log/success/normCool_{sampleRep}_{res}.ok", sampleRep = sampleRepList, res = resList),
 		expand("result/log/success/normCoolBatch_{sampleBatch}_{res}.ok", sampleBatch = sampleBatchList, res = resList),
 		expand("result/log/success/normCoolPooled_{sample}_{res}.ok", sample = sampleList, res = resList),
+
+
+
 ###############################################################################
-
-rule normCool:
-	conda: "hicexplorer"
-	threads: 16
-	input:
-		mcool = "result/mcool/{sampleRep}_allRes.mcool"
-	output:
-		success = "result/log/success/normCool_{sampleRep}_{res}.ok",
-		cool = "result/cool_norm/{sampleRep}_{res}bp_KR.cool",
-		exp = "result/cool_norm/{sampleRep}_{res}bp_KR_exp.tsv"
-	params:
-		res = "{res}"
-	shell:
-		"""
-
-		hicConvertFormat -m {input.mcool}:://resolutions/{params.res} --inputFormat cool \
-			--outputFormat cool -o {output.cool} --correction_name KR
-		cooltools expected-cis -p 16 -o {output.exp} {output.cool}
-
-		# Made it?
-		touch {output.success}
-		"""
-
-
 rule normCoolBatch:
 	conda: "hicexplorer"
 	threads: 16
@@ -80,6 +58,9 @@ rule normCoolBatch:
 
 		hicConvertFormat -m {input.mcool}:://resolutions/{params.res} --inputFormat cool \
 			--outputFormat cool -o {output.cool} --correction_name KR
+
+		cooler balance --force -p 16 {output.cool}
+
 		cooltools expected-cis -p 16 -o {output.exp} {output.cool}
 
 		# Made it?
@@ -103,6 +84,9 @@ rule normCoolPooled:
 
 		hicConvertFormat -m {input.mcool}:://resolutions/{params.res} --inputFormat cool \
 			--outputFormat cool -o {output.cool} --correction_name KR
+
+		cooler balance --force -p 16 {output.cool}
+
 		cooltools expected-cis -p 16 -o {output.exp} {output.cool}
 
 		# Made it?
