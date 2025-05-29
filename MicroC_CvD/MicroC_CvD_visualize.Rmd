@@ -23,7 +23,7 @@ pkgs = c(
   "remotes",
   "cowplot",
   "gridExtra",
-  "eulerr", "data.table", "clusterProfiler", "zoo"
+  "eulerr", "data.table", "clusterProfiler", "zoo", "dplyr"
 )
 bio_pkgs = c("biomaRt",
              "DESeq2",
