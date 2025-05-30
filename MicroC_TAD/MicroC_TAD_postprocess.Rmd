@@ -1,0 +1,138 @@
+---
+title: "R Notebook"
+---
+
+# IMPORTING REQUIRED PACKAGES
+```{r}
+# LIST OF PACKAGES
+pkgs = c(
+  "tidyverse",
+  "here",
+  "svglite",
+  "ggplot2",
+  "ggrepel",
+  "stringr",
+  "BiocManager",
+  "RColorBrewer",
+  "viridis",
+  "magick",
+  "nlme",
+  "ashr",
+  "factoextra",
+  "plotly",
+  "remotes",
+  "cowplot",
+  "gridExtra",
+  "eulerr", "data.table", "clusterProfiler", "zoo", "dplyr"
+)
+bio_pkgs = c("biomaRt",
+             "DESeq2",
+             "ComplexHeatmap",
+             "apeglm",
+             "vsn",
+             "sva",
+             "limma",
+             "mixOmics", "plotgardener", "org.Mm.eg.db")
+
+# INSTALL PACKAGES
+#install.packages(pkgs)
+#BiocManager::install(bio_pkgs)
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+
+#remotes::install_github("EvaYiwenWang/PLSDAbatch")
+require(PLSDAbatch)
+require(GENOVA)
+# CLEANING
+rm(pkgs, bio_pkgs)
+
+options(scipen = 999)
+```
+# Parameters
+```{r}
+dataDir <- here("../data/TAD")
+coolDir <- here("../data/cool_norm_pooled")
+outDir <- here("../figure/TAD")
+dir.create(outDir, recursive = TRUE, showWarnings = FALSE)
+refDir <- here("reference", "mm10")
+rdsDir <- here("../data/rds")
+dir.create(rdsDir, recursive = TRUE, showWarnings = FALSE)
+
+centromere <- fread(here(refDir, "mm10.gap.txt")) %>% dplyr::filter(V8 == "centromere") %>% dplyr::select(V2, V3, V4)
+
+```
+
+# Functions
+```{r}
+convertBoundaryToTAD = function(df){
+  temp = df %>% dplyr::mutate(anchor1s = start,
+                              anchor1e = end,
+                              anchor2s = lead(start, order_by = row_number()),
+                              anchor2e = lead(end, order_by = row_number()),
+                              chrom1 = chrom,
+                              start1 = (anchor1s + anchor1e)/2,
+                              end1 = (anchor2s + anchor2e)/2,
+                              chrom2 = chrom,
+                              start2 = (anchor1s + anchor1e)/2,
+                              end2 = (anchor2s + anchor2e)/2) %>%
+    dplyr::select(chrom1, start1, end1, chrom2, start2, end2)
+  temp = temp[-nrow(temp),]
+  return(temp)
+}
+
+filterChrContact <- function(contacts, chrIdx){
+  chr_contacts <- contacts
+  chr_contacts$MAT <- chr_contacts$MAT %>% 
+    dplyr::filter(V1 <= chrIdx$sE & V1 >= chrIdx$sI &
+                    V2 <= chrIdx$sE & V2 >= chrIdx$sI)
+  chr_contacts$IDX <- chr_contacts$IDX %>%
+    dplyr::filter(V1 == chrIdx$V1)
+  chr_contacts$CENTROMERES <- chr_contacts$CENTROMERES %>%
+    dplyr::filter(chrom == chrIdx$V1)
+  chr_contacts$CHRS <- chrIdx$V1
+  
+  return(chr_contacts)
+}
+```
+
+# Pre-processing TAD boundaries from cooltools
+```{r}
+# Processing boundaries from python
+boundaries.25kb = fread(here(dataDir, "TAD_boundaries_25kb_G1DMSO_pooled.tsv"))
+
+boundaries.25kb.125kb = boundaries.25kb %>% dplyr::filter(is_boundary_125000_otsu == TRUE) %>%
+  dplyr::select(chrom, start, end)
+bedpe = bind_rows(boundaries.25kb.125kb %>% group_split(chrom) %>%
+                    purrr::map(convertBoundaryToTAD))
+fwrite(bedpe, here(dataDir, "TAD_25kb_125kb_otsu_G1DMSO_pooled.bedpe"), col.names = FALSE, row.names = FALSE,
+       sep = '\t')
+bed <- bedpe  %>%
+  dplyr::select(c(1, 2, 6))
+fwrite(bed, here(dataDir, "TAD_25kb_125kb_otsu_G1DMSO_pooled.bed"), col.names = FALSE, row.names = FALSE,
+       sep = '\t')
+
+temp = boundaries.25kb %>% dplyr::filter(is_boundary_125000_otsu == TRUE) %>%
+  dplyr::select(chrom, start, end)
+fwrite(temp, here(dataDir, "TAD_25kb_125kb_otsu_boundaries_G1DMSO_pooled.bed"), col.names = FALSE, row.names = FALSE, sep = '\t')
+
+# Processing boundaries from python
+boundaries.25kb = fread(here(dataDir, "TAD_boundaries_25kb_GSE178982_AsyncUT_pooled.tsv"))
+
+boundaries.25kb.125kb = boundaries.25kb %>% dplyr::filter(is_boundary_125000_otsu == TRUE) %>%
+  dplyr::select(chrom, start, end)
+bedpe = bind_rows(boundaries.25kb.125kb %>% group_split(chrom) %>%
+                    purrr::map(convertBoundaryToTAD))
+fwrite(bedpe, here(dataDir, "TAD_25kb_125kb_otsu_GSE178982_AsyncUT_pooled.bedpe"), col.names = FALSE, row.names = FALSE,
+       sep = '\t')
+bed <- bedpe  %>%
+  dplyr::select(c(1, 2, 6))
+fwrite(bed, here(dataDir, "TAD_25kb_125kb_otsu_GSE178982_AsyncUT_pooled.bed"), col.names = FALSE, row.names = FALSE,
+       sep = '\t')
+
+
+temp = boundaries.25kb %>% dplyr::filter(is_boundary_125000_otsu == TRUE) %>%
+  dplyr::select(chrom, start, end)
+fwrite(temp, here(dataDir, "TAD_25kb_125kb_otsu_boundaries_GSE178982_AsyncUT_pooled.bed"), col.names = FALSE, row.names = FALSE, sep = '\t')
+```
