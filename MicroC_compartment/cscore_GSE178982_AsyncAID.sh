@@ -12,7 +12,7 @@
 
 source ~/.bashrc
 
-PREFIX="G1DMSO_pooled"
+PREFIX="GSE178982_AsyncAID_pooled"
 REFDIR='/athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/reference/mm10'
 RESULTDIR='/athena/apostoloulab/scratch/ukl4001/data/cscore'
 WINDOW=${REFDIR}/mm10.bin.10kb.bed

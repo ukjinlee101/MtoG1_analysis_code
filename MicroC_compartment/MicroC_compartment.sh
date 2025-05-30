@@ -1,11 +1,15 @@
 # CONVERT VALIDPAIRS TO hicSummary
 
 PAIRDIR="/athena/apostoloulab/scratch/ukl4001/MicroC_MtoG1_Batch123_pooled/pipeline/result/mappedPair_pooled"
+PAIRDIR="/athena/apostoloulab/scratch/ukl4001/MicroC_Async_GSE178982/pipeline/result/mappedPair_pooled"
 OUTDIR="/athena/apostoloulab/scratch/ukl4001/temp"
 
 sample="G1DMSO_pooled"
 sample="G1dTAG_pooled"
 sample="G1A485_pooled"
+sample="GSE178982_AsyncUT_pooled"
+sample="GSE178982_AsyncAID_pooled"
+
 
 infile="${PAIRDIR}/${sample}.pairs"
 tempfile="${OUTDIR}/${sample}.output.txt"
@@ -47,3 +51,6 @@ gzip -d ${REFDIR}/mm10.bin.10kb.bed.gz
 sbatch cscore_G1DMSO.sh
 sbatch cscore_G1dTAG.sh
 sbatch cscore_G1A485.sh
+
+sbatch cscore_GSE178982_AsyncUT.sh
+sbatch cscore_GSE178982_AsyncAID.sh
