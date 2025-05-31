@@ -1,0 +1,571 @@
+---
+title: "R Notebook"
+---
+# IMPORTING REQUIRED PACKAGES
+```{r}
+# LIST OF PACKAGES
+pkgs = c("tidyverse", "here", "svglite", "ggplot2", "ggrepel",
+         "stringr", "BiocManager", "RColorBrewer", "viridis", "magick",
+         "nlme", "factoextra", "devtools", "beepr", "remotes", 
+         "cowplot", "data.table", "strawr", "rtracklayer", "utils", "reshape2", "dplyr")
+bio_pkgs = c("biomaRt", "DESeq2", "ComplexHeatmap", "apeglm", "vsn", "rhdf5", "InteractionSet", "plotgardener")
+
+# INSTALL HiC related packages
+#remotes::install_github("robinweide/GENOVA")
+#devtools::install_github("thomasp85/scico")
+
+# INSTALL PACKAGES
+#install.packages(pkgs)
+#BiocManager::install(bio_pkgs)
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+require(GENOVA)
+require(cowplot)
+require(scico)
+
+# CLEANING
+rm(pkgs, bio_pkgs)
+```
+# Function
+```{r}
+filterChrContact <- function(contacts, chrIdx){
+  chr_contacts <- contacts
+  chr_contacts$MAT <- chr_contacts$MAT %>% 
+    dplyr::filter(V1 <= chrIdx$sE & V1 >= chrIdx$sI &
+                    V2 <= chrIdx$sE & V2 >= chrIdx$sI)
+  chr_contacts$IDX <- chr_contacts$IDX %>%
+    dplyr::filter(V1 == chrIdx$V1)
+  chr_contacts$CENTROMERES <- chr_contacts$CENTROMERES %>%
+    dplyr::filter(chrom == chrIdx$V1)
+  chr_contacts$CHRS <- chrIdx$V1
+  
+  return(chr_contacts)
+}
+
+calculateChrCompScore <- function(syncedChrContacts, compAjd, chrIdx, activeBG){
+  coef <- (compAjd %>% dplyr::filter(chr == chrIdx$V1))$coef
+  CS_out <- compartment_score(syncedChrContacts, bed = activeBG[, 1:3])
+  CS.tb <- as_tibble(CS_out$compart_scores)
+  colnames(CS.tb) = c("chrom", "start", "end", "bin", "cs")
+  CS.tb = CS.tb %>%
+    dplyr::mutate(cs = cs * coef)
+  return(CS.tb)
+}
+
+
+
+compartmentAnalysis = function(hic, contacts, expName, compAdj, H3K27ac.bw, activeBG, chrNameShort = FALSE, skipMatrix = FALSE){
+  outDir <- here("../../figure/compartment/compartment", expName)
+  outDataDir <- here("../../result/compartment")
+  dir.create(outDir, showWarnings = FALSE, recursive = TRUE)
+  dir.create(outDataDir, showWarnings = FALSE, recursive = TRUE)
+
+  # Extracting metadata
+  idxChr = contacts$IDX %>%
+    dplyr::group_by(V1) %>%
+    dplyr::summarise(sI = min(V4), sE = max(V4))
+  
+  CS.list = list()
+  
+  for(j in c(1:nrow(idxChr))){
+    
+    print(paste0("Iteration ", j, " started"))
+    # Parameter
+    chrIdx = idxChr[j,]
+    if((chrIdx$V1 == "chrM") | (chrIdx$V1 == "chrY")){
+      next()
+    }
+    
+    chrIdx = idxChr[j,]
+    
+    # Filter chromosome specific contact
+    chr_contacts = contacts
+    chr_contacts$MAT = chr_contacts$MAT %>%
+      dplyr::filter(V1 <= chrIdx$sE & V1 >= chrIdx$sI &
+                      V2 <= chrIdx$sE & V2 >= chrIdx$sI)
+    chr_contacts$IDX = chr_contacts$IDX %>%
+      dplyr::filter(V1 == chrIdx$V1)
+    chr_contacts$CENTROMERES = chr_contacts$CENTROMERES %>%
+      dplyr::filter(chrom == chrIdx$V1)
+    chr_contacts$CHRS = chrIdx$V1
+    
+    # CALCULATE COMPARTMENT SCORE
+    CS_out = compartment_score(chr_contacts, bed = activeBG[, 1:3])
+    
+    CS.tb = as_tibble(CS_out$compart_scores)
+    colnames(CS.tb) = c("chrom", "start", "end", "bin", "E1")
+    coef = (compAdj %>% dplyr::filter(chr == chrIdx$V1))$coef
+    
+    CS.tb = CS.tb  %>% dplyr::filter(!is.na(E1)) %>%
+      dplyr::mutate(start = start+1) %>%
+      dplyr::mutate(E1 = E1 * coef )
+    
+    # Writing bigwig file
+    CS.list[[j]] = CS.tb %>% dplyr::select(-bin)
+    
+    # Draw plots
+    H3K27ac.chr = (as_tibble(H3K27ac.bw) %>% dplyr::filter(seqnames == chrIdx$V1))
+    xmin =  min(CS.tb$start)
+    xmax = max( max(CS.tb$start), max(H3K27ac.chr$start))
+    
+    gg1 = ggplot(CS.tb, aes(x = start, y = E1)) + geom_line(linetype = "solid") +
+      geom_ribbon(aes(x = start, ymin = 0, ymax = pmax(0, E1), fill = "A"), alpha = 0.5) +
+      geom_ribbon(aes(x = start, ymin = 0, ymax = pmin(0, E1), fill = "B"), alpha = 0.5) +
+      lims(x = c(xmin, xmax)) + scale_x_continuous(expand = c(0, 0)) +
+      scale_fill_manual(values = c("red", "blue")) +
+      scale_y_continuous(breaks = c(min(CS.tb$E1, na.rm = TRUE), 0, max(CS.tb$E1, na.rm = TRUE)),
+                         labels = scales::number_format(accuracy = 0.01)) +
+      theme_bw() +
+      theme(legend.position = "none",
+            axis.text.x=element_blank(),
+            axis.ticks.x=element_blank(),
+            axis.text.y = element_text(color = "black"),
+            panel.grid = element_blank(),
+            panel.background = element_rect(fill = "transparent")) +labs(x = NULL, y = NULL)
+    
+    temp = H3K27ac.chr %>% dplyr::filter(start > xmin) %>% dplyr::filter(start < xmax)
+    
+    
+    gg2 = ggplot(temp, aes(x = start, y = score)) + geom_line(stat = "summary_bin", binwidth = 100*1000) +
+      xlim(xmin, xmin+5000) + scale_x_continuous(expand = c(0, 0)) +
+      scale_y_continuous(
+        labels = scales::number_format(accuracy = 0.01)) +
+      theme_bw() + theme(legend.position = "none",
+                         axis.text.x=element_blank(),
+                         axis.ticks.x=element_blank(),
+                         axis.text.y = element_text(color = "black"),
+                         panel.grid = element_blank(),
+                         panel.background = element_rect(fill = "transparent")) +labs(x = NULL, y = NULL)
+    
+    aligned = align_plots(gg1, gg2, align = "v")
+    
+    
+    pageWidth = 6
+    pageHeight = 4
+    panelWidth = 4
+    panelx = 1.5
+    panely = 0.5
+    
+    name = paste0("compartmentScore_", expName, "_", chrIdx$V1)
+    pdf(here(outDir, paste0(name, ".pdf")), width = pageWidth, height = pageHeight)
+    
+    pageCreate(width = pageWidth, height = pageHeight, default.units = "inches", showGuides = FALSE)
+    plotText(label = paste(expName, "\n(250kb binned)"), fontcolor = "black", fontsize = 10,
+             x = panelx-1.2, y = panely + panelWidth*0.125, just = c("left","top"), default.units = "inches")
+    
+    chr = chrIdx$V1
+    if (chrNameShort){
+      chr = sub("^chr", "", chr)
+    }
+    
+    if(!skipMatrix){
+      hicPlot = plotHicTriangle(hic,
+                                resolution = 250*1000, matrix = "oe", norm = "KR", zrange = c(0, 3),
+                                chrom = chr,
+                                chromstart = xmin,
+                                chromend = xmax,
+                                assembly = "mm10",
+                                x = panelx, y = panely, width = panelWidth, height = panelWidth*0.5,
+                                just = c("left", "top"), default.units = "inches")
+      annoGenomeLabel(
+        plot = hicPlot, scale = "Mb", x = panelx, y = panely + panelWidth*0.5 ,
+        just = c("left", "top")
+      )
+      annoHeatmapLegend(
+        plot = hicPlot, fontcolor = "black", x = panelx + panelWidth, y = panely + 0.3 +0.1,
+        width = 0.13, height = 1.2,
+        just = c("right", "top")
+      )
+      plotText(label = "(O/E)", fontcolor = "black", fontsize = 8,
+               x = panelx + panelWidth + 0.05, y = panely + 0.3,
+               just = c("right", "top"))
+    }
+    leftmargin = 0.46
+    rightmargin = 0.08
+    gap1 = 0.15
+    plotText(label = "E1 \n(100kb res)", fontcolor = "black", fontsize = 8,
+             x = panelx-1.2, y = panely + panelWidth*0.5 + gap1 + 0.12, just = c("left","top"), default.units = "inches")
+    plotGG(aligned[[1]], x = panelx + panelWidth + rightmargin, y = panely + panelWidth*0.5 + gap1, width = panelWidth+leftmargin+rightmargin, height = 0.5, just = c("right", "top"))
+    plotText(label = "H3K27ac \n(100kb binned)", fontcolor = "black", fontsize = 8,
+             x = panelx-1.2, y = panely + panelWidth*0.5 + 0.5 + gap1 + 0.12, just = c("left","top"), default.units = "inches")
+    plotGG(aligned[[2]], x = panelx + panelWidth + rightmargin, y = panely + panelWidth*0.5 + 0.5 + gap1 - 0.05, width = panelWidth+leftmargin+rightmargin, height = 0.5, just = c("right", "top"))
+    
+    dev.off()
+    beep()
+  }
+  final.CS = bind_rows(CS.list)
+  bwHeader = "track type=bedGraph visibility=full color=200,100,0 altColor=0,100,200 priority=20"
+  bwFile = here(outDataDir, paste0("compartmentScore_", expName, ".bedgraph" ))
+  writeLines(bwHeader, bwFile)
+  write.table(final.CS, file = bwFile, append = TRUE,quote=F, sep="\t", row.names=F, col.names=F)
+}
+
+```
+
+# Parameter
+```{r}
+options(scipen=999)
+
+refDir <- here("reference")
+outDir <- here("..", "data", "cscore")
+rdsDir <- here("..", "data", "rds")
+coolDir <- here("..", "data", "cool_norm_pooled")
+figDir <- here("..", "figure", "compartment")
+dir.create(figDir, showWarnings = FALSE, recursive = TRUE)
+
+centromere <- fread(here(refDir, "mm10", "mm10.centromere.txt"))
+```
+
+# Correcting bedgraph based on active mark (10 kb)
+```{r}
+# Import parameters
+activeMark <- rtracklayer::import(here(refDir, "ChIP", "GSM2438476_EC-DG-3458-H3K27AC_ASYN_1.bw"))
+chrList <- sort(unique(fread(here(outDir, "G1DMSO_pooled_10kb_cscore.bedgraph"), skip = 1)$V1))
+
+for( sample in c("G1DMSO_pooled_10kb", "G1dTAG_pooled_10kb", "G1A485_pooled_10kb",
+                 "GSE178982_AsyncUT_pooled_10kb", "GSE178982_AsyncAID_pooled_10kb")){
+  cscore.tb <- fread(here(outDir, paste0(sample, "_cscore.bedgraph")), skip = 1)
+  colnames(cscore.tb) <- c("chr", "start", "end", "cscore")
+  seed.tb <- tibble()
+  
+  for (chrInt in chrList) {
+    # Filter cscore.tb for the current chromosome
+    temp.tb <- cscore.tb %>% filter(chr == chrInt)
+    
+    # Create GRanges objects for positive and negative cscore regions
+    plus.gr <- makeGRangesFromDataFrame(temp.tb %>% filter(cscore > 0))
+    minus.gr <- makeGRangesFromDataFrame(temp.tb %>% filter(cscore < 0))
+    
+    # Calculate score density for plus regions
+    overlaps_plus <- findOverlaps(activeMark, plus.gr)
+    overlapping_indices_plus <- queryHits(overlaps_plus)
+    region_width_plus <- sum(width(plus.gr))
+    score_density_plus <- sum(activeMark$score[overlapping_indices_plus]) / region_width_plus
+    
+    # Calculate score density for minus regions
+    overlaps_minus <- findOverlaps(activeMark, minus.gr)
+    overlapping_indices_minus <- queryHits(overlaps_minus)
+    region_width_minus <- sum(width(minus.gr))
+    score_density_minus <- sum(activeMark$score[overlapping_indices_minus]) / region_width_minus
+    
+    # Determine flip factor
+    flip <- (score_density_plus < score_density_minus)
+    flipFactor <- if_else(flip, -1, 1)
+    
+    # Apply flip factor to cscore and store in a temporary tibble
+    temp_result <- temp.tb %>% mutate(cscore = flipFactor * cscore)
+    
+    # Add to seed.tb using bind_rows
+    seed.tb <- bind_rows(seed.tb, temp_result)
+  }
+  output_file <- here(outDir, paste0(sample, "_cscore_final.bedgraph"))
+  writeLines("track type=bedGraph visibility=full color=200,100,0 altColor=0,100,200 priority=20", output_file)
+  fwrite(seed.tb, output_file, sep = '\t', col.names = FALSE, append = TRUE)
+}
+```
+
+# Import contact matrix
+```{r}
+expNames <- c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled",
+                 "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled")
+binSize  <- 100000
+
+for (exp in expNames) {
+  # load contacts
+  contacts <- load_contacts(
+    signal_path = here(coolDir, paste0(exp, "_", as.integer(binSize), "bp_KR.cool")),
+    sample_name = exp,
+    resolution  = binSize,
+    colour      = "blue",
+    verbose     = TRUE,
+    balancing   = TRUE,
+    centromeres = centromere[, 1:3]
+  )
+  
+  # save and remove
+  saveRDS(
+    contacts,
+    file = here(rdsDir, paste0(exp, "_", as.integer(binSize), "bp_KRbalanced.rds"))
+  )
+  rm(contacts)
+}
+```
+
+# Import contact matrix
+```{r}
+expName = "G1DMSO_pooled"
+contacts.G1DMSO <- readRDS(here(rdsDir, paste0(expName, "_100000bp_KRbalanced.rds")))
+expName = "G1dTAG_pooled"
+contacts.G1dTAG <- readRDS(here(rdsDir, paste0(expName, "_100000bp_KRbalanced.rds")))
+expName = "G1A485_pooled"
+contacts.G1A485 <- readRDS(here(rdsDir, paste0(expName, "_100000bp_KRbalanced.rds")))
+expName = "GSE178982_AsyncUT_pooled"
+contacts.AsyncUT <- readRDS(here(rdsDir, paste0(expName, "_100000bp_KRbalanced.rds")))
+expName = "GSE178982_AsyncAID_pooled"
+contacts.AsyncAID <- readRDS(here(rdsDir, paste0(expName, "_100000bp_KRbalanced.rds")))
+```
+
+# Saddle plot (using GENOVA outline)
+Saddle plot is better when calculated with 100 kb resolution
+```{r}
+drawSaddlePlot <- function(contact1, contact2, cond1, cond2, expName, binSize = 100000, metaBin = 50, compScorePerc = 0.1){
+  idxChr = contact1$IDX %>% 
+    group_by(V1) %>% 
+    dplyr::summarise(sI = min(V4), sE = max(V4))
+  
+  scoreResults = list()
+  
+  ### MAKE DIRECTORY
+  outDir = here(figDir, 
+                paste0(c(expName, "binSize", as.integer(binSize), "compScorePerc", compScorePerc),
+                       collapse = "_"))
+  dir.create(file.path(outDir), showWarnings = FALSE, recursive = TRUE)
+  
+  ### ITERATION PER CHROMOSOME
+  for(j in c(1:nrow(idxChr))){
+    print(paste0("Iteration ", j, " started"))
+    
+    # Parameter
+    chrIdx = idxChr[j,]
+    if((chrIdx$V1 == "chrM") | (chrIdx$V1 == "chrY")){
+      next()
+    }
+    chr <- chrIdx$V1
+    
+    # Filter chromosome specific contact
+    chr_contact1 <- filterChrContact(contact1, chrIdx)
+    chr_contact2 <- filterChrContact(contact2, chrIdx)
+    
+    
+    # Experiment list
+    explist = list("cond1" = chr_contact1,
+                   "cond2" = chr_contact2)
+    explist = sync_indices(explist)
+    
+    # PLACEHOLDER
+    CS_out <- compartment_score(explist$cond1, bed = activeBG[, 1:3])
+    template <- as_tibble(CS_out$compart_scores) %>% dplyr::select(chrom, start, end, bin)
+    
+    # IMPORT COMPARTMENT SCORE
+    CS.tb.cond1 <- fread(here(cscoreDir, paste0(cond1, "_10kb_cscore_final.bedgraph")), skip = 1) %>%
+      dplyr::mutate(V2 = V2 + 1) %>% dplyr::filter(V1 == chr) %>%
+      dplyr::select(V2, V4)
+    colnames(CS.tb.cond1) <- c("start", cond1)
+    CS.tb.cond2 <- fread(here(cscoreDir, paste0(cond1, "_10kb_cscore_final.bedgraph")), skip = 1) %>%
+      dplyr::mutate(V2 = V2 + 1) %>% dplyr::filter(V1 == chr) %>%
+      dplyr::select(V2, V4)
+    colnames(CS.tb.cond2) <- c("start", cond2)
+    
+    CS_out$compart_scores <- data.frame(template %>% dplyr::left_join(CS.tb.cond1, by = c("start" = "start")) %>%
+                                          dplyr::left_join(CS.tb.cond2, by = c("start" = "start")))
+    
+    # DRAW SADDLE PLOT
+    saddle_out <- saddle(explist, CS_discovery = CS_out, bins = metaBin)
+    saddle.plot <- visualise(saddle_out, raw = T)
+    
+    # Percentage of the corner to use for the saddle plot
+    cornerScores <- saddle.plot$data %>% dplyr::filter(panel == "Individual") %>%
+      dplyr::group_by(exp,
+                      q11 = q1<=compScorePerc,
+                      q21 = q2<=compScorePerc,
+                      q12 = q1>=(1-compScorePerc),
+                      q22 = q2>=(1-compScorePerc)) %>%
+      dplyr::summarise(score = mean(obsexp), q1 = median(q1), q2 = median(q2)) %>%
+      dplyr::filter((q11 & q21)|(q12 & q22)|(q11 & q22)|(q12 & q21))
+    
+    cornerScores$corner <- rep(c('AA','AB/BA','AB/BA','BB'), 
+                               length(unique(cornerScores$exp)))
+    oelim <- 1.5
+    
+    metaAB <- ggplot(saddle.plot$data %>% dplyr::filter(panel == "Individual"),
+                     aes(x = q1, y = q2)) +
+      geom_tile(aes(fill = pmax(pmin(log2(obsexp), oelim), -oelim))) +
+      facet_grid(~exp) +
+      coord_fixed() +
+      scico::scale_fill_scico(palette = "vik", limits = c(-oelim, oelim)) +
+      labs(fill = "log2(O/E)") + xlab(NULL) + ylab(NULL) + theme_classic()
+    
+    # For labeling the corner scores, place scores along the unit circle
+    angle <- ifelse((cornerScores$q1-0.5)<0,
+                    pi+atan((cornerScores$q2-0.5)/(cornerScores$q1-0.5)),
+                    atan((cornerScores$q2-0.5)/(cornerScores$q1-0.5)))
+    cornerScores$q1 <- 0.5*cos(angle)+0.5
+    cornerScores$q2 <- 0.5*sin(angle)+0.5
+    cornerScores$chr <- chrIdx$V1
+    scoreResults <- append(scoreResults, list(cornerScores))
+    metaAB = metaAB +
+      geom_text(data = cornerScores,
+                mapping = aes(label = signif(score,2)),
+                size=5)
+    
+    print("---saddle plot calculation done")
+    
+    # DRAW DIFFERENTIAL SADDLE PLOT
+    diffSaddle = saddle.plot$data %>% 
+      dplyr::arrange(exp,q1,q2) %>%
+      group_by(exp) %>% group_split()
+    
+    
+    diffoelim <- 0.5
+    
+    metaAB_Diff = ggplot(diffSaddle[[2]], aes(x=q1,y=q2)) +
+      geom_tile(aes(fill=
+                      pmax(pmin(log2(diffSaddle[[2]]$obsexp/diffSaddle[[1]]$obsexp), diffoelim), -diffoelim))) +
+      coord_fixed() +  facet_grid(~exp) +
+      scico::scale_fill_scico(palette = "cork", limits = c(-diffoelim, diffoelim)) +
+      labs(fill='diff_log2(O/E)') +  xlab(NULL) + ylab(NULL)+theme_classic()
+    
+    print("---differential saddle plot calculation done")
+    
+    
+    ###
+    fileName = here(outDir, paste(c(expName, as.integer(binSize), chrIdx$V1, "SaddlePlot"), collapse = "_"))
+    width= 9
+    height = 6
+    title <- ggdraw() + draw_label(chrIdx$V1, fontface='bold', x=0.5, hjust=0.5)
+    plot <- plot_grid(metaAB, metaAB_Diff, ncol = 2, rel_widths =c(2, 1.35))
+    
+    svglite(paste0(fileName, ".svg"), width = width, height =height)
+    print(plot_grid(title, plot, ncol = 1, rel_heights = c(1, 1)))
+    dev.off()
+    
+  }
+  fwrite(rbindlist(scoreResults), 
+         file.path(outDir, paste(c(expName, as.integer(binSize),'CornerScores.txt'),collapse="_")), sep="\t")
+}
+
+activeMark <- rtracklayer::import(here(refDir, "ChIP", "GSM2438476_EC-DG-3458-H3K27AC_ASYN_1.bw"))
+activeBG <- as_tibble(activeMark) %>% dplyr::select(seqnames, start, end, score)
+cscoreDir <- here("..", "data", "cscore")
+
+drawSaddlePlot(contacts.G1DMSO, contacts.G1dTAG, "G1DMSO_pooled", "G1dTAG_pooled",
+               "G1DMSO_G1dTAG")
+drawSaddlePlot(contacts.G1DMSO, contacts.G1A485, "G1DMSO_pooled", "G1A485_pooled",
+               "G1DMSO_G1A485")
+drawSaddlePlot(contacts.AsyncUT, contacts.AsyncAID, "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
+               "AsyncUT_Async_AID")
+```
+
+# Calculate compartment score & Visualize
+```{r}
+calculateCompScore = function(temp.tb){
+  chrList <- sort(unique(temp.tb$chr))
+  
+  out.tb = tibble(exp = character(), chr = character(), compScore = numeric())
+  
+  for(chrName in chrList){
+    
+    temp.chr <- temp.tb %>% dplyr::filter(chr == chrName) %>%
+      group_by(exp) %>%
+      summarise(
+        score_AA = (score[corner == "AA"]),
+        score_BB = (score[corner == "BB"]),
+        score_ABBA = mean(score[corner == "AB/BA"]),
+        compScore = (score_AA + score_BB) / (2 * score_ABBA)
+      )
+    temp.chr$chr <- chrName
+    
+    temp.chr <- temp.chr %>% dplyr::select(exp, chr, compScore)
+    out.tb = bind_rows(out.tb, temp.chr)
+    
+  }
+  return(out.tb)
+}
+
+metaBin <- 50
+compScorePerc <- 0.1
+binSize <- 100000
+
+expName <- "G1DMSO_G1dTAG"
+
+drawCompScore <- function(cond1, cond2, expName){
+  outDir = here(figDir, 
+                paste0(c(expName, "binSize", as.integer(binSize), "compScorePerc", compScorePerc),
+                       collapse = "_"))
+  
+  
+  temp.tb <- fread(here(outDir, paste0(expName, "_100000_CornerScores.txt")))
+  temp.tb <- calculateCompScore(temp.tb)
+  fwrite(temp.tb, here(outDir, "CornerScores.tsv"), sep = '\t')
+  
+  library(ggbeeswarm)
+  
+  data <- temp.tb
+  data$exp <- factor(data$exp, levels = c(cond1, cond2))
+  plot <- ggplot(data, aes(x = exp, y = compScore)) +
+    geom_boxplot(width =0.6, outlier.shape = NA, color = "black", fill = c("grey", "pink")) +
+    geom_beeswarm(alpha = 1, fill = "grey", cex = 3) +
+    theme_classic() +
+    ggtitle("Compartment Score") +
+    ylab("Compartment Strength\n(AA+BB)/(AB+BA)") +
+    ylim(0, 10)
+  
+  fileName = here(outDir, paste0("compScore_summary"))
+  width= 1.5
+  height = 3
+  svglite(paste0(fileName, ".svg"), width = width, height =height)
+  print(plot)
+  dev.off()
+}
+
+
+drawCompScore("G1DMSO_pooled", "G1dTAG_pooled",
+               "G1DMSO_G1dTAG")
+drawCompScore("G1DMSO_pooled", "G1A485_pooled",
+               "G1DMSO_G1A485")
+drawCompScore("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
+               "AsyncUT_Async_AID")
+```
+
+
+# Checking only AA, BB compartment
+```{r}
+cond1 <- "G1DMSO_pooled"
+cond2 <- "G1dTAG_pooled"
+
+
+drawAABBDiff <- function(cond1, cond2, expName, ymin = -0.25, ymax = 0.5){
+  outDir = here(figDir, 
+                paste0(c(expName, "binSize", as.integer(binSize), "compScorePerc", compScorePerc),
+                       collapse = "_"))
+  
+  
+  temp.tb <- fread(here(outDir, paste0(expName, "_100000_CornerScores.txt")))
+  
+  
+  temp.tb <- temp.tb %>% dplyr::select(exp, score, corner, chr) %>%
+    distinct()
+  
+  # dTAG
+  diffScore <- temp.tb %>%
+    group_by(chr) %>%
+    summarize(score_diff_AA = score[exp == cond2 & corner == 'AA'] - score[exp == cond1 & corner == 'AA'],
+              score_diff_BB = score[exp == cond2 & corner == 'BB'] - score[exp == cond1 & corner == 'BB'],
+              score_diff_AB = score[exp == cond2 & corner == 'AB/BA'] - score[exp == cond1 & corner == 'AB/BA'])
+  diffScore.long <- diffScore %>% pivot_longer(-chr, values_to = 'diffScore', names_to = 'compartment')
+  
+  
+  p <- ggplot(diffScore.long, aes(x = compartment, y = diffScore)) +
+    theme_classic() +
+    geom_boxplot(outlier.shape = NA, color = "black", fill = c("grey", "grey", "grey"),  size = 0.75) +
+    geom_beeswarm(alpha = 0.5, fill = "grey", cex = 1) +
+    geom_hline(yintercept = 0, linewidth = 0.75) +
+    coord_cartesian(ylim = c(ymin, ymax))
+  
+  fileName = here(outDir, paste0("compScore_AABBdiff"))
+  width= 1.5
+  height = 3
+  svglite(paste0(fileName, ".svg"), width = width, height =height)
+  print(p)
+  dev.off()
+}
+
+drawAABBDiff("G1DMSO_pooled", "G1dTAG_pooled",
+               "G1DMSO_G1dTAG")
+drawAABBDiff("G1DMSO_pooled", "G1A485_pooled",
+               "G1DMSO_G1A485", ymin = -0.5, ymax = 0.25)
+drawAABBDiff("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
+               "AsyncUT_Async_AID")
+```
