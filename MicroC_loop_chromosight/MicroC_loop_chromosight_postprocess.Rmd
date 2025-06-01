@@ -1,0 +1,1077 @@
+---
+title: "R Notebook"
+---
+# LOADING REQUIREMENTS
+## PACKAGES
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# LIST OF PACKAGES
+pkgs = c("tidyverse", "here", "svglite", "ggplot2", "ggrepel",
+         "stringr", "BiocManager", "RColorBrewer", "viridis", "magick",
+         "nlme", "factoextra", "devtools", "beepr", "remotes",
+         "cowplot", "data.table", "strawr", "rtracklayer", "utils",
+         "reshape2", "VennDiagram","gridExtra", "eulerr", "scales",
+         "InteractionSet", "gplots", "locfdr", "future", "ggbeeswarm", "glossary")
+bio_pkgs = c("biomaRt", "DESeq2", "ComplexHeatmap", "apeglm", "vsn",
+             "rhdf5", "InteractionSet", "plotgardener", "HiCDCPlus",
+             "GenomicInteractions", "LOLA", "AnnotationHub",
+             "org.Mm.eg.db", "enrichplot", "DOSE", "clusterProfiler",
+             "HiCExperiment", "HiCool", "HiContacts", "HiContactsData", "fourDNData", "DNAZooData",
+             "MotifDb", "Biostrings")
+
+# INSTALL PACKAGES
+# install.packages(pkgs)
+# BiocManager::install(bio_pkgs)
+
+# INSTALL HiC related packages
+# remotes::install_github("robinweide/GENOVA")
+# devtools::install_github("thomasp85/scico")
+# devtools::install_github("psyteachr/introdataviz")
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+require(GENOVA)
+require(scico)
+require(introdataviz)
+require(igraph)
+# CLEANING
+rm(pkgs, bio_pkgs)
+
+options(scipen=999)
+
+
+
+```
+## ENSEMBL
+```{r}
+# ENSEMBL DATABASE
+# v102 is for the latest mm10 version
+# ensembl.v102 <- useMart(host = "https://nov2020.archive.ensembl.org",
+#                        biomart = "ENSEMBL_MART_ENSEMBL",
+#                        dataset = "mmusculus_gene_ensembl")
+```
+## COLOR PALETTE
+```{r}
+palette_1 = list(red = "#E9002D",
+                 amber = "#FFAA00",
+                 green = "#00B000")
+palette_2 = list(red = "#FF1F5B",
+                 green = "#00CD6C",
+                 blue = "#009ADE",
+                 purple = "#AF58BA",
+                 yellow = "#FFC61E",
+                 orange = "#F28522",
+                 grey = "#A0B1BA",
+                 brown = "#A6761D")
+palette_3 = list(grey1 = "#a0b1ba",
+                 grey2 = "#c5d0d5",
+                 grey3 = "#eceff1")
+
+colorListLoop <-  c(palette_3[["grey3"]], palette_3[["grey2"]], palette_3[["grey1"]],
+                     "#C5E1EF", "#6CB0D6", "#226E9C",
+                     "#06592A", 
+                     "#FED976", "#FD8D3C", "#E31A1C")
+colorListPromoter <- c(palette_3[["grey3"]],"#E88587", "#E31A1C")
+colorListEnhancer <- c(palette_3[["grey3"]],"#87AFC7", "#226E9C")
+colorListStructure <- c(palette_3[["grey3"]], palette_3[["grey2"]], palette_3[["grey1"]])
+```
+
+## DIR LIST
+```{r}
+loopDir <- "/Volumes/UKJIN_SSD/data/loop_chromosight"
+figDir <- "/Volumes/UKJIN_SSD/figure/loop_chromosight"
+
+dir.create(figDir, showWarnings = FALSE)
+```
+
+## FIGURE PARAMETERS
+```{r}
+library(colorspace)
+
+fontType <- "Helvetica"
+
+fontSizeL <- 10 # pt
+fontSizeM <- 8
+fontSizeS <- 6
+
+lineThick <- 0.75 # pt
+lineMedium <- 0.5
+lineThin <- 0.25
+
+panelUnit <- 30 # mm
+panelMargin <- 1.5
+
+mmToInch <- 0.03937007874
+mmToLineUnit <- 1/2.13
+mmToLinePlotgarden <- 1/0.75
+ptToMM <- 1/2.845
+
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+weak_red <- lighten(strong_red, amount = 0.4)   # FF7D81
+weak_blue <- lighten(strong_blue, amount = 0.4) # 8A91DD
+no_grey <- "#A8A8A8"
+
+strong_teel <- "#0892A5"
+strong_green <- "#23CE6B" # A485
+strong_darkgreen <- "#054A29"
+strong_yellow <- "#FFBA49"
+strong_orange <- "#F18F01" # dTAG
+strong_lightpurple <- "#BD93D8"
+strong_purple <- "#9E33CB" # Epi
+
+panelSize <- function(num, unit = panelUnit, margin = panelMargin){
+  return(num*unit - 2*margin)
+}
+
+```
+
+## FUNCTIONS
+```{r}
+importBedpe = function(bedpe){
+  a1 = makeGRangesFromDataFrame(data.frame(
+    chr = bedpe$V1,
+    start = bedpe$V2 +1,
+    end = bedpe$V3))
+  a2 = makeGRangesFromDataFrame(data.frame(
+    chr = bedpe$V4,
+    start = bedpe$V5 +1,
+    end = bedpe$V6))
+  GInteractions(a1, a2)
+}
+
+get_density <- function(x, y, ...) {
+  dens <- MASS::kde2d(x, y, ...)
+  ix <- findInterval(x, dens$x)
+  iy <- findInterval(y, dens$y)
+  ii <- cbind(ix, iy)
+  return(dens$z[ii])
+}
+label_kb_mb <- function(x) {
+  ifelse(x >= 1000000, paste0(x / 1000000, "Mb"), paste0(x / 1000, "kb"))
+}
+
+importPeak = function(fileName){
+  df = fread(fileName)
+  gr = makeGRangesFromDataFrame(data.frame(
+    chr = df$V1, start = df$V2, end = df$V3
+  ))
+}
+```
+
+
+# Make filtered bedpe
+```{r}
+# Importing & filtering loops
+filterLoopBedpe = function(sample, note, cutoff.score, cutoff.qvalue,
+                           inputDir, outputDir){
+  temp = as_tibble(fread(here(inputDir, 
+                              paste0(sample, "_chromosight_", note, ".tsv"))))
+  temp.filtered = temp %>% dplyr::filter(score > cutoff.score, qvalue < cutoff.qvalue)
+  fwrite(temp.filtered, here(outputDir, paste0(sample, "_chromosight_", note, ".bedpe")), 
+         col.names = FALSE,row.names = FALSE, sep = "\t")  
+}
+
+for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
+  for(note in c("25000bp", "10000bp", "5000bp")){
+    filterLoopBedpe(sample = sample, note = note,
+                    cutoff.score = 0.3, cutoff.qvalue = 1e-5,
+                    inputDir = loopDir, outputDir = loopDir)
+  }
+}
+```
+
+# Evaluating cutoff for pearson correlation of chromosight
+```{r}
+for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
+  for(note in c("25000bp", "10000bp", "5000bp")){
+    temp <- as_tibble(fread(here(loopDir, 
+                                 paste0(sample, "_chromosight_", note, ".tsv"))))
+    for(cutoff in c(0.3, 0.4, 0.5, 0.6, 0.7)){
+      if(cutoff == 0.7){
+        temp.filtered = temp %>% dplyr::filter(score > cutoff)
+        
+      }else{
+        temp.filtered = temp %>% dplyr::filter(score > cutoff) %>% dplyr::filter(score <= cutoff + 0.1)
+        
+      }
+      fwrite(temp.filtered, here(loopDir, paste0(sample, "_chromosight_", note, "_score", cutoff, ".bedpe")), 
+             col.names = FALSE,row.names = FALSE, sep = "\t")  
+    }
+  }}
+```
+
+```{r}
+# stack_resolutions.R
+
+library(magick)
+
+# 1) Directory containing your *_merged.png files
+figDir <- "/Volumes/UKJIN_SSD/figure/loop_chromosight"
+
+# 2) List of conditions and the three resolution‐suffixes
+conditions <- c("G1DMSO", "G1dTAG", "G1A485")
+res_labels <- c("5000kb", "10000kb", "25000kb")  # the suffixes you used in "<cond>_<res>_merged.png"
+
+for (cond in conditions) {
+  # a) Build the paths for the three per‐condition, per‐resolution merged images
+  merged_paths <- file.path(
+    figDir,
+    paste0(cond, "_", res_labels, "_merged.png")
+  )
+
+  # b) Find the first one that actually exists (so we know dimensions)
+  sample_path <- NULL
+  for (p in merged_paths) {
+    if (file.exists(p)) {
+      sample_path <- p
+      break
+    }
+  }
+  if (is.null(sample_path)) {
+    message("Skipping ", cond, ": none of the merged files exist.")
+    next
+  }
+
+  # c) Read that sample to get width & height (in pixels)
+  sample_img <- image_read(sample_path)
+  info       <- image_info(sample_img)
+  w_px       <- info$width
+  h_px       <- info$height
+
+  # d) For each of the three files, either read it or create a white placeholder
+  imgs <- lapply(merged_paths, function(p) {
+    if (file.exists(p)) {
+      image_read(p)
+    } else {
+      image_blank(width = w_px, height = h_px, color = "white")
+    }
+  })
+
+  # e) Stack them vertically (stack = TRUE). The order is 5000kb → 10000kb → 25000kb
+  stacked <- image_append(image_join(imgs), stack = TRUE)
+
+  # f) Save to "<cond>_allResolutions_merged.png"
+  out_name <- file.path(figDir, paste0(cond, "_allResolutions_merged.png"))
+  image_write(stacked, path = out_name, format = "png")
+
+  message("Saved: ", out_name)
+}
+```
+
+###############################################################################
+
+# Post-processing called loops
+Step 2) Post-processing: Synchronizing loops across conditions. 3x3 bin window used to determine whether the loops are same. 
+Step 3) Post-processing: Merging over resolutions.
+Merge 25kb to lower resolution by checking 25kb 3x3 bin window. If there are 25kb loop that has lower resolution loop within 3x3 window, discard the 25kb called loop. After that, repeat for 10 kb.
+## Step 2
+```{r}
+################################################################################
+# Step 2
+################################################################################
+# Merge loops across condition
+for (res in c(25000, 10000, 5000)){
+  
+  loop1 <- fread(here(loopDir, paste0("G1DMSO_pooled_chromosight_", res, "bp.tsv"))) %>% dplyr::select(seq(1, 6))
+  loop2 <- fread(here(loopDir, paste0("G1dTAG_pooled_chromosight_", res, "bp.tsv"))) %>% dplyr::select(seq(1, 6))
+  loop3 <- fread(here(loopDir, paste0("G1A485_pooled_chromosight_", res, "bp.tsv"))) %>% dplyr::select(seq(1, 6))
+
+  
+  loop.merged <- bind_rows(loop1, loop2, loop3) %>% distinct() %>% dplyr::filter(start2 - start1 <= 2e6)
+  fwrite(loop.merged, here(loopDir, paste0("chromo_cons_", res, "kb.bedpe")), 
+         sep = '\t', col.names = FALSE, row.names = FALSE)
+}
+
+# Run "chromosight quantify" with union loops in all condition
+
+# Merge loops across conditions for each resolution. 3x3 bin window used to determine whether the loops are same. 
+# res <- 5
+for (res in c(25, 10, 5)){
+  
+  score.DMSO.tb <- fread(here(loopDir, paste0("D3-DMSO_pooled_cons_", res, "kb_pu100pz100.tsv"))) %>%
+    dplyr::mutate(id = paste(chrom1, start1, start2, sep = "_")) %>%
+    dplyr::filter(start2 - start1 <= 2e6) %>%
+    dplyr::select(c(1, 2, 3, 4, 5, 6, 7, 8, 12, 9, 10, 11)) %>%
+    dplyr::rename(score_DMSO = score,
+                  pvalue_DMSO = pvalue,
+                  qvalue_DMSO = qvalue) 
+  score.dTAG.tb <- fread(here(loopDir, paste0("D3-dTAG_pooled_cons_", res, "kb_pu100pz100.tsv"))) %>%
+    dplyr::mutate(id = paste(chrom1, start1, start2, sep = "_")) %>%
+    dplyr::filter(start2 - start1 <= 2e6) %>%
+    dplyr::select(c(1, 2, 3, 4, 5, 6, 7, 8, 12, 9, 10, 11)) %>%
+    dplyr::rename(score_dTAG = score,
+                  pvalue_dTAG = pvalue,
+                  qvalue_dTAG = qvalue) 
+  
+  # Annotate whether the loop was called in DMSO or dTAG condition
+  loop.DMSO <- fread(here(loopDir, paste0("D3-DMSO_pooled_chromosight_", res, "kb.tsv"))) %>% 
+    dplyr::mutate(id = paste(chrom1, start1, start2, sep = "_"))
+  loop.dTAG <- fread(here(loopDir, paste0("D3-dTAG_pooled_chromosight_", res, "kb.tsv"))) %>% 
+    dplyr::mutate(id = paste(chrom1, start1, start2, sep = "_"))
+  
+  score.tb <- full_join(score.DMSO.tb, score.dTAG.tb,
+                        by = c("chrom1", "start1", "end1",
+                               "chrom2", "start2", "end2",
+                               "bin1", "bin2", "id")) %>% 
+    dplyr::mutate(DMSOcalled = id %in% loop.DMSO$id,
+                  dTAGcalled = id %in% loop.dTAG$id) %>%
+    dplyr::mutate(
+      score = pmax(score_DMSO, score_dTAG),
+      .row_id   = row_number()           # temporary ID for graph nodes
+    )
+  
+  # 1) Build neighbor‐edges: all pairs (i, j) with |bin1[i] - bin1[j]| ≤1 AND |bin2[i] - bin2[j]| ≤1
+  coords <- score.tb %>% select(bin1, bin2)
+  n <- nrow(score.tb)
+  
+  # 2) Create all (i,j) pairs with i < j, then filter
+  pairs <- expand.grid(i = 1:n, j = 1:n) %>%
+    filter(i < j) %>%
+    filter(
+      abs(coords$bin1[i] - coords$bin1[j]) <= 1,
+      abs(coords$bin2[i] - coords$bin2[j]) <= 1
+    )
+  
+  # 3) Turn into an undirected graph and extract components
+  g <- graph_from_data_frame(pairs, directed = FALSE, vertices = data.frame(name = 1:n))
+  comps <- components(g)$membership
+  
+  # 4) Annotate your tibble with “group” and “is_best”
+  score.tb <- score.tb %>%
+    mutate(group = comps[.row_id]) %>%
+    group_by(group) %>%
+    mutate(
+      is_best               = score == max(score),
+      DMSOcalledProcessed   = if (n() > 1) TRUE else DMSOcalled,
+      dTAGcalledProcessed   = if (n() > 1) TRUE else dTAGcalled
+    ) %>%
+    ungroup() %>%
+    dplyr::select(-.row_id)
+  
+  temp <- score.tb %>% dplyr::filter(is_best)
+  
+  # raw sizes
+  dms  <- nrow(loop.DMSO)
+  dtag <- nrow(loop.dTAG)
+  uni  <- nrow(temp)
+  uni_before <- nrow(score.tb)
+  
+  # intersection size
+  int <- dms + dtag - uni
+  
+  # fit Euler with only‐DMSO, only‐dTAG, and overlap
+  fit <- euler(c(
+    DMSO        = dms  - int,
+    dTAG        = dtag - int,
+    "DMSO&dTAG" = int
+  ))
+  
+  # render & save
+  png(paste0("euler_DMSO_dTAG_postprocessing_", res, "kb.png"), width = 4, height = 4, units = "in", res = 600)
+  print(plot(fit,
+       fills      = list(fill = c("#1f77b4","#ff7f0e"), alpha = .5),
+       edges      = FALSE,
+       labels     = list(fontsize = 16),
+       quantities = list(type = "counts", fontface = "bold", fontsize = 14),
+       main       = paste0("Overlap ", res, "kb, postprocessing")
+  ))
+  dev.off()
+  
+  # intersection size
+  int <- dms + dtag - uni_before
+  
+  # fit Euler with only‐DMSO, only‐dTAG, and overlap
+  fit <- euler(c(
+    DMSO        = dms  - int,
+    dTAG        = dtag - int,
+    "DMSO&dTAG" = int
+  ))
+  
+  # render & save
+  png(paste0("euler_DMSO_dTAG_raw_", res, "kb.png"), width = 4, height = 4, units = "in", res = 600)
+  print(plot(fit,
+       fills      = list(fill = c("#1f77b4","#ff7f0e"), alpha = .5),
+       edges      = FALSE,
+       labels     = list(fontsize = 16),
+       quantities = list(type = "counts", fontface = "bold", fontsize = 14),
+       main       = paste0("Overlap ", res, "kb, raw")
+  ))
+  dev.off()
+  
+  # Export bedpe
+  temp <- score.tb %>% dplyr::filter(is_best) %>% dplyr::select(seq(1, 6))
+  fwrite(temp, here("result", paste0("chromo_cons_", res, "kb_postprocessed.bedpe")), sep = "\t", col.names = FALSE)
+  
+  out.tb <- score.tb %>% dplyr::filter(is_best) %>% dplyr::select(-group, -is_best, -DMSOcalled, -dTAGcalled)
+  fwrite(out.tb, here(loopDir, paste0("chromo_cons_", res, "kb_postprocessed.tsv")), sep = "\t")
+}
+
+
+```
+
+#### Step 3
+```{r}
+score.tb.25kb <- fread(here(loopDir, "chromo_cons_25kb_postprocessed.tsv")) %>% dplyr::mutate(res = 25)
+score.tb.10kb <- fread(here(loopDir, "chromo_cons_10kb_postprocessed.tsv")) %>% dplyr::mutate(res = 10)
+score.tb.5kb <- fread(here(loopDir, "chromo_cons_5kb_postprocessed.tsv")) %>% dplyr::mutate(res = 5)
+
+score.tb <- bind_rows(score.tb.25kb, score.tb.10kb, score.tb.5kb) %>% dplyr::select(-bin1, -bin2)
+
+
+
+################
+
+# Convert to data.table
+score.tb <- as.data.table(score.tb)
+
+
+#### Round 1
+# Split into reference and comparison sets
+loops_25 <- score.tb[res == 25][, .(id, chrom1, start1, chrom2, start2)]
+loops_small <- score.tb[res %in% c(5, 10)][, .(id, chrom1, start1, chrom2, start2)]
+
+# Bin resolution in basepairs (same for all since we're using Chebyshev distance of 1 in 25kb)
+bin_size <- 25000
+
+# Compute bin coordinates
+loops_25[, `:=`(bin1 = start1 %/% bin_size, bin2 = start2 %/% bin_size)]
+loops_small[, `:=`(bin1 = start1 %/% bin_size, bin2 = start2 %/% bin_size)]
+
+# Set keys for fast join
+setkey(loops_small, chrom1, chrom2, bin1, bin2)
+
+# Initialize a flag column
+score.tb[, has_fine_neighbor25 := FALSE]
+
+# Loop over each 25kb loop and check for nearby smaller-res loops
+for (i in seq_len(nrow(loops_25))) {
+  loop <- loops_25[i]
+  nearby <- loops_small[
+    chrom1 == loop$chrom1 & chrom2 == loop$chrom2 &
+    abs(bin1 - loop$bin1) <= 1 &
+    abs(bin2 - loop$bin2) <= 1
+  ]
+  if (nrow(nearby) > 0) {
+    score.tb[res == 25 & id == loop$id, has_fine_neighbor25 := TRUE]
+  }
+}
+
+#### Round 2
+# Split into reference and comparison sets
+loops_10 <- score.tb[res == 10][, .(id, chrom1, start1, chrom2, start2)]
+loops_small <- score.tb[res %in% c(5)][, .(id, chrom1, start1, chrom2, start2)]
+
+# Bin resolution in basepairs (same for all since we're using Chebyshev distance of 1 in 25kb)
+bin_size <- 10000
+
+# Compute bin coordinates
+loops_10[, `:=`(bin1 = start1 %/% bin_size, bin2 = start2 %/% bin_size)]
+loops_small[, `:=`(bin1 = start1 %/% bin_size, bin2 = start2 %/% bin_size)]
+
+# Set keys for fast join
+setkey(loops_small, chrom1, chrom2, bin1, bin2)
+
+# Initialize a flag column
+score.tb[, has_fine_neighbor10 := FALSE]
+
+# Loop over each 25kb loop and check for nearby smaller-res loops
+for (i in seq_len(nrow(loops_10))) {
+  loop <- loops_10[i]
+  nearby <- loops_small[
+    chrom1 == loop$chrom1 & chrom2 == loop$chrom2 &
+    abs(bin1 - loop$bin1) <= 1 &
+    abs(bin2 - loop$bin2) <= 1
+  ]
+  if (nrow(nearby) > 0) {
+    score.tb[res == 10 & id == loop$id, has_fine_neighbor10 := TRUE]
+  }
+}
+
+
+####### Final loops
+score.final.tb <- score.tb %>% dplyr::filter(has_fine_neighbor25==FALSE) %>% dplyr::filter(has_fine_neighbor10==FALSE)
+fwrite(score.final.tb, here(loopDir, paste0("chromo_cons_allRes_postprocessed.tsv")), sep = "\t")
+fwrite(score.tb, here(loopDir, paste0("chromo_cons_allRes_beforePostprocessed.tsv")), sep = "\t")
+
+
+
+fwrite(score.final.tb %>% dplyr::select(seq(1, 6)), here(loopDir, paste0("chromo_cons_allRes_postprocessed.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(score.final.tb %>% dplyr::filter(DMSOcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_cons_allRes_postprocessed_DMSO.bedpe")), sep = "\t",
+       col.names = FALSE)
+fwrite(score.final.tb %>% dplyr::filter(dTAGcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_cons_allRes_postprocessed_dTAG.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(score.final.tb %>% dplyr::filter(dTAGcalledProcessed) %>% dplyr::filter(!DMSOcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_cons_allRes_postprocessed_dTAG_specific.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(score.final.tb %>% dplyr::filter(DMSOcalledProcessed) %>% dplyr::filter(!dTAGcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_cons_allRes_postprocessed_DMSO_specific.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(score.final.tb %>% dplyr::filter(DMSOcalledProcessed) %>% dplyr::filter(dTAGcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_cons_allRes_postprocessed_common.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+
+ # raw sizes
+  dms  <- nrow(score.final.tb %>% dplyr::filter(DMSOcalledProcessed))
+  dtag <- nrow(score.final.tb %>% dplyr::filter(dTAGcalledProcessed))
+  uni  <- nrow(score.final.tb)
+
+  # intersection size
+  int <- dms + dtag - uni
+  
+  # fit Euler with only‐DMSO, only‐dTAG, and overlap
+  fit <- euler(c(
+    DMSO        = dms  - int,
+    dTAG        = dtag - int,
+    "DMSO&dTAG" = int
+  ))
+  
+  # render & save
+  png(paste0("euler_DMSO_dTAG_postprocessing_allRes.png"), width = 4, height = 4, units = "in", res = 600)
+  print(plot(fit,
+       fills      = list(fill = c("#1f77b4","#ff7f0e"), alpha = .5),
+       edges      = FALSE,
+       labels     = list(fontsize = 16),
+       quantities = list(type = "counts", fontface = "bold", fontsize = 14),
+       main       = paste0("Overlap allRes postprocessing")
+  ))
+  dev.off()
+
+  
+  ### 1MB cutoff
+score.final.tb <- fread(here(loopDir, paste0("chromo_cons_allRes_postprocessed.tsv"))) %>%
+  dplyr::mutate(loopSize = start2 - start1) %>% dplyr::filter(loopSize <= 1000000)  
+fwrite(score.final.tb %>% dplyr::select(seq(1, 6)), here(loopDir, paste0("chromo_cons_allRes_postprocessed_1Mb.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(score.final.tb %>% dplyr::filter(DMSOcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_cons_allRes_postprocessed_DMSO_1Mb.bedpe")), sep = "\t",
+       col.names = FALSE)
+fwrite(score.final.tb %>% dplyr::filter(dTAGcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_cons_allRes_postprocessed_dTAG_1Mb.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(score.final.tb %>% dplyr::filter(dTAGcalledProcessed) %>% dplyr::filter(!DMSOcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_cons_allRes_postprocessed_dTAG_specific_1Mb.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(score.final.tb %>% dplyr::filter(DMSOcalledProcessed) %>% dplyr::filter(!dTAGcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_cons_allRes_postprocessed_DMSO_specific_1Mb.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(score.final.tb %>% dplyr::filter(DMSOcalledProcessed) %>% dplyr::filter(dTAGcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_cons_allRes_postprocessed_common_1Mb.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+
+ # raw sizes
+  dms  <- nrow(score.final.tb %>% dplyr::filter(DMSOcalledProcessed))
+  dtag <- nrow(score.final.tb %>% dplyr::filter(dTAGcalledProcessed))
+  uni  <- nrow(score.final.tb)
+
+  # intersection size
+  int <- dms + dtag - uni
+  
+  # fit Euler with only‐DMSO, only‐dTAG, and overlap
+  fit <- euler(c(
+    DMSO        = dms  - int,
+    dTAG        = dtag - int,
+    "DMSO&dTAG" = int
+  ))
+  
+  # render & save
+  png(paste0("euler_DMSO_dTAG_postprocessing_allRes_1Mb.png"), width = 4, height = 4, units = "in", res = 600)
+  print(plot(fit,
+       fills      = list(fill = c("#1f77b4","#ff7f0e"), alpha = .5),
+       edges      = FALSE,
+       labels     = list(fontsize = 16),
+       quantities = list(type = "counts", fontface = "bold", fontsize = 14),
+       main       = paste0("Overlap allRes postprocessing")
+  ))
+  dev.off()
+
+
+
+```
+### [1.3] [v] Chromosight vs hiccups
+```{r}
+# 1) load & rename so both tables have (chr1,start1,end1,chr2,start2,end2)
+loop.chromo <- fread(here("result","chromo_cons_allRes_postprocessed_DMSO.bedpe"))[ , 1:6 ]
+setnames(loop.chromo,
+         old = names(loop.chromo),
+         new = c("chr1","start1","end1","chr2","start2","end2"))
+
+loop.hiccup <- fread(here("../hiccups","hiccups_DMSO_merged_loops.bedpe"),
+                     skip = 2)[ , 1:6 ]
+setnames(loop.hiccup,
+         old = names(loop.hiccup),
+         new = c("chr1","start1","end1","chr2","start2","end2"))
+
+
+# give each loop a unique ID
+loop.chromo[,   loop_id := .I]
+loop.hiccup[, hic_id   := .I]
+
+# 2) define 10 kb bin, compute midpoints, then assign bins
+bin_size <- 25000L
+
+for (DT in list(loop.chromo, loop.hiccup)) {
+  DT[, mid1 := (start1 + end1) %/% 2]
+  DT[, mid2 := (start2 + end2) %/% 2]
+  DT[, bin1 := mid1 %/% bin_size]
+  DT[, bin2 := mid2 %/% bin_size]
+}
+
+# 3) for Chebyshev ≤1, expand hiccup loops into the 3×3 neighborhood of bins
+hic_nb <- loop.hiccup[
+  , CJ(bin1 = bin1 + -1:1,
+       bin2 = bin2 + -1:1),
+    by = .(chr1, chr2, hic_id)
+]
+
+# 4) key & join
+setkey(loop.chromo, chr1, chr2, bin1, bin2)
+setkey(hic_nb,       chr1, chr2, bin1, bin2)
+
+overlaps <- loop.chromo[ hic_nb, nomatch = 0L ]
+
+# 5) counts
+cat("Chromo loops overlapping HiCCUPS:", uniqueN(overlaps$loop_id), "\n")
+cat("HiCCUPS loops overlapping Chromo set:", uniqueN(overlaps$hic_id), "\n")
+cat("Total matched pairs:", nrow(overlaps), "\n")
+
+
+chromo  <- nrow(loop.chromo)
+overlap <- mean(uniqueN(overlaps$loop_id), uniqueN(overlaps$hic_id))%/%1
+hiccups  <- nrow(loop.hiccup)
+
+# fit Euler with only‐DMSO, only‐dTAG, and overlap
+fit <- euler(c(
+  chromo        = chromo  - overlap,
+  hiccups        = hiccups - overlap,
+  "chromo&hiccups" = overlap
+))
+
+# render & save
+png(paste0("euler_chromo_vs_hiccups_25kb_ChebyshevDist1_DMSO.png"), width = 4, height = 4, units = "in", res = 600)
+print(plot(fit,
+           fills      = list(fill = c("#1f77b4","#ff7f0e"), alpha = .5),
+           edges      = FALSE,
+           labels     = list(fontsize = 16),
+           quantities = list(type = "counts", fontface = "bold", fontsize = 14),
+           main       = paste0("Chromosight vs Hiccups (DMSO)")
+))
+dev.off()
+```
+
+```{r}
+# 1) load & rename so both tables have (chr1,start1,end1,chr2,start2,end2)
+loop.chromo <- fread(here("result","chromo_cons_allRes_postprocessed_dTAG.bedpe"))[ , 1:6 ]
+setnames(loop.chromo,
+         old = names(loop.chromo),
+         new = c("chr1","start1","end1","chr2","start2","end2"))
+
+loop.hiccup <- fread(here("../hiccups","hiccups_dTAG_merged_loops.bedpe"),
+                     skip = 2)[ , 1:6 ]
+setnames(loop.hiccup,
+         old = names(loop.hiccup),
+         new = c("chr1","start1","end1","chr2","start2","end2"))
+
+
+# give each loop a unique ID
+loop.chromo[,   loop_id := .I]
+loop.hiccup[, hic_id   := .I]
+
+# 2) define 10 kb bin, compute midpoints, then assign bins
+bin_size <- 25000L
+
+for (DT in list(loop.chromo, loop.hiccup)) {
+  DT[, mid1 := (start1 + end1) %/% 2]
+  DT[, mid2 := (start2 + end2) %/% 2]
+  DT[, bin1 := mid1 %/% bin_size]
+  DT[, bin2 := mid2 %/% bin_size]
+}
+
+# 3) for Chebyshev ≤1, expand hiccup loops into the 3×3 neighborhood of bins
+hic_nb <- loop.hiccup[
+  , CJ(bin1 = bin1 + -1:1,
+       bin2 = bin2 + -1:1),
+    by = .(chr1, chr2, hic_id)
+]
+
+# 4) key & join
+setkey(loop.chromo, chr1, chr2, bin1, bin2)
+setkey(hic_nb,       chr1, chr2, bin1, bin2)
+
+overlaps <- loop.chromo[ hic_nb, nomatch = 0L ]
+
+# 5) counts
+cat("Chromo loops overlapping HiCCUPS:", uniqueN(overlaps$loop_id), "\n")
+cat("HiCCUPS loops overlapping Chromo set:", uniqueN(overlaps$hic_id), "\n")
+cat("Total matched pairs:", nrow(overlaps), "\n")
+
+
+chromo  <- nrow(loop.chromo)
+overlap <- mean(uniqueN(overlaps$loop_id), uniqueN(overlaps$hic_id))%/%1
+hiccups  <- nrow(loop.hiccup)
+
+# fit Euler with only‐DMSO, only‐dTAG, and overlap
+fit <- euler(c(
+  chromo        = chromo  - overlap,
+  hiccups        = hiccups - overlap,
+  "chromo&hiccups" = overlap
+))
+
+# render & save
+png(paste0("euler_chromo_vs_hiccups_25kb_ChebyshevDist1_dTAG.png"), width = 4, height = 4, units = "in", res = 600)
+print(plot(fit,
+           fills      = list(fill = c("#1f77b4","#ff7f0e"), alpha = .5),
+           edges      = FALSE,
+           labels     = list(fontsize = 16),
+           quantities = list(type = "counts", fontface = "bold", fontsize = 14),
+           main       = paste0("Chromosight vs Hiccups (dTAG)")
+))
+dev.off()
+```
+### [1.4] [v]Compare loop score
+```{r}
+
+score.tb <- fread(here(loopDir, "chromo_cons_allRes_postprocessed.tsv"))
+### Drawing
+score.tb$density <- get_density(score.tb$score_DMSO, score.tb$score_dTAG, n = 100)
+score.tb <- score.tb %>% dplyr::arrange(density)
+diffCutoff = 0.2
+p1 <- ggplot(score.tb, aes(x = score_DMSO, y = score_dTAG, color = density)) +
+  geom_point() + 
+  scale_color_viridis() +
+  xlim(-0.5, 1) + ylim(-0.5, 1) + coord_fixed() +
+  geom_abline(slope = 1, intercept = 0, col = "grey50", linetype = "dashed") +
+  geom_hline(yintercept = 0, alpha = 0.5, color = "grey") +
+  geom_vline(xintercept = 0, alpha = 0.5, color = "grey") +
+  geom_abline(slope = 1, intercept = -diffCutoff, col = "red", linetype = "dotted",
+      color = "black",
+      size = lineThick*mmToLineUnit,
+      lineend = "square") +
+    geom_abline(slope = 1, intercept = diffCutoff, col = "red", linetype = "dotted",
+      color = "black",
+      size = lineThick*mmToLineUnit,
+      lineend = "square") +
+  theme_classic() + ggtitle(paste0("allRes loop scores"))
+
+
+png(here(figDir, paste0("consensus_score_scatterplot_allRes_pu100pz100.png")), res = 600, units = "in", width = 5*1.5, height = 2.5*1.5)
+print(p1)
+dev.off()
+svglite(here(figDir, paste0("consensus_score_scatterplot_allRes_pu100pz100.svg")), width = 5*1.5, height = 2.5*1.5)
+print(p1)
+dev.off()
+
+```
+
+### [2.1] [ ] Annotating loop
+#### Importing peaks
+```{r}
+#### Importing ChIP-exo peaks
+refDir <- here("../..", "reference")
+peak.H3K27ac <- importPeak(here(refDir, "GSM2438476-7_EC-DG-3458-H3K27AC_ASYN_common.bed"))
+peak.H3K4me3TSS <- importPeak(here(refDir, "33255_H3K4me3_04-745_Bruce-4_peaks.mergePeak.2.5kbTSS.bed"))
+peak.CTCF <- importPeak(here(refDir, "GSM2418860_CTCF_peaks.bed"))
+peak.RAD21 <- importPeak(here(refDir, "GSM2418859_RAD21_peaks.bed"))
+peak.NCAPH2 <- importPeak(here(refDir, "GSM2111449-50_shGFP_NCAPH2_peaks.bed"))
+```
+#### Functions
+```{r}
+annotateAnchorTSS <- function(bedpe){
+  tb.loop = 
+    setOverlapColumn("NCAPH2",
+                     setOverlapColumn("CTCF",
+                                      setOverlapColumn("RAD21",
+                                                       setOverlapColumn("H3K27ac",
+                                                                        setOverlapColumn("H3K4me3TSS", bedpe)))))
+  return(tb.loop)
+}
+
+setOverlapColumn <- function(peakName, loop){
+  tb.loop = as_tibble(loop)
+  overlap = returnOverlapIndexLixt(get(paste0("peak.", peakName)), tb.loop)
+  tb.loop[[paste0("A1_", peakName)]] = FALSE
+  tb.loop[[paste0("A1_", peakName)]][overlap[[1]]] = TRUE
+  tb.loop[[paste0("A2_", peakName)]] = FALSE
+  tb.loop[[paste0("A2_", peakName)]][overlap[[2]]] = TRUE
+  return(tb.loop)
+}
+
+returnOverlapIndexLixt <- function(peak, loop){
+  anchor1.tb = as_tibble(loop) %>% dplyr::select(chrom1, start1, end1)
+  anchor1 = makeGRangesFromDataFrame(data.frame(
+    chr = anchor1.tb$chrom1,
+    start = anchor1.tb$start1,
+    end = anchor1.tb$end1
+  ))
+  
+  anchor2.tb = as_tibble(loop) %>% dplyr::select(chrom2, start2, end2)
+  anchor2 = makeGRangesFromDataFrame(data.frame(
+    chr = anchor2.tb$chrom2,
+    start = anchor2.tb$start2,
+    end = anchor2.tb$end2
+  ))
+  
+  overlap = list(overlap1 = unique(queryHits(findOverlaps(anchor1, peak))),
+                 overlap2 = unique(queryHits(findOverlaps(anchor2, peak))))
+  return(overlap)
+}
+################################################################################
+createLoopAnnotation <- function(bedpe.loop.anno, name, figDir, outDir, colorList){
+  temp = bedpe.loop.anno %>%
+    dplyr::mutate(sample = name)
+  
+  num = nrow(temp)
+  p7 = ggplot(temp, aes(x = sample, fill = Anno2)) +
+    geom_bar(color = "black") +
+    theme_bw() +
+    labs(title = paste0(num, " loops"),
+         x = "", y = "Counts") +
+    scale_y_continuous(labels = comma_format()) +
+    theme(plot.title = element_text(hjust = 0.5),
+          aspect.ratio = 5,
+          legend.position = "right",
+          legend.direction  = "vertical") +
+    scale_fill_manual(values = colorList)
+  
+  width = 3
+  height = 5
+  svglite(here(figDir,
+               paste0("loopClassify_", name, ".svg")),
+          width = width, height = height)
+  plot(p7)
+  invisible(dev.off())
+  png(here(figDir,
+           paste0("loopClassify_", name, ".png")),
+      width = width, height = height, res = 600, units = "in")
+  plot(p7)
+  invisible(dev.off())
+}
+
+
+annotateLoopRelaxedTSS <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_H3K4me3TSS), "P", 
+                   if_else((A1_H3K27ac), "E",
+                           if_else((A1_CTCF|A1_RAD21), "S", "X"))),
+      A2 = if_else((A2_H3K4me3TSS), "P", 
+                   if_else((A2_H3K27ac), "E",
+                           if_else((A2_CTCF|A2_RAD21), "S", "X")))
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "E-P", "P-E", 
+                                  if_else(Anno == "S-P", "P-S",
+                                          if_else(Anno == "X-P", "P-X",
+                                                  if_else(Anno == "S-E", "E-S",
+                                                          if_else(Anno == "X-E", "E-X",
+                                                                  if_else(Anno == "X-S", "S-X",
+                                                                          Anno)))))),
+    )
+  
+  temp$Anno2 = factor(temp$Anno2, level = c("X-X",
+                                            "S-X", "S-S",
+                                            "E-X","E-S","E-E",
+                                            "P-E","P-X", "P-S", "P-P"))
+  
+  # Checking the precense of super enhancer
+  temp <- temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(AnnoSE = ifelse(A1_Whyte.SE | A2_Whyte.SE, "SE", "NO"))
+  temp$AnnoSE <- factor(temp$AnnoSE, level = c("SE", "NO"))
+  
+  return(temp)
+}
+
+annotateLoopPromoterTSS <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_H3K4me3TSS), "P", "N"),
+      A2 = if_else((A2_H3K4me3TSS), "P", "N")
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "N-P", "P-N", Anno))
+  
+  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "P-N", "P-P"))
+  
+  return(temp)
+}
+
+annotateLoopEnhancer <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_H3K27ac), "E", "N"),
+      A2 = if_else((A2_H3K27ac), "E", "N")
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "N-E", "E-N", Anno))
+  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "E-N", "E-E"))
+  
+  return(temp)
+}
+
+annotateLoopStructure <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_CTCF|A1_RAD21), "S", "N"),
+      A2 = if_else((A2_CTCF|A2_RAD21), "S", "N")
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "N-S", "S-N", Anno))
+  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "S-N", "S-S"))
+  return(temp)
+}
+
+
+
+
+saveAnnoGroupBedpe <- function(temp, anno.list, name, annoName, ouDir){
+  loop = temp %>% dplyr::filter(Anno2 %in% anno.list) %>%
+    dplyr::select(c("chrom1", "start1", "end1", "chrom2", "start2", "end2"))
+  fwrite(loop, here(outDir, paste0(name, "_", annoName, ".bedpe")), sep = "\t", col.names = FALSE)
+}
+```
+#### Annotation
+```{r}
+consensus.loop.tb <- fread(here("result", "chromo_cons_allRes_postprocessed.tsv"))
+################################################################################
+# Annotating
+temp.anno.TSS <- annotateAnchorTSS(consensus.loop.tb)
+
+# Split loops into NCAPH2-NCAPH2, NCAPH2-X, X-X
+loopTT <- temp.anno.TSS %>% dplyr::filter(A1_NCAPH2 & A2_NCAPH2) 
+fwrite(loopTT %>% dplyr::select(c(1, 2, 3, 4, 5, 6)), here(loopDir, "chromo_cons_allRes_postprocessed_NCAPH2_TT.bedpe"), sep = "\t", col.names = FALSE)
+
+loopFF <- temp.anno.TSS %>% dplyr::filter(!A1_NCAPH2 & !A2_NCAPH2)
+fwrite(loopFF %>% dplyr::select(c(1, 2, 3, 4, 5, 6)), here(loopDir, "chromo_cons_allRes_postprocessed_NCAPH2_FF.bedpe"), sep = "\t", col.names = FALSE)
+
+loopTF <- temp.anno.TSS %>% dplyr::filter(A1_NCAPH2 & !A2_NCAPH2)
+loopFT <- temp.anno.TSS %>% dplyr::filter(!A1_NCAPH2 & A2_NCAPH2)
+fwrite(loopTF %>% dplyr::select(c(1, 2, 3, 4, 5, 6)), here(loopDir, "chromo_cons_allRes_postprocessed_NCAPH2_TF.bedpe"), sep = "\t", col.names = FALSE)
+fwrite(loopFT %>% dplyr::select(c(1, 2, 3, 4, 5, 6)), here(loopDir, "chromo_cons_allRes_postprocessed_NCAPH2_FT.bedpe"), sep = "\t", col.names = FALSE)
+
+bedpe_names <- c("chr1", "start1", "end1", "chr2", "start2", "end2")
+
+part1 <- loopTF %>%
+  dplyr::select(1:6) %>% # Select first 6 columns
+  setNames(bedpe_names)  # Ensure standard names
+
+# Prepare the second part (FT order, but columns rearranged and RENAMED to standard)
+part2 <- loopFT %>%
+  dplyr::select(4:6, 1:3) %>% # Select anchor2 columns, then anchor1 columns
+  setNames(bedpe_names)  # RENAME the columns to the standard order
+
+# Bind rows - now the column names match correctly
+loopTFT <- bind_rows(part1, part2)
+fwrite(loopTFT, here(loopDir, "chromo_cons_allRes_postprocessed_NCAPH2_TFFT_TForder.bedpe"), sep = "\t", col.names = FALSE)
+
+######
+drawScatter <- function(score.tb, name){
+  score.tb$density <- get_density(score.tb$score_DMSO, score.tb$score_dTAG, n = 100)
+  score.tb <- score.tb %>% dplyr::arrange(density)
+  diffCutoff = 0.2
+  p1 <- ggplot(score.tb, aes(x = score_DMSO, y = score_dTAG, color = density)) +
+    geom_point() + 
+    scale_color_viridis() +
+    xlim(-0.5, 1) + ylim(-0.5, 1) + coord_fixed() +
+    geom_abline(slope = 1, intercept = 0, col = "grey50", linetype = "dashed") +
+    geom_hline(yintercept = 0, alpha = 0.5, color = "grey") +
+    geom_vline(xintercept = 0, alpha = 0.5, color = "grey") +
+    geom_abline(slope = 1, intercept = -diffCutoff, col = "red", linetype = "dotted",
+                color = "black",
+                size = lineThick*mmToLineUnit,
+                lineend = "square") +
+    geom_abline(slope = 1, intercept = diffCutoff, col = "red", linetype = "dotted",
+                color = "black",
+                size = lineThick*mmToLineUnit,
+                lineend = "square") +
+    theme_classic() + ggtitle(paste0(name))
+  
+  
+  png(here(figDir, paste0("consensus_score_scatterplot_allRes_pu100pz100_", name, ".png")), res = 600, units = "in", width = 5*1.5, height = 2.5*1.5)
+  print(p1)
+  dev.off()
+  svglite(here(figDir, paste0("consensus_score_scatterplot_allRes_pu100pz100_", name, ".svg")), width = 5*1.5, height = 2.5*1.5)
+  print(p1)
+  dev.off()
+}
+
+drawScatter(loopTT, "NCAPH2_TT")
+drawScatter(loopTFT, "NCAPH2_TFFT")
+drawScatter(loopFF, "NCAPH2_FF")
+
+```
+
+### Loop size distribution
+```{r}
+temp.anno.TSS <- temp.anno.TSS %>% dplyr::mutate(size = start2 - start1,
+                                class = case_when(
+                                  A1_NCAPH2 & A2_NCAPH2 ~ "TT",
+                                  !A1_NCAPH2 & !A2_NCAPH2 ~ "FF",
+                                  TRUE ~ "TF/FT"
+                                ))
+
+data <- temp.anno.TSS %>% dplyr::select(class, size)
+data_summary <- data %>%
+  group_by(class) %>%
+  summarise(median_size = median(size), mean_size = mean(size), .groups = "drop")
+
+
+p <- ggplot(data, aes(x = class, y = size, fill = class)) +
+  geom_violin(trim = TRUE, alpha = 0.5) +      # draw full violins
+  geom_boxplot(width = 0.1, outlier.shape = NA) +  # narrow boxplots, hide outliers
+  theme_classic() +   scale_y_continuous(expand = c(0, 0)) +      # no gap below y=0
+  labs(
+    x = "Class",
+    y = "Size",
+    title = "Loop size"
+  ) +
+  theme(legend.position = "none") +
+  geom_point(
+    data = data_summary,
+    aes(x = class, y = mean_size),
+    color = "red", size = 3
+  ) +
+  # text label of the median
+  geom_text(
+    data = data_summary,
+    aes(x = class, y = median_size, label = paste0(round(median_size)/1000, "kb")),
+    vjust = -0.5,
+    color = "black"
+  ) +
+  geom_text(
+    data = data_summary,
+    aes(x = class, y = mean_size, label = paste0(round(mean_size/1000), "kb")),
+    vjust = -0.5,
+    color = "red"
+  )
+
+png(
+  filename = "loop_size_NCAP2.png",
+  width    = 3,       # inches
+  height   = 3,       # inches
+  units    = "in",
+  res      = 600      # dots per inch
+)
+print(p)
+dev.off()
+
+
+```
+
