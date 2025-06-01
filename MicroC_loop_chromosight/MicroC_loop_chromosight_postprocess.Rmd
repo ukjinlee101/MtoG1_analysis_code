@@ -280,7 +280,7 @@ for (res in c(25000, 10000, 5000)){
 
   
   loop.merged <- bind_rows(loop1, loop2, loop3) %>% distinct() %>% dplyr::filter(start2 - start1 <= 2e6)
-  fwrite(loop.merged, here(loopDir, paste0("chromo_cons_", res, "kb.bedpe")), 
+  fwrite(loop.merged, here(loopDir, paste0("chromo_cons_", res, "bp.bedpe")), 
          sep = '\t', col.names = FALSE, row.names = FALSE)
 }
 

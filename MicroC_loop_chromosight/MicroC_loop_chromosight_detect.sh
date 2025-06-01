@@ -49,25 +49,21 @@ done
 
 
 ####################################################################################
-# 240801 quantifying scores
+# Quantify chromosight loops for post-processing
 
-sample=("D3-DMSO_pooled" "D3-dTAG_pooled")
-resolutions=("25" "10")
+sample=("G1DMSO_pooled" "G1dTAG_pooled" "G1A485_pooled")
+resolutions=("25000" "10000" "5000")
 
-workDir="/athena/apostoloulab/scratch/ukl4001/Genomics_SMC2_collab/MicroC"
-resultDir="${workDir}/analysis/chromosight/result"
-
-coolDir="${workDir}/result/mcool"
-bedDir="${resultDir}"
-outDir="${resultDir}"
+coolDir="/athena/apostoloulab/scratch/ukl4001/data/cool_norm_pooled"
+resultDir="/athena/apostoloulab/scratch/ukl4001/data/chromosight"
 
 for res in "${resolutions[@]}"; do
     for samp in "${sample[@]}"; do
-        chromosight quantify ${bedDir}/chromo_cons_${res}kb.bedpe \
-                        ${coolDir}/${samp}_${res}kb_KR.cool \
-                        ${outDir}/${samp}_cons_${res}kb_pu100pz100 \
+        chromosight quantify ${resultDir}/chromo_cons_${res}bp.bedpe \
+                        ${coolDir}/${samp}_${res}bp_KR.cool \
+                        ${resultDir}/${samp}_cons_${res}bp_pu100pz100 \
                         --pattern=loops \
-                        --threads=10 \
+                        --threads=64 \
                         --perc-undetected=100 \
                         --perc-zero=100
     done
