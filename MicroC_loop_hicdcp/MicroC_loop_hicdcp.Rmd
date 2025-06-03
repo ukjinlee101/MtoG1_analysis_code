@@ -71,9 +71,11 @@ colorListStructure <- c(palette_3[["grey3"]], palette_3[["grey2"]], palette_3[["
 
 ## DIR LIST
 ```{r}
-loopDir <- "/Volumes/UKJIN_SSD/data/loop_chromosight"
-figDir <- "/Volumes/UKJIN_SSD/figure/loop_chromosight"
-
+hicDir <- "/Volumes/UKJIN_SSD/data/hic_pooled"
+loopDir <- "/Volumes/UKJIN_SSD/data/loop_hicdcp"
+figDir <- "/Volumes/UKJIN_SSD/figure/loop_hicdcp"
+refDir <- "/Volumes/UKJIN_SSD/MtoG1_analysis_code/reference"
+dir.create(loopDir, showWarnings = FALSE)
 dir.create(figDir, showWarnings = FALSE)
 ```
 
@@ -119,3 +121,107 @@ panelSize <- function(num, unit = panelUnit, margin = panelMargin){
 }
 
 ```
+
+# Construct features
+In the standard workflow, one first needs to generate genomic features present in the HiCDCPlus model (GC content, mappability, effective length) using the construct_features function (see Creating genomic feature files). This can be either done for uniformly or multiple restriction fragment binned data.
+HiCDCPlus stores counts and features in a memory-efficient way using what we name as a gi_list instance(see The gi_list instance). One next feeds the genomic features in the form of a gi_list instance using generate_bintolen_gi_list function. Then, counts can be added to this gi_list instance using dedicated functions for each input Hi-C file format (add_hic_counts, add_hicpro_matrix_counts,add_hicpro_allvalidpairs.counts).
+
+
+```{r}
+# Build genomic features
+construct_features_parallel(output_path = here(loopDir, "mm10_5kb_RE_agnostic_bins_uniform"),
+                            gen = 'Mmusculus',
+                            gen_ver = 'mm10',
+                            feature_type = 'RE-agnostic', bin_type = 'Bins-uniform', binsize = 5000,
+                            wg_file = here(refDir, "ATAC", "GSM3106257_ATAC_1_blacklistMasked.bw"),
+                            ncore = 10)
+
+gi_list <- generate_bintolen_gi_list(bintolen_path = here(loopDir, "mm10_5kb_RE_agnostic_bins_uniform_bintolen.txt.gz"),
+                                     Dthreshold = 2e+06,
+                                     binned = TRUE, binsize = 5000,
+                                     gen = 'Mmusculus',
+                                     gen_ver = 'mm10')
+
+# Add Hic count
+gi_list <- add_hic_counts(gi_list, hic_path = here(hicDir, "G1DMSO_pooled_allRes.hic"))
+
+# Expand features for modeling
+gi_list <- expand_1D_features(gi_list)
+
+# Run HiC-DC+ 
+set.seed(123) #HiC-DC downsamples rows for modeling
+gi_list <- HiCDCPlus(gi_list,
+                     distance_type = "spline",
+                     binned = TRUE, ncore = 10)
+head(gi_list)
+
+hicdc2hic(gi_list,hicfile=here(loopDir,'G1DMSO_pooled_result.hic'),
+          mode='normcounts',gen_ver='mm10')
+
+gi_list_write(gi_list,fname=here(loopDir,'G1DMSO_pooled_result.txt.gz'))
+
+```
+
+
+
+```{r}
+input.file.read <- function(filepath) {
+  if (grepl("\\.txt.gz$", filepath) | grepl("\\.txt$", 
+                                            filepath)) {
+    return(data.table::fread(filepath))
+  }
+  else if (grepl("\\.rds$", filepath)) {
+    return(readRDS(filepath))
+  }
+  else {
+    stop("Can only read in paths ending with .txt,.txt.gz, or .rds")
+  }
+}
+
+if (binned & is.null(binsize) & !is.null(bintolen_path)) {
+  bintolen <- input.file.read(bintolen_path)
+  bintolen <- bintolen %>% tidyr::separate(.data$bins, 
+                                           c("chr", "start", "end"), "-") %>% dplyr::mutate(start = floor(as.numeric(.data$start)/1000) * 
+                                                                                              1000, end = as.numeric(.data$end))
+  binsize <- round(mean(abs(bintolen$end - bintolen$start))/1000) * 
+    1000
+} else if (binned & is.null(binsize) & is.null(bintolen_path)) {
+  stop("If binned, need to specify at least one of binsize and bintolen_path")
+}
+
+if (!is.null(bintolen_path) & !exists("bintolen")) {
+  bintolen <- input.file.read(bintolen_path)
+  if (binned) {
+    bintolen <- bintolen %>% tidyr::separate(.data$bins, 
+                                             c("chr", "start", "end"), "-") %>% dplyr::mutate(start = floor(as.numeric(.data$start)/1000) * 
+                                                                                                1000, end = as.numeric(.data$end))
+  }
+  else {
+    bintolen <- bintolen %>% tidyr::separate(.data$bins, 
+                                             c("chr", "start", "end"), "-") %>% dplyr::mutate(start = as.numeric(.data$start), 
+                                                                                              end = as.numeric(.data$end))
+  }
+}
+if (is.null(chrs)) {
+  chrs <- sort(unique(bintolen$chr))
+}
+if (binned) {
+  gi_list <- generate_binned_gi_list(binsize, chrs, Dthreshold, 
+                                     gen, gen_ver)
+}
+else {
+  gi_list <- generate_df_gi_list(bintolen, chrs, Dthreshold, 
+                                 gen, gen_ver)
+}
+gi_list <- add_1D_features(gi_list, bintolen, chrs)
+return(gi_list)
+```
+
+# Make gi_list instance
+```{r}
+gi_list <- generate_binned_gi_list(binsize=5000, chrs=c('chr22'),
+                                 gen="Hsapiens",gen_ver="hg19")
+head(gi_list)
+```
+
+
