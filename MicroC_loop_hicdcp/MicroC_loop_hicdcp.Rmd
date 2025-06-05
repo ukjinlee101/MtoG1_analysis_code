@@ -8,15 +8,16 @@ title: "R Notebook"
 pkgs = c("tidyverse", "here", "svglite", "ggplot2", "ggrepel",
          "stringr", "BiocManager", "RColorBrewer", "viridis", "magick",
          "nlme", "factoextra", "devtools", "beepr", "remotes",
-         "cowplot", "data.table", "strawr", "rtracklayer", "utils",
+         "cowplot", "data.table", "strawr", "utils",
          "reshape2", "VennDiagram","gridExtra", "eulerr", "scales",
-         "InteractionSet", "gplots", "locfdr", "future", "ggbeeswarm", "glossary", "scico")
+         "gplots", "locfdr", "future", "ggbeeswarm", "glossary", "scico")
 bio_pkgs = c("biomaRt", "DESeq2", "ComplexHeatmap", "apeglm", "vsn",
              "rhdf5", "InteractionSet", "plotgardener", "HiCDCPlus",
              "GenomicInteractions", "LOLA", "AnnotationHub",
              "org.Mm.eg.db", "enrichplot", "DOSE", "clusterProfiler",
              "HiCExperiment", "HiCool", "HiContacts", "HiContactsData", "fourDNData", "DNAZooData",
-             "MotifDb", "Biostrings")
+             "MotifDb", "Biostrings", "rtracklayer", "InteractionSet",
+             "BSgenome.Mmusculus.UCSC.mm10")
 
 # INSTALL PACKAGES
 # install.packages(pkgs)
@@ -39,7 +40,10 @@ options(scipen=999)
 
 
 # Fixed HiCDC+
-source("/Volumes/UKJIN_SSD/MtoG1_analysis_code/script/hicdc2hic_custom.R")
+curDir <- "/Volumes/UKJIN_SSD"
+curDir <- "/athena/apostoloulab/scratch/ukl4001"
+
+source(here(curDir, "/MtoG1_analysis_code/script/hicdc2hic_custom.R"))
 
 ```
 
@@ -71,12 +75,15 @@ colorListStructure <- c(palette_3[["grey3"]], palette_3[["grey2"]], palette_3[["
 
 ## DIR LIST
 ```{r}
-hicDir <- "/Volumes/UKJIN_SSD/data/hic_pooled"
-loopDir <- "/Volumes/UKJIN_SSD/data/loop_hicdcp"
-figDir <- "/Volumes/UKJIN_SSD/figure/loop_hicdcp"
-refDir <- "/Volumes/UKJIN_SSD/MtoG1_analysis_code/reference"
+hicDir <- here(curDir, "data/hic_pooled")
+loopDir <- here(curDir, "data/loop_hicdcp")
+figDir <- here(curDir, "figure/loop_hicdcp")
+refDir <- here(curDir, "MtoG1_analysis_code/reference")
+rdsDir <- here(curDir, "data/rds")
 dir.create(loopDir, showWarnings = FALSE)
 dir.create(figDir, showWarnings = FALSE)
+dir.create(rdsDir, showWarnings = FALSE)
+
 ```
 
 ## FIGURE PARAMETERS
@@ -128,100 +135,78 @@ HiCDCPlus stores counts and features in a memory-efficient way using what we nam
 
 
 ```{r}
-# Build genomic features
-construct_features_parallel(output_path = here(loopDir, "mm10_5kb_RE_agnostic_bins_uniform"),
-                            gen = 'Mmusculus',
-                            gen_ver = 'mm10',
-                            feature_type = 'RE-agnostic', bin_type = 'Bins-uniform', binsize = 5000,
-                            wg_file = here(refDir, "ATAC", "GSM3106257_ATAC_1_blacklistMasked.bw"),
-                            ncore = 10)
-
-gi_list <- generate_bintolen_gi_list(bintolen_path = here(loopDir, "mm10_5kb_RE_agnostic_bins_uniform_bintolen.txt.gz"),
-                                     Dthreshold = 2e+06,
-                                     binned = TRUE, binsize = 5000,
-                                     gen = 'Mmusculus',
-                                     gen_ver = 'mm10')
-
-# Add Hic count
-gi_list <- add_hic_counts(gi_list, hic_path = here(hicDir, "G1DMSO_pooled_allRes.hic"))
-
-# Expand features for modeling
-gi_list <- expand_1D_features(gi_list)
-
-# Run HiC-DC+ 
-set.seed(123) #HiC-DC downsamples rows for modeling
-gi_list <- HiCDCPlus(gi_list,
-                     distance_type = "spline",
-                     binned = TRUE, ncore = 10)
-head(gi_list)
-
-hicdc2hic(gi_list,hicfile=here(loopDir,'G1DMSO_pooled_result.hic'),
-          mode='normcounts',gen_ver='mm10')
-
-gi_list_write(gi_list,fname=here(loopDir,'G1DMSO_pooled_result.txt.gz'))
-
+# for(res in c(10, 5)){
+#   for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
+    
+for(res in c(5)){
+  for(sample in c("G1A485_pooled")){
+    
+    if(!file.exists(here(loopDir, paste0("mm10_", res, "kb_RE_agnostic_bins_uniform_bintolen.txt.gz")))){
+      construct_features_parallel(output_path = here(loopDir, paste0("mm10_", res, "kb_RE_agnostic_bins_uniform")),
+                                  gen = 'Mmusculus',
+                                  gen_ver = 'mm10',
+                                  feature_type = 'RE-agnostic', bin_type = 'Bins-uniform', binsize = res * 1000,
+                                  wg_file = here(refDir, "ATAC", "GSM3106257_ATAC_1_blacklistMasked.bw"),
+                                  ncore = 8)
+    }
+    
+    gi_list <- generate_bintolen_gi_list(
+      bintolen_path = here(loopDir, paste0("mm10_", res, "kb_RE_agnostic_bins_uniform_bintolen.txt.gz")),
+      Dthreshold = 2e+06,
+      binned = TRUE, binsize = res * 1000,
+      gen = 'Mmusculus',
+      gen_ver = 'mm10')
+    
+    # Add HiC count
+    gi_list <- add_hic_counts(gi_list, hic_path = here(hicDir, paste0(sample, "_allRes.hic")))
+    
+    # Expand features for modeling
+    gi_list <- expand_1D_features(gi_list)
+    
+    # saving gi_list for backup
+    saveRDS(gi_list, here(rdsDir, paste0("gi_list_", sample, "_", res, "kb.rds")))
+    
+    # Run HiC-DC+ 
+    set.seed(123) #HiC-DC downsamples rows for modeling
+    gi_list <- HiCDCPlus(gi_list,
+                         distance_type = "spline",
+                         binned = TRUE)
+    saveRDS(gi_list, here(rdsDir, paste0("gi_list_", sample, "_", res, "kb_hicdcplus.rds")))
+    
+    head(gi_list)
+    
+    hicdc2hic_custom(gi_list,hicfile=here(loopDir, paste0(sample, "_", res, "kb_hicdcplus_obsexp.hic")),
+                     mode='normcounts',gen_ver='mm10')
+    hicdc2hic_custom(gi_list,hicfile=here(loopDir, paste0(sample, "_", res, "kb_hicdcplus_zscore.hic")),
+                     mode='zvalue',gen_ver='mm10')
+    hicdc2hic_custom(gi_list,hicfile=here(loopDir, paste0(sample, "_", res, "kb_hicdcplus_minuslog10pval.hic")),
+                     mode='pvalue',gen_ver='mm10')
+    hicdc2hic_custom(gi_list,hicfile=here(loopDir, paste0(sample, "_", res, "kb_hicdcplus_minuslog10qval.hic")),
+                     mode='qvalue',gen_ver='mm10')
+    
+    gi_list_write(gi_list,fname=here(loopDir, paste0(sample, "_", res, "kb_hicdcplus.txt.gz")))
+    
+    cutoff <- 0.001
+    gi_list_filtered <- lapply(gi_list, function(gi) {
+      gi[ mcols(gi)$qvalue <  cutoff]
+    })
+    
+    df_list <- lapply(gi_list_filtered, as.data.frame)
+    
+    # Combine into one big data.frame
+    combined_df <- do.call(rbind, df_list)
+    
+    # Write to a tab-delimited file
+    
+    fwrite(combined_df %>% dplyr::select(c(1, 2, 3, 8, 9, 10, 16, 21, 22)),
+           quote = FALSE, row.names = FALSE, col.names = FALSE,
+           sep = "\t",
+           file = here(loopDir, paste0(sample, "_", res, "kb_hicdcplus_qval", 0.0005, ".bedpe")))
+    
+    rm(combined_df, df_list, gi_list, gi_list_filtered)
+  }
+}
 ```
 
-
-
-```{r}
-input.file.read <- function(filepath) {
-  if (grepl("\\.txt.gz$", filepath) | grepl("\\.txt$", 
-                                            filepath)) {
-    return(data.table::fread(filepath))
-  }
-  else if (grepl("\\.rds$", filepath)) {
-    return(readRDS(filepath))
-  }
-  else {
-    stop("Can only read in paths ending with .txt,.txt.gz, or .rds")
-  }
-}
-
-if (binned & is.null(binsize) & !is.null(bintolen_path)) {
-  bintolen <- input.file.read(bintolen_path)
-  bintolen <- bintolen %>% tidyr::separate(.data$bins, 
-                                           c("chr", "start", "end"), "-") %>% dplyr::mutate(start = floor(as.numeric(.data$start)/1000) * 
-                                                                                              1000, end = as.numeric(.data$end))
-  binsize <- round(mean(abs(bintolen$end - bintolen$start))/1000) * 
-    1000
-} else if (binned & is.null(binsize) & is.null(bintolen_path)) {
-  stop("If binned, need to specify at least one of binsize and bintolen_path")
-}
-
-if (!is.null(bintolen_path) & !exists("bintolen")) {
-  bintolen <- input.file.read(bintolen_path)
-  if (binned) {
-    bintolen <- bintolen %>% tidyr::separate(.data$bins, 
-                                             c("chr", "start", "end"), "-") %>% dplyr::mutate(start = floor(as.numeric(.data$start)/1000) * 
-                                                                                                1000, end = as.numeric(.data$end))
-  }
-  else {
-    bintolen <- bintolen %>% tidyr::separate(.data$bins, 
-                                             c("chr", "start", "end"), "-") %>% dplyr::mutate(start = as.numeric(.data$start), 
-                                                                                              end = as.numeric(.data$end))
-  }
-}
-if (is.null(chrs)) {
-  chrs <- sort(unique(bintolen$chr))
-}
-if (binned) {
-  gi_list <- generate_binned_gi_list(binsize, chrs, Dthreshold, 
-                                     gen, gen_ver)
-}
-else {
-  gi_list <- generate_df_gi_list(bintolen, chrs, Dthreshold, 
-                                 gen, gen_ver)
-}
-gi_list <- add_1D_features(gi_list, bintolen, chrs)
-return(gi_list)
-```
-
-# Make gi_list instance
-```{r}
-gi_list <- generate_binned_gi_list(binsize=5000, chrs=c('chr22'),
-                                 gen="Hsapiens",gen_ver="hg19")
-head(gi_list)
-```
 
 

@@ -26,7 +26,7 @@ hicdc2hic_custom <- function (gi_list, hicfile, mode = "normcounts", chrs = NULL
     dir.create(hicdc2hicoutputdir, showWarnings = FALSE, 
                recursive = TRUE, mode = "0777")
   }
-  jarpath<-"/Users/ukjinlee/Local_Bioinformatics/001_software/juicer_tools_1.22.01.jar"
+  jarpath<-"/athena/apostoloulab/scratch/ukl4001/001_software/juicer_tools_1.22.01.jar"
   ifelse(.Platform$OS.type == "windows" & Sys.getenv("R_ARCH") == 
            "/i386", min(memory, 2), memory)
   if (mode == "zvalue") {
