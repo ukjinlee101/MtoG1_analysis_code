@@ -196,7 +196,7 @@ for(res in c(5)){
     combined_df <- do.call(rbind, df_list)
     
     # Write to a tab-delimited file
-    
+    ####### column coordinates needs to be double checked
     fwrite(combined_df %>% dplyr::select(c(1, 2, 3, 8, 9, 10, 16, 21, 22)),
            quote = FALSE, row.names = FALSE, col.names = FALSE,
            sep = "\t",
@@ -209,10 +209,32 @@ for(res in c(5)){
 
 # Testing cutoff (Run on cluster)
 ```{r}
-loopDir <- "/Volumes/UKJIN_SSD/data/loop_hicdcp"
-res <- 5
+res <- 10
 sample <- "G1DMSO_pooled"
-gi_list <- gi_list_read(fname = here(loopDir, paste0(sample, "_", res, "kb_hicdcplus.txt.gz")))
+
+for(sample in c("G1dTAG_pooled", "G1A485_pooled")){
+  gi_list <- gi_list_read(fname = here(loopDir, paste0(sample, "_", res, "kb_hicdcplus.txt.gz")))
+  
+  
+  for(cutoff in c(0.1, 0.05, 0.01, 0.005, 0.001, 0.0005)){
+    gi_list_filtered <- lapply(gi_list, function(gi) {
+      gi[ mcols(gi)$qvalue <  cutoff]
+    })
+    
+    df_list <- lapply(gi_list_filtered, as.data.frame)
+    
+    # Combine into one big data.frame
+    combined_df <- do.call(rbind, df_list)
+    
+    # Write to a tab-delimited file
+    
+    fwrite(combined_df %>% dplyr::select(c(1, 2, 3, 6, 7, 8, 12, 13, 14)),
+           quote = FALSE, row.names = FALSE, col.names = FALSE,
+           sep = "\t",
+           file = here(loopDir, paste0("testing_", sample, "_", res, "kb_hicdcplus_qval", cutoff, ".bedpe")))
+    
+  }
+}
 ```
 
 
