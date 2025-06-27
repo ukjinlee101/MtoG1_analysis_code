@@ -210,29 +210,35 @@ for(res in c(5)){
 # Testing cutoff (Run on cluster)
 ```{r}
 res <- 10
-sample <- "G1DMSO_pooled"
-
-for(sample in c("G1dTAG_pooled", "G1A485_pooled")){
-  gi_list <- gi_list_read(fname = here(loopDir, paste0(sample, "_", res, "kb_hicdcplus.txt.gz")))
-  
-  
-  for(cutoff in c(0.1, 0.05, 0.01, 0.005, 0.001, 0.0005)){
-    gi_list_filtered <- lapply(gi_list, function(gi) {
-      gi[ mcols(gi)$qvalue <  cutoff]
-    })
+for (res in c(10, 5)){
+  for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
+    gi_list <- gi_list_read(fname = here(loopDir, paste0(sample, "_", res, "kb_hicdcplus.txt.gz")))
     
-    df_list <- lapply(gi_list_filtered, as.data.frame)
+    cutoffs <- c(0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0)
     
-    # Combine into one big data.frame
-    combined_df <- do.call(rbind, df_list)
-    
-    # Write to a tab-delimited file
-    
-    fwrite(combined_df %>% dplyr::select(c(1, 2, 3, 6, 7, 8, 12, 13, 14)),
-           quote = FALSE, row.names = FALSE, col.names = FALSE,
-           sep = "\t",
-           file = here(loopDir, paste0("testing_", sample, "_", res, "kb_hicdcplus_qval", cutoff, ".bedpe")))
-    
+    for(i in seq_len(length(cutoffs) - 1)) {
+      upper <- cutoffs[i]
+      lower <- cutoffs[i + 1]
+      
+      
+      gi_list_filtered <- lapply(gi_list, function(gi) {
+        qv <- mcols(gi)$qvalue
+        gi[qv < upper & qv >= lower]
+      })
+      
+      df_list <- lapply(gi_list_filtered, as.data.frame)
+      
+      # Combine into one big data.frame
+      combined_df <- do.call(rbind, df_list)
+      
+      # Write to a tab-delimited file
+      
+      fwrite(combined_df %>% dplyr::select(c(1, 2, 3, 6, 7, 8, 12, 13, 14)),
+             quote = FALSE, row.names = FALSE, col.names = FALSE,
+             sep = "\t",
+             file = here(loopDir, paste0("testing_", sample, "_", res, "kb_hicdcplus_qval", upper, "_", lower, ".bedpe")))
+    }
+    rm(gi_list)
   }
 }
 ```
