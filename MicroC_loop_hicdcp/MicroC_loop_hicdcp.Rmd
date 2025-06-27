@@ -129,10 +129,9 @@ panelSize <- function(num, unit = panelUnit, margin = panelMargin){
 
 ```
 
-# Construct features
+# HiCDC+ (Run on cluster)
 In the standard workflow, one first needs to generate genomic features present in the HiCDCPlus model (GC content, mappability, effective length) using the construct_features function (see Creating genomic feature files). This can be either done for uniformly or multiple restriction fragment binned data.
 HiCDCPlus stores counts and features in a memory-efficient way using what we name as a gi_list instance(see The gi_list instance). One next feeds the genomic features in the form of a gi_list instance using generate_bintolen_gi_list function. Then, counts can be added to this gi_list instance using dedicated functions for each input Hi-C file format (add_hic_counts, add_hicpro_matrix_counts,add_hicpro_allvalidpairs.counts).
-
 
 ```{r}
 # for(res in c(10, 5)){
@@ -208,5 +207,12 @@ for(res in c(5)){
 }
 ```
 
+# Testing cutoff (Run on cluster)
+```{r}
+loopDir <- "/Volumes/UKJIN_SSD/data/loop_hicdcp"
+res <- 5
+sample <- "G1DMSO_pooled"
+gi_list <- gi_list_read(fname = here(loopDir, paste0(sample, "_", res, "kb_hicdcplus.txt.gz")))
+```
 
 
