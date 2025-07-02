@@ -14,7 +14,7 @@ configfile: "config/config.json"
 # RULES
 rule all:
 	input:
-		expand("/athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_{num}.ok", num = list(range(1, 46)))
+		expand("/athena/apostoloulab/scratch/ukl4001/MtoG1_analysis_code/MicroC_GenomeDISCO/log/genomedisco_{num}.ok", num = list(range(46, 58)))
 
 ###############################################################################
 

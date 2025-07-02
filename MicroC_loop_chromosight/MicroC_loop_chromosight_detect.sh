@@ -5,6 +5,8 @@
 conda activate chromosight
 
 sample=("G1DMSO_pooled" "G1dTAG_pooled" "G1A485_pooled")
+sample=("EpiG1DMSO_pooled" "EpiG1dTAG_pooled")
+
 resolutions=("25000" "10000" "5000")
 
 coolDir="/athena/apostoloulab/scratch/ukl4001/data/cool_norm_pooled"
@@ -37,7 +39,7 @@ for samp in "${sample[@]}"; do
         fi
         chromosight detect "${coolDir}/${samp}_${res}bp_KR.cool" \
             "${resultDir}/${samp}_chromosight_${res}bp" \
-            --threads=64 \
+            --threads=16 \
             --pattern=loops \
             --pearson="${pearson_cutoff}" \
             --min-separation="${min_separation_value}" \

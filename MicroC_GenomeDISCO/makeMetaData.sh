@@ -33,11 +33,25 @@ samples3=(
     "G1A485_B3R3_allRes"
 )
 
+samples4=(
+    "EpiG1DMSO_B4R1_allRes"
+    "EpiG1DMSO_B4R2_allRes"
+    "EpiG1DMSO_B4R3_allRes"
+    "EpiG1DMSO_B4R4_allRes"
+)
+
+samples5=(
+    "EpiG1dTAG_B4R1_allRes"
+    "EpiG1dTAG_B4R2_allRes"
+    "EpiG1dTAG_B4R3_allRes"
+    "EpiG1dTAG_B4R4_allRes"
+)
+
 
 k=1
 # Loop through each pair of samples to generate the files
 
-for samples in samples1 samples2 samples3; do
+for samples in samples1 samples2 samples3 samples4 samples5; do
     declare -n arr="$samples"
 
     for (( i=0; i<${#arr[@]}; i++ )); do

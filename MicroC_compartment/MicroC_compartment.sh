@@ -2,6 +2,8 @@
 
 PAIRDIR="/athena/apostoloulab/scratch/ukl4001/MicroC_MtoG1_Batch123_pooled/pipeline/result/mappedPair_pooled"
 PAIRDIR="/athena/apostoloulab/scratch/ukl4001/MicroC_Async_GSE178982/pipeline/result/mappedPair_pooled"
+PAIRDIR="/athena/apostoloulab/scratch/ukl4001/MicroC_MtoG1_Batch4_pooled/pipeline/result/mappedPair_pooled"
+
 OUTDIR="/athena/apostoloulab/scratch/ukl4001/temp"
 
 sample="G1DMSO_pooled"
@@ -9,7 +11,8 @@ sample="G1dTAG_pooled"
 sample="G1A485_pooled"
 sample="GSE178982_AsyncUT_pooled"
 sample="GSE178982_AsyncAID_pooled"
-
+sample="EpiG1DMSO_pooled"
+sample="EpiG1dTAG_pooled"
 
 infile="${PAIRDIR}/${sample}.pairs"
 tempfile="${OUTDIR}/${sample}.output.txt"
@@ -54,3 +57,6 @@ sbatch cscore_G1A485.sh
 
 sbatch cscore_GSE178982_AsyncUT.sh
 sbatch cscore_GSE178982_AsyncAID.sh
+
+sbatch cscore_EpiG1DMSO.sh
+sbatch cscore_EpiG1dTAG.sh
