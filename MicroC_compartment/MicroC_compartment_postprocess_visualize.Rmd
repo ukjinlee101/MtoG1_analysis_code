@@ -221,11 +221,12 @@ centromere <- fread(here(refDir, "mm10", "mm10.centromere.txt"))
 # Correcting bedgraph based on active mark (10 kb)
 ```{r}
 # Import parameters
-activeMark <- rtracklayer::import(here(refDir, "ChIP", "GSM2438476_EC-DG-3458-H3K27AC_ASYN_1.bw"))
+activeMark <- rtracklayer::import(here(refDir, "ChIP", "H3K27ac_ESC_Rep3_GSM2438476_depthNorm.bw"))
 chrList <- sort(unique(fread(here(outDir, "G1DMSO_pooled_10kb_cscore.bedgraph"), skip = 1)$V1))
 
 for( sample in c("G1DMSO_pooled_10kb", "G1dTAG_pooled_10kb", "G1A485_pooled_10kb",
-                 "GSE178982_AsyncUT_pooled_10kb", "GSE178982_AsyncAID_pooled_10kb")){
+                 "GSE178982_AsyncUT_pooled_10kb", "GSE178982_AsyncAID_pooled_10kb",
+                 "EpiG1DMSO_pooled_10kb", "EpiG1dTAG_pooled_10kb")){
   cscore.tb <- fread(here(outDir, paste0(sample, "_cscore.bedgraph")), skip = 1)
   colnames(cscore.tb) <- c("chr", "start", "end", "cscore")
   seed.tb <- tibble()
@@ -270,6 +271,8 @@ for( sample in c("G1DMSO_pooled_10kb", "G1dTAG_pooled_10kb", "G1A485_pooled_10kb
 ```{r}
 expNames <- c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled",
                  "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled")
+
+expNames <- c("EpiG1DMSO_pooled", "EpiG1dTAG_pooled")
 binSize  <- 100000
 
 for (exp in expNames) {
