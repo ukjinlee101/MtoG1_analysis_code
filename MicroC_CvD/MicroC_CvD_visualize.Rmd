@@ -196,4 +196,8 @@ make_plot_pair("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
                resolution = 1000, subsample = 300,
                c("black", "#F28E2C"), "AsyncUTvsAID")
 
+make_plot_pair("EpiG1DMSO_pooled", "EpiG1dTAG_pooled",
+               resolution = 1000, subsample = 300,
+               c("black", "#F28E2C"), "EpiG1DMSOvsdTAG")
+
 ```
