@@ -308,6 +308,11 @@ expName = "GSE178982_AsyncUT_pooled"
 contacts.AsyncUT <- readRDS(here(rdsDir, paste0(expName, "_100000bp_KRbalanced.rds")))
 expName = "GSE178982_AsyncAID_pooled"
 contacts.AsyncAID <- readRDS(here(rdsDir, paste0(expName, "_100000bp_KRbalanced.rds")))
+
+expName = "EpiG1DMSO_pooled"
+contacts.EpiG1DMSO <- readRDS(here(rdsDir, paste0(expName, "_100000bp_KRbalanced.rds")))
+expName = "EpiG1dTAG_pooled"
+contacts.EpiG1dTAG <- readRDS(here(rdsDir, paste0(expName, "_100000bp_KRbalanced.rds")))
 ```
 
 # Saddle plot (using GENOVA outline)
@@ -439,16 +444,23 @@ drawSaddlePlot <- function(contact1, contact2, cond1, cond2, expName, binSize = 
          file.path(outDir, paste(c(expName, as.integer(binSize),'CornerScores.txt'),collapse="_")), sep="\t")
 }
 
-activeMark <- rtracklayer::import(here(refDir, "ChIP", "GSM2438476_EC-DG-3458-H3K27AC_ASYN_1.bw"))
+activeMark <- rtracklayer::import(here(refDir, "ChIP", "H3K27ac_ESC_Rep3_GSM2438476_depthNorm.bw"))
 activeBG <- as_tibble(activeMark) %>% dplyr::select(seqnames, start, end, score)
 cscoreDir <- here("..", "data", "cscore")
 
-drawSaddlePlot(contacts.G1DMSO, contacts.G1dTAG, "G1DMSO_pooled", "G1dTAG_pooled",
-               "G1DMSO_G1dTAG")
-drawSaddlePlot(contacts.G1DMSO, contacts.G1A485, "G1DMSO_pooled", "G1A485_pooled",
-               "G1DMSO_G1A485")
-drawSaddlePlot(contacts.AsyncUT, contacts.AsyncAID, "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
-               "AsyncUT_Async_AID")
+# drawSaddlePlot(contacts.G1DMSO, contacts.G1dTAG, "G1DMSO_pooled", "G1dTAG_pooled",
+#                "G1DMSO_G1dTAG")
+# drawSaddlePlot(contacts.G1DMSO, contacts.G1A485, "G1DMSO_pooled", "G1A485_pooled",
+#                "G1DMSO_G1A485")
+# drawSaddlePlot(contacts.AsyncUT, contacts.AsyncAID, "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
+#                "AsyncUT_Async_AID")
+# 
+# 
+# drawSaddlePlot(contacts.EpiG1DMSO, contacts.EpiG1dTAG, "EpiG1DMSO_pooled", "EpiG1dTAG_pooled",
+#                "EpiG1DMSO_EpiG1dTAG")
+
+drawSaddlePlot(contacts.G1DMSO, contacts.EpiG1DMSO, "G1DMSO_pooled", "EpiG1DMSO_pooled",
+               "G1DMSO_EpiG1DMSO")
 ```
 
 # Calculate compartment score & Visualize
@@ -513,13 +525,18 @@ drawCompScore <- function(cond1, cond2, expName){
   dev.off()
 }
 
+# 
+# drawCompScore("G1DMSO_pooled", "G1dTAG_pooled",
+#                "G1DMSO_G1dTAG")
+# drawCompScore("G1DMSO_pooled", "G1A485_pooled",
+#                "G1DMSO_G1A485")
+# drawCompScore("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
+#                "AsyncUT_Async_AID")
 
-drawCompScore("G1DMSO_pooled", "G1dTAG_pooled",
-               "G1DMSO_G1dTAG")
-drawCompScore("G1DMSO_pooled", "G1A485_pooled",
-               "G1DMSO_G1A485")
-drawCompScore("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
-               "AsyncUT_Async_AID")
+drawCompScore("EpiG1DMSO_pooled", "EpiG1dTAG_pooled",
+               "EpiG1DMSO_EpiG1dTAG")
+drawCompScore("G1DMSO_pooled", "EpiG1DMSO_pooled",
+               "G1DMSO_EpiG1DMSO")
 ```
 
 
@@ -562,13 +579,18 @@ drawAABBDiff <- function(cond1, cond2, expName, ymin = -0.25, ymax = 0.5){
   height = 3
   svglite(paste0(fileName, ".svg"), width = width, height =height)
   print(p)
-  dev.off()
+  dev.off() 
 }
+# 
+# drawAABBDiff("G1DMSO_pooled", "G1dTAG_pooled",
+#                "G1DMSO_G1dTAG")
+# drawAABBDiff("G1DMSO_pooled", "G1A485_pooled",
+#                "G1DMSO_G1A485", ymin = -0.5, ymax = 0.25)
+# drawAABBDiff("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
+#                "AsyncUT_Async_AID")
 
-drawAABBDiff("G1DMSO_pooled", "G1dTAG_pooled",
-               "G1DMSO_G1dTAG")
-drawAABBDiff("G1DMSO_pooled", "G1A485_pooled",
-               "G1DMSO_G1A485", ymin = -0.5, ymax = 0.25)
-drawAABBDiff("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
-               "AsyncUT_Async_AID")
+drawAABBDiff("EpiG1DMSO_pooled", "EpiG1dTAG_pooled",
+               "EpiG1DMSO_EpiG1dTAG")
+drawAABBDiff("G1DMSO_pooled", "EpiG1DMSO_pooled",
+               "G1DMSO_EpiG1DMSO")
 ```

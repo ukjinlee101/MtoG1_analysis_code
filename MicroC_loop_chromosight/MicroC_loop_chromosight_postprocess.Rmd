@@ -173,7 +173,9 @@ filterLoopBedpe = function(sample, note, cutoff.score, cutoff.qvalue,
          col.names = FALSE,row.names = FALSE, sep = "\t")  
 }
 
-for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
+#for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
+for(sample in c("EpiG1DMSO_pooled", "EpiG1dTAG_pooled")){
+
   for(note in c("25000bp", "10000bp", "5000bp")){
     filterLoopBedpe(sample = sample, note = note,
                     cutoff.score = 0.3, cutoff.qvalue = 1e-5,
@@ -184,7 +186,9 @@ for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
 
 # Evaluating cutoff for pearson correlation of chromosight
 ```{r}
-for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
+#for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
+for(sample in c("EpiG1DMSO_pooled", "EpiG1dTAG_pooled")){
+
   for(note in c("25000bp", "10000bp", "5000bp")){
     temp <- as_tibble(fread(here(loopDir, 
                                  paste0(sample, "_chromosight_", note, ".tsv"))))
@@ -202,63 +206,104 @@ for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
   }}
 ```
 
+Making merged figures of APA
 ```{r}
-# stack_resolutions.R
-
 library(magick)
 
-# 1) Directory containing your *_merged.png files
-figDir <- "/Volumes/UKJIN_SSD/figure/loop_chromosight"
-
-# 2) List of conditions and the three resolution‐suffixes
-conditions <- c("G1DMSO", "G1dTAG", "G1A485")
-res_labels <- c("5000kb", "10000kb", "25000kb")  # the suffixes you used in "<cond>_<res>_merged.png"
-
-for (cond in conditions) {
-  # a) Build the paths for the three per‐condition, per‐resolution merged images
-  merged_paths <- file.path(
-    figDir,
-    paste0(cond, "_", res_labels, "_merged.png")
+#----------------------------------------
+# Helper: merge all score-cutoff SVGs side-by-side
+merge_scores <- function(cond, res, fig_dir, scores,
+                         dpi = 600, scale = 2) {
+  # build file names
+  svg_files <- file.path(
+    fig_dir,
+    sprintf("APA_%s_pooled_chromosight_%s_score%s.svg",
+            cond, res, scores)
   )
-
-  # b) Find the first one that actually exists (so we know dimensions)
-  sample_path <- NULL
-  for (p in merged_paths) {
-    if (file.exists(p)) {
-      sample_path <- p
-      break
-    }
-  }
-  if (is.null(sample_path)) {
-    message("Skipping ", cond, ": none of the merged files exist.")
-    next
-  }
-
-  # c) Read that sample to get width & height (in pixels)
-  sample_img <- image_read(sample_path)
-  info       <- image_info(sample_img)
-  w_px       <- info$width
-  h_px       <- info$height
-
-  # d) For each of the three files, either read it or create a white placeholder
-  imgs <- lapply(merged_paths, function(p) {
-    if (file.exists(p)) {
-      image_read(p)
+  
+  # read each SVG at target DPI
+  imgs <- lapply(svg_files, function(f) {
+    if (file.exists(f)) {
+      image_read(f, density = dpi)
     } else {
-      image_blank(width = w_px, height = h_px, color = "white")
+      warning("Missing SVG: ", f)
+      image_blank(1, 1, color = "white")
     }
   })
+  
+  # append side-by-side
+  merged <- image_append(image_join(imgs), stack = FALSE)
+  
+  # upscale pixels if requested
+  if (scale != 1) {
+    merged <- image_scale(merged, paste0(scale * 100, "%"))
+  }
+  
+  # write PNG at 600 ppi
+  out_png <- file.path(fig_dir, sprintf("%s_%s_merged.png", cond, res))
+  image_write(merged, path = out_png, format = "png", density = dpi)
+  message("Saved: ", out_png)
+}
 
-  # e) Stack them vertically (stack = TRUE). The order is 5000kb → 10000kb → 25000kb
+#----------------------------------------
+# Helper: take the three *_merged.png and stack top-to-bottom
+stack_resolutions <- function(cond, fig_dir, res_labels,
+                              dpi = 600, scale = 2) {
+  png_files <- file.path(
+    fig_dir,
+    sprintf("%s_%s_merged.png", cond, res_labels)
+  )
+  
+  # pick a sample to get dimensions
+  good <- png_files[file.exists(png_files)]
+  if (length(good) == 0) {
+    warning("No merged PNGs found for ", cond)
+    return()
+  }
+  sample_info <- image_info(image_read(good[1]))
+  
+  # read or blank at that size
+  imgs <- lapply(png_files, function(f) {
+    if (file.exists(f)) {
+      image_read(f)
+    } else {
+      image_blank(sample_info$width, sample_info$height, color = "white")
+    }
+  })
+  
+  # append vertically
   stacked <- image_append(image_join(imgs), stack = TRUE)
+  
+  # upscale pixels if requested
+  if (scale != 1) {
+    stacked <- image_scale(stacked, paste0(scale * 100, "%"))
+  }
+  
+  # write final all-res PNG
+  out_all <- file.path(fig_dir, sprintf("%s_allResolutions_merged.png", cond))
+  image_write(stacked, path = out_all, format = "png", density = dpi)
+  message("Saved: ", out_all)
+}
 
-  # f) Save to "<cond>_allResolutions_merged.png"
-  out_name <- file.path(figDir, paste0(cond, "_allResolutions_merged.png"))
-  image_write(stacked, path = out_name, format = "png")
+#----------------------------------------
+# Parameters (tweak scale if you need even bigger)
+figDir     <- "/Volumes/UKJIN_SSD/figure/loop_chromosight"
+conditions <- c("EpiG1DMSO", "EpiG1dTAG")
+res_labels <- c("5000bp", "10000bp", "25000bp")
+scores     <- seq(0.3, 0.7, by = 0.1)
+dpi        <- 600     # rasterization resolution
+scale      <- 2       # 2× pixel dimensions (try 3 or 4 if needed)
 
-  message("Saved: ", out_name)
+#----------------------------------------
+# Run everything
+for (cond in conditions) {
+  for (res in res_labels) {
+    merge_scores(cond, res, figDir, scores, dpi, scale)
+  }
+  stack_resolutions(cond, figDir, res_labels, dpi, scale)
 }
 ```
+
 
 ###############################################################################
 
@@ -281,6 +326,203 @@ for (res in c(25000, 10000, 5000)){
   
   loop.merged <- bind_rows(loop1, loop2, loop3) %>% distinct() %>% dplyr::filter(start2 - start1 <= 2e6)
   fwrite(loop.merged, here(loopDir, paste0("chromo_cons_", res, "bp.bedpe")), 
+         sep = '\t', col.names = FALSE, row.names = FALSE)
+}
+
+# Run "chromosight quantify" with union loops in all condition
+
+# Merge loops across conditions for each resolution. 3x3 bin window used to determine whether the loops are same. 
+for (res in c(25000, 10000, 5000)){
+  
+  score.DMSO.tb <- fread(here(loopDir, paste0("G1DMSO_pooled_cons_", res, "bp_pu100pz100.tsv"))) %>%
+    dplyr::mutate(id = paste(chrom1, start1, start2, sep = "_")) %>%
+    dplyr::filter(start2 - start1 <= 2e6) %>%
+    dplyr::select(c(1, 2, 3, 4, 5, 6, 7, 8, 12, 9, 10, 11)) %>%
+    dplyr::rename(score_DMSO = score,
+                  pvalue_DMSO = pvalue,
+                  qvalue_DMSO = qvalue) 
+  score.dTAG.tb <- fread(here(loopDir, paste0("G1dTAG_pooled_cons_", res, "bp_pu100pz100.tsv"))) %>%
+    dplyr::mutate(id = paste(chrom1, start1, start2, sep = "_")) %>%
+    dplyr::filter(start2 - start1 <= 2e6) %>%
+    dplyr::select(c(1, 2, 3, 4, 5, 6, 7, 8, 12, 9, 10, 11)) %>%
+    dplyr::rename(score_dTAG = score,
+                  pvalue_dTAG = pvalue,
+                  qvalue_dTAG = qvalue) 
+  score.A485.tb <- fread(here(loopDir, paste0("G1A485_pooled_cons_", res, "bp_pu100pz100.tsv"))) %>%
+    dplyr::mutate(id = paste(chrom1, start1, start2, sep = "_")) %>%
+    dplyr::filter(start2 - start1 <= 2e6) %>%
+    dplyr::select(c(1, 2, 3, 4, 5, 6, 7, 8, 12, 9, 10, 11)) %>%
+    dplyr::rename(score_A485 = score,
+                  pvalue_A485 = pvalue,
+                  qvalue_A485 = qvalue) 
+  
+  # Annotate whether the loop was called in DMSO or dTAG condition
+  loop.DMSO <- fread(here(loopDir, paste0("G1DMSO_pooled_chromosight_", res, "bp.tsv"))) %>% 
+    dplyr::mutate(id = paste(chrom1, start1, start2, sep = "_"))
+  loop.dTAG <- fread(here(loopDir, paste0("G1dTAG_pooled_chromosight_", res, "bp.tsv"))) %>% 
+    dplyr::mutate(id = paste(chrom1, start1, start2, sep = "_"))
+  loop.A485 <- fread(here(loopDir, paste0("G1A485_pooled_chromosight_", res, "bp.tsv"))) %>% 
+    dplyr::mutate(id = paste(chrom1, start1, start2, sep = "_"))
+  
+  score.tb <- full_join(score.DMSO.tb, score.dTAG.tb,
+                        by = c("chrom1", "start1", "end1",
+                               "chrom2", "start2", "end2",
+                               "bin1", "bin2", "id")) %>%
+    full_join(score.A485.tb,
+              by = c("chrom1", "start1", "end1",
+                     "chrom2", "start2", "end2",
+                     "bin1", "bin2", "id")) %>% 
+    dplyr::mutate(DMSOcalled = id %in% loop.DMSO$id,
+                  dTAGcalled = id %in% loop.dTAG$id,
+                  A485called = id %in% loop.A485$id) %>%
+    dplyr::mutate(
+      score = pmax(score_DMSO, score_dTAG, score_A485),
+      .row_id   = row_number()           # temporary ID for graph nodes
+    )
+  
+  # 1) Build neighbor‐edges: all pairs (i, j) with |bin1[i] - bin1[j]| ≤1 AND |bin2[i] - bin2[j]| ≤1
+  coords <- score.tb %>% select(bin1, bin2)
+  n <- nrow(score.tb)
+  
+  # 2) Create all (i,j) pairs with i < j, then filter
+  pairs <- expand.grid(i = 1:n, j = 1:n) %>%
+    filter(i < j) %>%
+    filter(
+      abs(coords$bin1[i] - coords$bin1[j]) <= 1,
+      abs(coords$bin2[i] - coords$bin2[j]) <= 1
+    )
+  
+  # 3) Turn into an undirected graph and extract components
+  g <- graph_from_data_frame(pairs, directed = FALSE, vertices = data.frame(name = 1:n))
+  comps <- components(g)$membership
+  
+  # 4) Annotate your tibble with “group” and “is_best”
+  score.tb <- score.tb %>%
+    mutate(group = comps[.row_id]) %>%
+    group_by(group) %>%
+    mutate(
+      is_best               = score == max(score),
+      DMSOcalledProcessed   = any(DMSOcalled),
+      dTAGcalledProcessed   = any(dTAGcalled),
+      A485calledProcessed   = any(A485called)
+    ) %>%
+    ungroup() %>%
+    dplyr::select(-.row_id)
+  
+  temp <- score.tb %>% dplyr::filter(is_best)
+  
+  
+  
+  ##############################################################################
+  
+  dms_vec   <- score.tb$DMSOcalled
+  dtag_vec  <- score.tb$dTAGcalled
+  a485_vec  <- score.tb$A485called
+  
+  only_dms    <- sum(dms_vec   & !dtag_vec & !a485_vec)
+  only_dtag   <- sum(!dms_vec  & dtag_vec & !a485_vec)
+  only_a485   <- sum(!dms_vec  & !dtag_vec & a485_vec)
+  
+  dm_dtag     <- sum(dms_vec   & dtag_vec  & !a485_vec)   # DMSO & dTAG only
+  dm_a485     <- sum(dms_vec   & !dtag_vec & a485_vec)   # DMSO & A485 only
+  dtag_a485   <- sum(!dms_vec  & dtag_vec & a485_vec)    # dTAG & A485 only
+  
+  all_three   <- sum(dms_vec   & dtag_vec  & a485_vec)    # DMSO & dTAG & A485
+  
+  counts <- c(
+    DMSO             = only_dms,
+    dTAG             = only_dtag,
+    A485             = only_a485,
+    "DMSO&dTAG"      = dm_dtag,
+    "DMSO&A485"      = dm_a485,
+    "dTAG&A485"      = dtag_a485,
+    "DMSO&dTAG&A485" = all_three
+  )
+  
+  fit <- euler(counts)
+  
+  
+  # render & save
+  svglite(here(figDir, paste0("euler_DMSO_dTAG_A485_raw_", res, "bp.svg")), width = 4, height = 4)
+  print(plot(
+    fit,
+    fills      = list(fill = c("#1f77b4", "#ff7f0e", "#2ca02c"), alpha = 0.5),
+    edges      = FALSE,
+    labels     = list(fontsize = 16),
+    quantities = list(type = "counts", fontface = "bold", fontsize = 14),
+    main       = paste0("Overlap: ", res, "bp, raw")
+  ))
+  dev.off()
+  
+  
+  dms_vec   <- temp$DMSOcalledProcessed
+  dtag_vec  <- temp$dTAGcalledProcessed
+  a485_vec  <- temp$A485calledProcessed
+  
+  only_dms    <- sum(dms_vec   & !dtag_vec & !a485_vec)
+  only_dtag   <- sum(!dms_vec  & dtag_vec & !a485_vec)
+  only_a485   <- sum(!dms_vec  & !dtag_vec & a485_vec)
+  
+  dm_dtag     <- sum(dms_vec   & dtag_vec  & !a485_vec)   # DMSO & dTAG only
+  dm_a485     <- sum(dms_vec   & !dtag_vec & a485_vec)   # DMSO & A485 only
+  dtag_a485   <- sum(!dms_vec  & dtag_vec & a485_vec)    # dTAG & A485 only
+  
+  all_three   <- sum(dms_vec   & dtag_vec  & a485_vec)    # DMSO & dTAG & A485
+  
+  counts <- c(
+    DMSO             = only_dms,
+    dTAG             = only_dtag,
+    A485             = only_a485,
+    "DMSO&dTAG"      = dm_dtag,
+    "DMSO&A485"      = dm_a485,
+    "dTAG&A485"      = dtag_a485,
+    "DMSO&dTAG&A485" = all_three
+  )
+  
+  fit <- euler(counts)
+  
+  
+  # render & save
+  svglite(here(figDir, paste0("euler_DMSO_dTAG_A485_processed_", res, "bp.svg")), width = 4, height = 4)
+  print(plot(
+    fit,
+    fills      = list(fill = c("#1f77b4", "#ff7f0e", "#2ca02c"), alpha = 0.5),
+    edges      = FALSE,
+    labels     = list(fontsize = 16),
+    quantities = list(type = "counts", fontface = "bold", fontsize = 14),
+    main       = paste0("Overlap: ", res, "bp, postprocessed")
+  ))
+  dev.off()
+  
+  
+  # Export bedpe
+  temp <- score.tb %>% dplyr::filter(is_best) %>% dplyr::select(seq(1, 6))
+  fwrite(temp, here(loopDir, paste0("chromo_cons_", res, "bp_postprocessed.bedpe")), sep = "\t", col.names = FALSE)
+  
+  out.tb <- score.tb %>% dplyr::filter(is_best) %>% dplyr::select(-group, -is_best, -DMSOcalled, -dTAGcalled, -A485called)
+  fwrite(out.tb, here(loopDir, paste0("chromo_cons_", res, "bp_postprocessed.tsv")), sep = "\t")
+}
+
+
+```
+
+## Step 2 (EpiLC expanded)
+```{r}
+################################################################################
+# Step 2
+################################################################################
+# Merge loops across condition
+for (res in c(25000, 10000, 5000)){
+  
+  loop1 <- fread(here(loopDir, paste0("G1DMSO_pooled_chromosight_", res, "bp.tsv"))) %>% dplyr::select(seq(1, 6))
+  loop2 <- fread(here(loopDir, paste0("G1dTAG_pooled_chromosight_", res, "bp.tsv"))) %>% dplyr::select(seq(1, 6))
+  loop3 <- fread(here(loopDir, paste0("G1A485_pooled_chromosight_", res, "bp.tsv"))) %>% dplyr::select(seq(1, 6))
+  loop4 <- fread(here(loopDir, paste0("EpiG1DMSO_pooled_chromosight_", res, "bp.tsv"))) %>% dplyr::select(seq(1, 6))
+  loop5 <- fread(here(loopDir, paste0("EpiG1dTAG_pooled_chromosight_", res, "bp.tsv"))) %>% dplyr::select(seq(1, 6))
+
+  
+  loop.merged <- bind_rows(loop1, loop2, loop3, loop4, loop5) %>% distinct() %>% dplyr::filter(start2 - start1 <= 2e6)
+  fwrite(loop.merged, here(loopDir, paste0("chromo_cons_", res, "bp_fullset.bedpe")), 
          sep = '\t', col.names = FALSE, row.names = FALSE)
 }
 

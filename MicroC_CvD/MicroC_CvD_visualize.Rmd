@@ -200,4 +200,11 @@ make_plot_pair("EpiG1DMSO_pooled", "EpiG1dTAG_pooled",
                resolution = 1000, subsample = 300,
                c("black", "#F28E2C"), "EpiG1DMSOvsdTAG")
 
+make_plot_pair("G1DMSO_pooled", "EpiG1DMSO_pooled",
+               resolution = 1000, subsample = 300,
+               c("black", "#F28E2C"), "G1DMSOvsEpiG1DMSO")
+
+make_plot_pair("G1dTAG_pooled", "EpiG1dTAG_pooled",
+               resolution = 1000, subsample = 300,
+               c("black", "#F28E2C"), "G1dTAGvsEpiG1dTAG")
 ```
