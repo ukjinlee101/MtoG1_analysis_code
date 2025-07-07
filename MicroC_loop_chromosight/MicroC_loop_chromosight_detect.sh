@@ -53,7 +53,7 @@ done
 ####################################################################################
 # Quantify chromosight loops for post-processing
 
-sample=("G1DMSO_pooled" "G1dTAG_pooled" "G1A485_pooled")
+sample=("G1DMSO_pooled" "G1dTAG_pooled" "G1A485_pooled" "EpiG1DMSO_pooled" "EpiG1dTAG_pooled")
 resolutions=("25000" "10000" "5000")
 
 coolDir="/athena/apostoloulab/scratch/ukl4001/data/cool_norm_pooled"
@@ -61,9 +61,9 @@ resultDir="/athena/apostoloulab/scratch/ukl4001/data/chromosight"
 
 for res in "${resolutions[@]}"; do
     for samp in "${sample[@]}"; do
-        chromosight quantify ${resultDir}/chromo_cons_${res}bp.bedpe \
+        chromosight quantify ${resultDir}/chromo_cons_${res}bp_fullset.bedpe \
                         ${coolDir}/${samp}_${res}bp_KR.cool \
-                        ${resultDir}/${samp}_cons_${res}bp_pu100pz100 \
+                        ${resultDir}/${samp}_cons_${res}bp_fullset_pu100pz100 \
                         --pattern=loops \
                         --threads=64 \
                         --perc-undetected=100 \
