@@ -134,11 +134,10 @@ In the standard workflow, one first needs to generate genomic features present i
 HiCDCPlus stores counts and features in a memory-efficient way using what we name as a gi_list instance(see The gi_list instance). One next feeds the genomic features in the form of a gi_list instance using generate_bintolen_gi_list function. Then, counts can be added to this gi_list instance using dedicated functions for each input Hi-C file format (add_hic_counts, add_hicpro_matrix_counts,add_hicpro_allvalidpairs.counts).
 
 ```{r}
-# for(res in c(10, 5)){
 #   for(sample in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled")){
     
-for(res in c(5)){
-  for(sample in c("G1A485_pooled")){
+for(res in c(10)){
+  for(sample in c("EpiG1DMSO_pooled", "EpiG1dTAG_pooled")){
     
     if(!file.exists(here(loopDir, paste0("mm10_", res, "kb_RE_agnostic_bins_uniform_bintolen.txt.gz")))){
       construct_features_parallel(output_path = here(loopDir, paste0("mm10_", res, "kb_RE_agnostic_bins_uniform")),
