@@ -287,7 +287,7 @@ colnames(loop5) <- col
 loop.merged <- bind_rows(loop1, loop2, loop3, loop4, loop5)
 
 loop.merged <- loop.merged %>% select(seq(1, 6)) %>% distinct() %>% dplyr::filter(start2 - start1 <= 2e6)
-fwrite(loop.merged, here(loopDir, paste0("hicdcp_union_", res*1000, "bp.bedpe")), 
+fwrite(loop.merged, here(loopDir, paste0("hicdcp_union_", res*1000, "bp_qcutoff0.1.bedpe")), 
        sep = '\t', col.names = FALSE, row.names = FALSE)
 
 
@@ -393,9 +393,9 @@ createLoopAnnotation <- function(bedpe.loop.anno, name, figDir){
 ```
 ### Annotate anchors
 ```{r}
-consensus.loop.tb <- fread(here(loopDir, "hicdcp_union_10000bp.bedpe"))
+loop <- fread(here(loopDir, "hicdcp_union_10000bp.bedpe"))
 
-colnames(consensus.loop.tb) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+colnames(loop) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
 anchor1.tb <- as_tibble(loop) %>% dplyr::select(chrom1, start1, end1)
 colnames(anchor1.tb) <- c("chr", "start", "end")
 anchor2.tb <- as_tibble(loop) %>% dplyr::select(chrom2, start2, end2)
@@ -532,26 +532,6 @@ temp$Anno2 <- factor(temp$Anno2, levels = rev(c("P-P", "P-E", "E-E",
                                                 "SP-SP", "SP-SE", "SP-S", "SE-SE", "SE-S", "S-S")))
 
 createLoopAnnotation(temp, paste0(name, "_annotated_complex"), figDir)
-
-############################################################ START FROM HERE
-
-# 2. Draw the alluvial plot
-ggplot(counts,
-       aes(axis1 = Anno2, axis2 = Anno2_chromHmm, y = Freq)) +
-  # flows
-  geom_alluvium(aes(fill = Anno2), width = 0.25) +
-  # strata (the blocks at each axis)
-  geom_stratum(width = 0.25, fill = "grey80", color = "black") +
-  # stratum labels
-  geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
-  # axis labels
-  scale_x_discrete(limits = c("Anno2", "Anno2_chromHmm"),
-                   labels = c("Anno2", "Anno2_chromHmm")) +
-  labs(title = "Alluvial Flow: ChIP → chromHMM",
-       y = "Count of Segments",
-       x = NULL) +
-  theme_minimal()
-
 
 ```
 ```

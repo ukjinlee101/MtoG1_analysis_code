@@ -668,180 +668,31 @@ proc_sets <- list(
 
 ```
 
-### [revisit] Chromosight vs hiccups
+Splitting final loops into resolutions for obs/exp calculation
 ```{r}
-# 1) load & rename so both tables have (chr1,start1,end1,chr2,start2,end2)
-loop.chromo <- fread(here("result","chromo_cons_allRes_postprocessed_DMSO.bedpe"))[ , 1:6 ]
-setnames(loop.chromo,
-         old = names(loop.chromo),
-         new = c("chr1","start1","end1","chr2","start2","end2"))
+loops <- fread(here(loopDir, "chromo_union_allRes_postprocessed.bedpe"))
+colnames(loops) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
 
-loop.hiccup <- fread(here("../hiccups","hiccups_DMSO_merged_loops.bedpe"),
-                     skip = 2)[ , 1:6 ]
-setnames(loop.hiccup,
-         old = names(loop.hiccup),
-         new = c("chr1","start1","end1","chr2","start2","end2"))
+loops <- loops %>% dplyr::mutate(size = end1 - start1)
+
+loops.25kb <- loops %>% dplyr::filter(size == 25000)
+loops.10kb <- loops %>% dplyr::filter(size == 10000)
+loops.5kb <- loops %>% dplyr::filter(size == 5000)
 
 
-# give each loop a unique ID
-loop.chromo[,   loop_id := .I]
-loop.hiccup[, hic_id   := .I]
+fwrite(loops.25kb %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_25000bp.bedpe")), sep = "\t",
+       col.names = FALSE)
 
-# 2) define 10 kb bin, compute midpoints, then assign bins
-bin_size <- 25000L
+fwrite(loops.10kb %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_10000bp.bedpe")), sep = "\t",
+       col.names = FALSE)
 
-for (DT in list(loop.chromo, loop.hiccup)) {
-  DT[, mid1 := (start1 + end1) %/% 2]
-  DT[, mid2 := (start2 + end2) %/% 2]
-  DT[, bin1 := mid1 %/% bin_size]
-  DT[, bin2 := mid2 %/% bin_size]
-}
-
-# 3) for Chebyshev ≤1, expand hiccup loops into the 3×3 neighborhood of bins
-hic_nb <- loop.hiccup[
-  , CJ(bin1 = bin1 + -1:1,
-       bin2 = bin2 + -1:1),
-    by = .(chr1, chr2, hic_id)
-]
-
-# 4) key & join
-setkey(loop.chromo, chr1, chr2, bin1, bin2)
-setkey(hic_nb,       chr1, chr2, bin1, bin2)
-
-overlaps <- loop.chromo[ hic_nb, nomatch = 0L ]
-
-# 5) counts
-cat("Chromo loops overlapping HiCCUPS:", uniqueN(overlaps$loop_id), "\n")
-cat("HiCCUPS loops overlapping Chromo set:", uniqueN(overlaps$hic_id), "\n")
-cat("Total matched pairs:", nrow(overlaps), "\n")
-
-
-chromo  <- nrow(loop.chromo)
-overlap <- mean(uniqueN(overlaps$loop_id), uniqueN(overlaps$hic_id))%/%1
-hiccups  <- nrow(loop.hiccup)
-
-# fit Euler with only‐DMSO, only‐dTAG, and overlap
-fit <- euler(c(
-  chromo        = chromo  - overlap,
-  hiccups        = hiccups - overlap,
-  "chromo&hiccups" = overlap
-))
-
-# render & save
-png(paste0("euler_chromo_vs_hiccups_25kb_ChebyshevDist1_DMSO.png"), width = 4, height = 4, units = "in", res = 600)
-print(plot(fit,
-           fills      = list(fill = c("#1f77b4","#ff7f0e"), alpha = .5),
-           edges      = FALSE,
-           labels     = list(fontsize = 16),
-           quantities = list(type = "counts", fontface = "bold", fontsize = 14),
-           main       = paste0("Chromosight vs Hiccups (DMSO)")
-))
-dev.off()
+fwrite(loops.5kb %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_5000bp.bedpe")), sep = "\t",
+       col.names = FALSE)
 ```
 
-```{r}
-# 1) load & rename so both tables have (chr1,start1,end1,chr2,start2,end2)
-loop.chromo <- fread(here("result","chromo_cons_allRes_postprocessed_dTAG.bedpe"))[ , 1:6 ]
-setnames(loop.chromo,
-         old = names(loop.chromo),
-         new = c("chr1","start1","end1","chr2","start2","end2"))
-
-loop.hiccup <- fread(here("../hiccups","hiccups_dTAG_merged_loops.bedpe"),
-                     skip = 2)[ , 1:6 ]
-setnames(loop.hiccup,
-         old = names(loop.hiccup),
-         new = c("chr1","start1","end1","chr2","start2","end2"))
-
-
-# give each loop a unique ID
-loop.chromo[,   loop_id := .I]
-loop.hiccup[, hic_id   := .I]
-
-# 2) define 10 kb bin, compute midpoints, then assign bins
-bin_size <- 25000L
-
-for (DT in list(loop.chromo, loop.hiccup)) {
-  DT[, mid1 := (start1 + end1) %/% 2]
-  DT[, mid2 := (start2 + end2) %/% 2]
-  DT[, bin1 := mid1 %/% bin_size]
-  DT[, bin2 := mid2 %/% bin_size]
-}
-
-# 3) for Chebyshev ≤1, expand hiccup loops into the 3×3 neighborhood of bins
-hic_nb <- loop.hiccup[
-  , CJ(bin1 = bin1 + -1:1,
-       bin2 = bin2 + -1:1),
-    by = .(chr1, chr2, hic_id)
-]
-
-# 4) key & join
-setkey(loop.chromo, chr1, chr2, bin1, bin2)
-setkey(hic_nb,       chr1, chr2, bin1, bin2)
-
-overlaps <- loop.chromo[ hic_nb, nomatch = 0L ]
-
-# 5) counts
-cat("Chromo loops overlapping HiCCUPS:", uniqueN(overlaps$loop_id), "\n")
-cat("HiCCUPS loops overlapping Chromo set:", uniqueN(overlaps$hic_id), "\n")
-cat("Total matched pairs:", nrow(overlaps), "\n")
-
-
-chromo  <- nrow(loop.chromo)
-overlap <- mean(uniqueN(overlaps$loop_id), uniqueN(overlaps$hic_id))%/%1
-hiccups  <- nrow(loop.hiccup)
-
-# fit Euler with only‐DMSO, only‐dTAG, and overlap
-fit <- euler(c(
-  chromo        = chromo  - overlap,
-  hiccups        = hiccups - overlap,
-  "chromo&hiccups" = overlap
-))
-
-# render & save
-png(paste0("euler_chromo_vs_hiccups_25kb_ChebyshevDist1_dTAG.png"), width = 4, height = 4, units = "in", res = 600)
-print(plot(fit,
-           fills      = list(fill = c("#1f77b4","#ff7f0e"), alpha = .5),
-           edges      = FALSE,
-           labels     = list(fontsize = 16),
-           quantities = list(type = "counts", fontface = "bold", fontsize = 14),
-           main       = paste0("Chromosight vs Hiccups (dTAG)")
-))
-dev.off()
-```
-### [revisit] Compare loop score
-```{r}
-
-score.tb <- fread(here(loopDir, "chromo_cons_allRes_postprocessed.tsv"))
-### Drawing
-score.tb$density <- get_density(score.tb$score_DMSO, score.tb$score_dTAG, n = 100)
-score.tb <- score.tb %>% dplyr::arrange(density)
-diffCutoff = 0.2
-p1 <- ggplot(score.tb, aes(x = score_DMSO, y = score_dTAG, color = density)) +
-  geom_point() + 
-  scale_color_viridis() +
-  xlim(-0.5, 1) + ylim(-0.5, 1) + coord_fixed() +
-  geom_abline(slope = 1, intercept = 0, col = "grey50", linetype = "dashed") +
-  geom_hline(yintercept = 0, alpha = 0.5, color = "grey") +
-  geom_vline(xintercept = 0, alpha = 0.5, color = "grey") +
-  geom_abline(slope = 1, intercept = -diffCutoff, col = "red", linetype = "dotted",
-      color = "black",
-      size = lineThick*mmToLineUnit,
-      lineend = "square") +
-    geom_abline(slope = 1, intercept = diffCutoff, col = "red", linetype = "dotted",
-      color = "black",
-      size = lineThick*mmToLineUnit,
-      lineend = "square") +
-  theme_classic() + ggtitle(paste0("allRes loop scores"))
-
-
-png(here(figDir, paste0("consensus_score_scatterplot_allRes_pu100pz100.png")), res = 600, units = "in", width = 5*1.5, height = 2.5*1.5)
-print(p1)
-dev.off()
-svglite(here(figDir, paste0("consensus_score_scatterplot_allRes_pu100pz100.svg")), width = 5*1.5, height = 2.5*1.5)
-print(p1)
-dev.off()
-
-```
 
 # Annotating loop
 ## ChIP-based annotation
