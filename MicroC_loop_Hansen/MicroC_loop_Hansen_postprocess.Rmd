@@ -164,29 +164,66 @@ importPeak = function(fileName){
 # Postprocessing
 Since the loops are called in mm39 and were liftovered to mm10, they need to be realigned to specific resolution
 ```{r}
-# loops <- fread(here(loopDir, "Hansen_union_allRes.bedpe"))
-# colnames(loops) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
-# 
-# loops <- loops %>% dplyr::mutate(size = end1 - start1)
-# 
-# loops.25kb <- loops %>% dplyr::filter(size == 25000)
-# loops.10kb <- loops %>% dplyr::filter(size == 10000)
-# loops.5kb <- loops %>% dplyr::filter(size == 5000)
-# 
-# 
-# fwrite(loops.25kb %>% dplyr::select(seq(1, 6)), 
-#        here(loopDir, paste0("chromo_union_allRes_postprocessed_25kb.bedpe")), sep = "\t",
-#        col.names = FALSE)
-# 
-# fwrite(loops.10kb %>% dplyr::select(seq(1, 6)), 
-#        here(loopDir, paste0("chromo_union_allRes_postprocessed_10kb.bedpe")), sep = "\t",
-#        col.names = FALSE)
-# 
-# fwrite(loops.5kb %>% dplyr::select(seq(1, 6)), 
-#        here(loopDir, paste0("chromo_union_allRes_postprocessed_5kb.bedpe")), sep = "\t",
-#        col.names = FALSE)
-# 
-# loops %>% dplyr::filter(size %in% c(1000, 2000, 5000))
+canonical <- c("chr1", "chr2", "chr3", "chr4", "chr5",
+               "chr6", "chr7", "chr8", "chr9", "chr10",
+               "chr11", "chr12", "chr13", "chr14", "chr15",
+               "chr16", "chr17", "chr18", "chr19", "chrX", "chrY"
+               )
+
+loops <- fread(here(loopDir, "Hansen_union_allRes.bedpe"))
+colnames(loops) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+
+loops <- loops %>% dplyr::mutate(size = end1 - start1) %>%
+  mutate(size2 = c(1000, 2000, 5000)[apply(abs(outer(size, c(1000, 2000, 5000), "-")), 1, which.min)])
+
+loops_adjusted <- loops %>%
+  mutate(
+    start1 = round(start1 / size2) * size2,
+    end1   = start1 + size2,
+    start2 = round(start2 / size2) * size2,
+    end2   = start2 + size2,
+    loopSize = start2 - start1
+  ) %>%
+  dplyr::filter(chrom1 == chrom2) %>%
+  mutate(
+    temp_start1 = ifelse(loopSize < 0, start2, start1),
+    temp_end1   = ifelse(loopSize < 0, end2, end1),
+    temp_start2 = ifelse(loopSize < 0, start1, start2),
+    temp_end2   = ifelse(loopSize < 0, end1, end2),
+    start1 = temp_start1,
+    end1 = temp_end1,
+    start2 = temp_start2,
+    end2 = temp_end2,
+    # Recalculate loopSize after the swap
+    loopSize = start2 - start1
+  ) %>%
+  dplyr::filter(loopSize < 2000000) %>%
+  dplyr::select(-temp_start1, -temp_end1, -temp_start2, -temp_end2, -size) # Remove temporary columns
+
+loops_adjusted <- loops_adjusted %>% dplyr::filter(chrom1 %in% canonical)
+
+fwrite(loops_adjusted %>% dplyr::select(seq(1, 6)),
+       here(loopDir, paste0("Hansen_union_allRes_postprocessed.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+
+loops.5kb <- loops_adjusted %>% dplyr::filter(size2 == 5000)
+loops.2kb <- loops_adjusted %>% dplyr::filter(size2 == 2000)
+loops.1kb <- loops_adjusted %>% dplyr::filter(size2 == 1000)
+
+
+fwrite(loops.5kb %>% dplyr::select(seq(1, 6)),
+       here(loopDir, paste0("Hansen_union_allRes_postprocessed_5000bp.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(loops.2kb %>% dplyr::select(seq(1, 6)),
+       here(loopDir, paste0("Hansen_union_allRes_postprocessed_2000bp.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(loops.1kb %>% dplyr::select(seq(1, 6)),
+       here(loopDir, paste0("Hansen_union_allRes_postprocessed_1000bp.bedpe")), sep = "\t",
+       col.names = FALSE)
+
 ```
 
 # ChromHMM based annotation
@@ -246,7 +283,7 @@ createLoopAnnotation <- function(bedpe.loop.anno, name, figDir){
 ### Group ChromHMM + RAD21 peaks
 ### Annotate anchors
 ```{r}
-loop <- as_tibble(fread(here(loopDir, "Hansen_union_allRes.bedpe")))
+loop <- as_tibble(fread(here(loopDir, "Hansen_union_allRes_postprocessed.bedpe")))
 
 anchor1.tb <- as_tibble(loop) %>% dplyr::select(V1, V2, V3)
 colnames(anchor1.tb) <- c("chr", "start", "end")
@@ -278,7 +315,7 @@ anchor.tb <- anchor.tb %>% dplyr::mutate(annotSingle = case_when(
   TRUE ~ "X",
 ))
 
-fwrite(anchor.tb, here(loopDir, "Hansen_union_allRes_anchor.bed"), sep = "\t", col.names = FALSE)
+fwrite(anchor.tb, here(loopDir, "Hansen_union_allRes_postprocessed_anchor.bed"), sep = "\t", col.names = FALSE)
 
 # Visualize anchor classification
 colorList <- rev(c(colorListPromoter[3], colorListEnhancer[3], colorListPromoter[2], colorListEnhancer[2], colorListStructure[3], colorListStructure[1]))
@@ -297,17 +334,17 @@ p <- ggplot(temp, aes(x = name, fill = annotSingle)) +
         legend.direction  = "vertical") +
     scale_fill_manual(values = colorList)
 
-svglite(here(figDir, "anchorClassify_Hansen_union_allRes_chromHMMRAD21.svg"), width = 3, height = 5)
+svglite(here(figDir, "anchorClassify_Hansen_union_allRes_postprocessed_chromHMMRAD21.svg"), width = 3, height = 5)
 print(p)
 dev.off()
 ```
 ### Annotate loops
 ```{r}
-anchor.tb <- fread(here(loopDir, "Hansen_union_allRes_anchor.bed")) %>%
+anchor.tb <- fread(here(loopDir, "Hansen_union_allRes_postprocessed_anchor.bed")) %>%
   dplyr::mutate(anchor_id = paste(V1, V2, V3, sep = "_")) %>%
   rename(annot = V5)
 
-consensus.loop.anno.tb <- fread(here(loopDir, "Hansen_union_allRes.bedpe"))
+consensus.loop.anno.tb <- fread(here(loopDir, "Hansen_union_allRes_postprocessed.bedpe"))
 colnames(consensus.loop.anno.tb) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
 
 consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
@@ -361,7 +398,7 @@ consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
   select(-r1, -r2, -first, -second)
 
 
-name <- "Hansen_union_allRes"
+name <- "Hansen_union_allRes_postprocessed"
 fwrite(consensus.loop.anno.tb, here(loopDir, paste0(name, "_annotated.tsv")), 
        sep = "\t", col.names = TRUE)
 
@@ -382,26 +419,6 @@ temp$Anno2 <- factor(temp$Anno2, levels = rev(c("P-P", "P-E", "E-E",
                                                 "SP-SP", "SP-SE", "SP-S", "SE-SE", "SE-S", "S-S")))
 
 createLoopAnnotation(temp, paste0(name, "_annotated_complex"), figDir)
-
-############################################################ START FROM HERE
-
-# 2. Draw the alluvial plot
-ggplot(counts,
-       aes(axis1 = Anno2, axis2 = Anno2_chromHmm, y = Freq)) +
-  # flows
-  geom_alluvium(aes(fill = Anno2), width = 0.25) +
-  # strata (the blocks at each axis)
-  geom_stratum(width = 0.25, fill = "grey80", color = "black") +
-  # stratum labels
-  geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
-  # axis labels
-  scale_x_discrete(limits = c("Anno2", "Anno2_chromHmm"),
-                   labels = c("Anno2", "Anno2_chromHmm")) +
-  labs(title = "Alluvial Flow: ChIP → chromHMM",
-       y = "Count of Segments",
-       x = NULL) +
-  theme_minimal()
-
 
 ```
 

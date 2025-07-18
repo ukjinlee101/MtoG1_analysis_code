@@ -162,7 +162,324 @@ importPeak = function(fileName){
 }
 ```
 
-#
+# PREPROCESSING
+## Merging obs/exp score
+### [1] Chromosight
+```{r}
+loopDir <- here("../data/loop_chromosight")
+commonLoopDir <- here("../data/loop_analysis")
+
+# Import annotated postprocessed loops with chromosight score
+data <- as_tibble(fread(here(loopDir, "chromo_union_allRes_postprocessed_annotated.tsv")))
+
+# Integrate chromosight score from asynchronous experiment
+resolutions  <- c(25000, 10000, 5000)
+
+# helper: read, filter, select and rename for one experiment
+annotate_scores <- function(experiment, suffix) {
+  map_dfr(resolutions, function(res) {
+    fread(here(loopDir,
+               sprintf("GSE178982_%s_pooled_union_%dbp_pu100pz100.tsv",
+                       experiment, res))
+    ) %>%
+      mutate(id = paste(chrom1, start1, end1, chrom2, start2, end2, sep = "_")) %>%
+      filter(start2 - start1 <= 2e6) %>%
+      select(id, score, pvalue, qvalue) %>%
+      rename_with(~ paste0(., "_", suffix),
+                  c(score, pvalue, qvalue))
+  })
+}
+
+# add AsyncUT scores
+data <- data %>%
+  left_join(annotate_scores("AsyncUT", "UT"), by = "id")
+
+# add AsyncAID scores
+data <- data %>%
+  left_join(annotate_scores("AsyncAID", "AID"), by = "id")
+data <- data %>%
+  relocate(score_UT:qvalue_AID, .after = qvalue_EpidTAG)
+data <- data %>% dplyr::select(-seq(29, 41))
+
+data <- data %>% relocate(A1:Anno_simple, .after = id)
+
+# Adding obs/exp
+import_obsexp <- function(experiment, suffix) {
+  map_dfr(resolutions, function(res) {
+    fread(here(loopDir,
+               sprintf("chromo_union_allRes_postprocessed_%dbp_obxexp_%s_pooled.tsv",
+                       res, experiment))
+    ) %>%
+      mutate(id = paste(chrom1, start1, end1, chrom2, start2, end2, sep = "_")) %>%
+      select(id, ooe) %>%
+      rename_with(~ paste0(., "_", suffix),
+                  c(ooe))
+  })
+}
+
+data <- data %>%
+  left_join(import_obsexp("G1DMSO", "DMSO"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("G1dTAG", "dTAG"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("G1A485", "A485"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("EpiG1DMSO", "EpiDMSO"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("EpiG1dTAG", "EpidTAG"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("GSE178982_AsyncUT", "UT"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("GSE178982_AsyncAID", "AID"), by = "id")
+
+fwrite(data, here(commonLoopDir, "loopScore_chromosight.tsv"),
+       sep = "\t", col.names = TRUE)
+```
+### [2] hicdcp
+```{r}
+loopDir <- here("../data/loop_hicdcp")
+commonLoopDir <- here("../data/loop_analysis")
+
+# Import annotated postprocessed loops with chromosight score
+data <- as_tibble(fread(here(loopDir, "hicdcp_union_10000bp_annotated.tsv"))) %>%
+  mutate(id = paste(chrom1, start1, end1, chrom2, start2, end2, sep = "_")) %>%
+  relocate(id, .after = end2) %>%
+  dplyr::select(-c("anchor_id_1", "anchor_id_2"))
+
+resolutions  <- c(10000)
+
+# Adding obs/exp
+import_obsexp <- function(experiment, suffix) {
+  map_dfr(resolutions, function(res) {
+    fread(here(loopDir,
+               sprintf("hicdcp_union_%dbp_obxexp_%s_pooled.tsv",
+                       res, experiment))
+    ) %>%
+      mutate(id = paste(chrom1, start1, end1, chrom2, start2, end2, sep = "_")) %>%
+      select(id, ooe) %>%
+      rename_with(~ paste0(., "_", suffix),
+                  c(ooe))
+  })
+}
+
+data <- data %>%
+  left_join(import_obsexp("G1DMSO", "DMSO"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("G1dTAG", "dTAG"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("G1A485", "A485"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("EpiG1DMSO", "EpiDMSO"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("EpiG1dTAG", "EpidTAG"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("GSE178982_AsyncUT", "UT"), by = "id")
+data <- data %>%
+  left_join(import_obsexp("GSE178982_AsyncAID", "AID"), by = "id")
+
+fwrite(data, here(commonLoopDir, "loopScore_hicdcp.tsv"),
+       sep = "\t", col.names = TRUE)
+```
+### [3] Hansen
+```{r}
+# loopDir <- here("../data/loop_Hansen")
+# commonLoopDir <- here("../data/loop_analysis")
+# 
+# # Import annotated postprocessed loops with chromosight score
+# data <- as_tibble(fread(here(loopDir, "hicdcp_union_10000bp_annotated.tsv"))) %>%
+#   mutate(id = paste(chrom1, start1, end1, chrom2, start2, end2, sep = "_")) %>%
+#   relocate(id, .after = end2) %>%
+#   dplyr::select(-c("anchor_id_1", "anchor_id_2"))
+# 
+# resolutions  <- c(10000)
+# 
+# # Adding obs/exp
+# import_obsexp <- function(experiment, suffix) {
+#   map_dfr(resolutions, function(res) {
+#     fread(here(loopDir,
+#                sprintf("hicdcp_union_%dbp_obxexp_%s_pooled.tsv",
+#                        res, experiment))
+#     ) %>%
+#       mutate(id = paste(chrom1, start1, end1, chrom2, start2, end2, sep = "_")) %>%
+#       select(id, ooe) %>%
+#       rename_with(~ paste0(., "_", suffix),
+#                   c(ooe))
+#   })
+# }
+# 
+# data <- data %>%
+#   left_join(import_obsexp("G1DMSO", "DMSO"), by = "id")
+# data <- data %>%
+#   left_join(import_obsexp("G1dTAG", "dTAG"), by = "id")
+# data <- data %>%
+#   left_join(import_obsexp("G1A485", "A485"), by = "id")
+# data <- data %>%
+#   left_join(import_obsexp("EpiG1DMSO", "EpiDMSO"), by = "id")
+# data <- data %>%
+#   left_join(import_obsexp("EpiG1dTAG", "EpidTAG"), by = "id")
+# data <- data %>%
+#   left_join(import_obsexp("GSE178982_AsyncUT", "UT"), by = "id")
+# data <- data %>%
+#   left_join(import_obsexp("GSE178982_AsyncAID", "AID"), by = "id")
+# 
+# fwrite(data, here(commonLoopDir, "loopScore_hicdcp.tsv"),
+#        sep = "\t", col.names = TRUE)
+```
+
+# ANALYSIS
+## EXPLORATORY
+### Scatterplots
+```{r}
+commonLoopDir <- here("../data/loop_analysis")
+
+diffCutoff <- 0.2
+
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
+
+score.tb <- data %>% dplyr::filter(Anno_simple %in% c("S-S")) %>%
+  dplyr::select(id, score_DMSO, score_dTAG)
+
+
+### P1. UT vs AID
+score.tb$density <- get_density(score.tb$score_DMSO, score.tb$score_dTAG, n = 200)
+score.tb <- score.tb %>% dplyr::arrange(density)
+p1 <- ggplot(score.tb, aes(x = score_DMSO, y = score_dTAG, color = density)) +
+  geom_point() + 
+  scale_color_viridis() +
+  xlim(-0.5, 1) + ylim(-0.5, 1) +
+  coord_fixed() +
+  geom_abline(slope = 1, intercept = 0, col = "grey50", linetype = "dashed") +
+  geom_hline(yintercept = 0, alpha = 0.5, color = "grey") +
+  geom_vline(xintercept = 0, alpha = 0.5, color = "grey") +
+  geom_abline(slope = 1, intercept = -diffCutoff, col = "grey", linetype = "dotted") +
+  geom_abline(slope = 1, intercept = diffCutoff, col = "grey", linetype = "dotted") +
+  theme_classic() + ggtitle(paste0("Consensus loop score"))
+```
+
+```{r}
+commonLoopDir <- here("../data/loop_analysis")
+
+diffCutoff <- 0.2
+
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
+
+score.tb <- data %>% dplyr::filter(Anno_simple %in% c("P-P", "P-E", "E-E")) %>%
+  dplyr::select(id, ooe_DMSO, ooe_dTAG) %>%
+  dplyr::filter(!is.na(ooe_DMSO), !is.na(ooe_dTAG))
+
+
+### P1. UT vs AID
+score.tb$density <- get_density(score.tb$ooe_DMSO, score.tb$ooe_dTAG, n = 200)
+score.tb <- score.tb %>% dplyr::arrange(density)
+p1 <- ggplot(score.tb, aes(x = ooe_DMSO, y = ooe_dTAG, color = density)) +
+  geom_point() + 
+  scale_color_viridis() +
+  coord_fixed() +
+    xlim(-0.5, 5) + ylim(-0.5, 5) +
+
+  geom_abline(slope = 1, intercept = 0, col = "grey50", linetype = "dashed") +
+  geom_hline(yintercept = 0, alpha = 0.5, color = "grey") +
+  geom_vline(xintercept = 0, alpha = 0.5, color = "grey") +
+  geom_abline(slope = 1, intercept = -diffCutoff, col = "grey", linetype = "dotted") +
+  geom_abline(slope = 1, intercept = diffCutoff, col = "grey", linetype = "dotted") +
+  theme_classic() + ggtitle(paste0("Consensus loop score"))
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(viridis)
+library(purrr)
+
+# your density fn
+get_density <- function(x, y, n = 100) {
+  # … whatever you already have …
+}
+
+# 1) make a general plotting function
+plot_compare <- function(df, x_col, y_col, diffCutoff = 0.1, lim = c(-0.5, 1)) {
+  df2 <- df %>%
+    select(all_of(c(x_col, y_col))) %>%
+    rename(x = !!sym(x_col), y = !!sym(y_col)) %>%
+    mutate(density = get_density(x, y, n = 100)) %>%
+    arrange(density)
+
+  ggplot(df2, aes(x = x, y = y, color = density)) +
+    geom_point() +
+    scale_color_viridis() +
+    xlim(lim) + ylim(lim) +
+    coord_fixed() +
+    geom_abline(slope = 1, intercept = 0, color = "grey50", linetype = "dashed") +
+    geom_hline(yintercept = 0, alpha = 0.5, color = "grey") +
+    geom_vline(xintercept = 0, alpha = 0.5, color = "grey") +
+    geom_abline(slope = 1, intercept = -diffCutoff, color = "grey", linetype = "dotted") +
+    geom_abline(slope = 1, intercept =  diffCutoff, color = "grey", linetype = "dotted") +
+    theme_classic() +
+    ggtitle(paste(x_col, "vs", y_col))
+}
+
+# 2) define the pairs you care about
+pairs <- list(
+  DMSO_vs_dTAG = c("score_DMSO", "score_dTAG"),
+  UT_vs_AID     = c("score_UT",   "score_AID")
+  # … add more …
+)
+
+# 3) build a named list of ggplots
+plots <- map(pairs, ~ plot_compare(data, .x[1], .x[2], diffCutoff = diffCutoff))
+
+# now you can print them all:
+walk(plots, print)
+# or arrange them with patchwork / gridExtra, etc.
+```
+
+
+```{r}
+sample <- "G1.DMSO.Merged"
+for(sample in c("G1.DMSO.Merged", "G1.dTAG.Merged", "G1.A485.Merged")){
+  temp.25kb <- fread(here(consensusDir, paste0("loopScore_", sample, "_25kb.tsv"))) %>%
+    dplyr::mutate(binSize = end1 - start1,
+                  id = paste(chrom1, binSize, start1, start2, sep = "_")) %>%
+    dplyr::filter(id %in% loops$id) %>%
+    dplyr::select(chrom1, start1, end1, chrom2, start2, end2, id, observed, "O/E")
+  colnames(temp.25kb) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2", "id", "obs", "obsexp")
+  
+  temp.10kb <- fread(here(consensusDir, paste0("loopScore_", sample, "_10kb.tsv"))) %>%
+    dplyr::mutate(binSize = end1 - start1,
+                  id = paste(chrom1, binSize, start1, start2, sep = "_")) %>%
+    dplyr::filter(id %in% loops$id) %>%
+    dplyr::select(chrom1, start1, end1, chrom2, start2, end2, id, observed, "O/E")
+  colnames(temp.10kb) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2", "id", "obs", "obsexp")
+  
+  temp.5kb <-fread(here(consensusDir, paste0("loopScore_", sample, "_5kb.tsv"))) %>%
+    dplyr::mutate(binSize = end1 - start1,
+                  id = paste(chrom1, binSize, start1, start2, sep = "_")) %>%
+    dplyr::filter(id %in% loops$id) %>%
+    dplyr::select(chrom1, start1, end1, chrom2, start2, end2, id, observed, "O/E")
+  colnames(temp.5kb) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2", "id", "obs", "obsexp")
+  
+  temp <- bind_rows(temp.25kb, temp.10kb, temp.5kb)
+  fwrite(temp, here(consensusDir, paste0("loopScore_", sample, ".tsv")), sep = "\t")
+}
+
+
+temp.DMSO <- fread(here(consensusDir, "loopScore_G1.DMSO.Merged.tsv")) %>%
+  dplyr::select(id, obs, obsexp)
+colnames(temp.DMSO) <- c("id", "obs_DMSO", "obsexp_DMSO")
+temp.dTAG <- fread(here(consensusDir, "loopScore_G1.dTAG.Merged.tsv")) %>%
+  dplyr::select(id, obs, obsexp)
+colnames(temp.dTAG) <- c("id", "obs_dTAG", "obsexp_dTAG")
+temp.A485 <- fread(here(consensusDir, "loopScore_G1.A485.Merged.tsv")) %>%
+  dplyr::select(id, obs, obsexp)
+colnames(temp.A485) <- c("id", "obs_A485", "obsexp_A485")
+
+loops_oe <- full_join(full_join(temp.DMSO, temp.dTAG, by = "id"),
+          temp.A485, by = "id") %>%
+  dplyr::mutate(oeFC_dTAG_DMSO = if_else(obsexp_DMSO == 0, NA, obsexp_dTAG/obsexp_DMSO),
+                oeFC_A485_DMSO = if_else(obsexp_DMSO == 0, NA, obsexp_A485/obsexp_DMSO))
+
+fwrite(loops_oe, here(consensusDir, paste0("loopScore_cons_obsexp.tsv")), sep = "\t")
+```
 
 
 #### Comparing G1 vs Async for consensus loops
