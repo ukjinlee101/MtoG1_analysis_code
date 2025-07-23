@@ -1,0 +1,2 @@
+collector	date	source	description
+Nathan+Johanna	2015-06-12	ENCODE	All ENCODE ChIP data

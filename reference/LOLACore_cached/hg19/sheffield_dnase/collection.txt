@@ -1,0 +1,2 @@
+collector	date	source	description
+Nathan	2015-01-03	Sheffield et al. (2013)	Downloaded from dnase.genome.duke.edu

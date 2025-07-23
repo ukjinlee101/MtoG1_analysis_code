@@ -1,0 +1,3 @@
+collector	date	source	description
+Nathan	2015-04-15	Provided by Rebecca Hannah, from http://codex.stemcells.cam.ac.uk/	A comprehensive and functional compendium of Next Generation Sequencing experiments
+ns5bc	2018-04-12	/nm/t1/resources/regions/LOLACore/mm10/codex	Converted via liftOver from mm10 to mm9 (mapped: 9152607, unmapped: 10488). Only chr+start+end maintained

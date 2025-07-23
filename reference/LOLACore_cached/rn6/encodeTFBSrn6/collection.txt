@@ -1,0 +1,3 @@
+collector	date	source	description
+Nathan+Johanna	2015-06-12	ENCODE	All ENCODE ChIP data
+vpr9v	2017-05-25	/h4/t1/resources/regions/LOLACore/mm10/encodeTFBSmm10	Converted via liftOver from mm10 to rn6 (mapped: 1975260, unmapped: 3589080). Only chr+start+end maintained

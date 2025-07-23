@@ -695,271 +695,6 @@ fwrite(loops.5kb %>% dplyr::select(seq(1, 6)),
 
 
 # Annotating loop
-## ChIP-based annotation
-```{r}
-refDir <- here("reference")
-peak.H3K4me3 <- importPeak(here(refDir, "ChIP","H3K4me3_ESC_unionPeaks.bed"))
-
-# Filtering H3K4me3 peaks near TSS
-flankSize <- 2500
-gene.tb <- fread(here(refDir, "mm10", "mm10_GRCm38.p6_gene_sorted.bed")) %>%
-  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
-                TSSstart = TSS - flankSize,
-                TSSend = TSS + flankSize) %>%
-  dplyr::select(V1, TSSstart, TSSend)
-colnames(gene.tb) <- c("chr", "start", "end")
-TSSflank.gr <- makeGRangesFromDataFrame(gene.tb)
-temp <- peak.H3K4me3[unique(queryHits(findOverlaps(peak.H3K4me3, TSSflank.gr)))]
-fwrite(as_tibble(temp), here(refDir, "ChIP",
-                             paste0("H3K4me3_ESC_unionPeaks_", 
-                                    flankSize/1000, "kbTSS.bed")), sep = "\t", col.names = FALSE)
-```
-#### (ARCHIVED) Import ChIP peaks
-```{r}
-#### Importing ChIP-exo peaks
-refDir <- here("reference")
-peak.H3K27ac <- importPeak(here(refDir, "ChIP", "H3K27ac_ESC_unionPeaks.bed"))
-peak.H3K4me3TSS <- importPeak(here(refDir, "ChIP","H3K4me3_ESC_unionPeaks_2.5kbTSS.bed"))
-peak.CTCF <- importPeak(here(refDir, "ChIP","CTCF_ESC_unionPeaks.bed"))
-peak.RAD21 <- importPeak(here(refDir, "ChIP","RAD21_ESC-DMSO_unionPeaks.bed"))
-peak.Whyte.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Whyte_ESC_mm10.bed"))
-peak.Dylan.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Dylan_ESC.bed"))
-```
-#### (ARCHIVED) Functions
-```{r}
-createLoopAnnotation <- function(bedpe.loop.anno, name, figDir, colorList){
-  temp = bedpe.loop.anno %>%
-    dplyr::mutate(sample = name)
-  
-  num = nrow(temp)
-  p7 = ggplot(temp, aes(x = sample, fill = Anno2)) +
-    geom_bar(color = "black") +
-    theme_bw() +
-    labs(title = paste0(num, " loops"),
-         x = "", y = "Counts") +
-    scale_y_continuous(labels = comma_format()) +
-    theme(plot.title = element_text(hjust = 0.5),
-          aspect.ratio = 5,
-          legend.position = "right",
-          legend.direction  = "vertical") +
-    scale_fill_manual(values = colorList)
-  
-  width = 3
-  height = 5
-  svglite(here(figDir,
-               paste0("loopClassify_", name, ".svg")),
-          width = width, height = height)
-  plot(p7)
-  invisible(dev.off())
-  png(here(figDir,
-           paste0("loopClassify_", name, ".png")),
-      width = width, height = height, res = 600, units = "in")
-  plot(p7)
-  invisible(dev.off())
-}
-
-
-annotateLoopRelaxedTSS <- function(bedpe.anno){
-  temp = bedpe.anno %>% dplyr::rowwise() %>%
-    dplyr::mutate(
-      A1 = if_else((A1_H3K4me3TSS), "P", 
-                   if_else((A1_H3K27ac), "E",
-                           if_else((A1_CTCF|A1_RAD21), "S", "X"))),
-      A2 = if_else((A2_H3K4me3TSS), "P", 
-                   if_else((A2_H3K27ac), "E",
-                           if_else((A2_CTCF|A2_RAD21), "S", "X")))
-    )
-  temp = temp %>% dplyr::rowwise() %>%
-    dplyr::mutate(Anno = paste0(A1, "-", A2),
-                  Anno2 = if_else(Anno == "E-P", "P-E", 
-                                  if_else(Anno == "S-P", "P-S",
-                                          if_else(Anno == "X-P", "P-X",
-                                                  if_else(Anno == "S-E", "E-S",
-                                                          if_else(Anno == "X-E", "E-X",
-                                                                  if_else(Anno == "X-S", "S-X",
-                                                                          Anno)))))),
-    )
-  
-  temp$Anno2 = factor(temp$Anno2, level = c("X-X",
-                                            "S-X", "S-S",
-                                            "E-X","E-S","E-E",
-                                            "P-E","P-X", "P-S", "P-P"))
-  
-  # Checking the precense of super enhancer
-  temp <- temp %>% dplyr::rowwise() %>%
-    dplyr::mutate(AnnoSE = ifelse(A1_Whyte.SE | A2_Whyte.SE, "SE", "NO"))
-  temp$AnnoSE <- factor(temp$AnnoSE, level = c("SE", "NO"))
-  
-  return(temp)
-}
-
-annotateLoopPromoterTSS <- function(bedpe.anno){
-  temp = bedpe.anno %>% dplyr::rowwise() %>%
-    dplyr::mutate(
-      A1 = if_else((A1_H3K4me3TSS), "P", "N"),
-      A2 = if_else((A2_H3K4me3TSS), "P", "N")
-    )
-  temp = temp %>% dplyr::rowwise() %>%
-    dplyr::mutate(Anno = paste0(A1, "-", A2),
-                  Anno2 = if_else(Anno == "N-P", "P-N", Anno))
-  
-  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "P-N", "P-P"))
-  
-  return(temp)
-}
-
-annotateLoopEnhancer <- function(bedpe.anno){
-  temp = bedpe.anno %>% dplyr::rowwise() %>%
-    dplyr::mutate(
-      A1 = if_else((A1_H3K27ac), "E", "N"),
-      A2 = if_else((A2_H3K27ac), "E", "N")
-    )
-  temp = temp %>% dplyr::rowwise() %>%
-    dplyr::mutate(Anno = paste0(A1, "-", A2),
-                  Anno2 = if_else(Anno == "N-E", "E-N", Anno))
-  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "E-N", "E-E"))
-  
-  return(temp)
-}
-
-annotateLoopStructure <- function(bedpe.anno){
-  temp = bedpe.anno %>% dplyr::rowwise() %>%
-    dplyr::mutate(
-      A1 = if_else((A1_CTCF|A1_RAD21), "S", "N"),
-      A2 = if_else((A2_CTCF|A2_RAD21), "S", "N")
-    )
-  temp = temp %>% dplyr::rowwise() %>%
-    dplyr::mutate(Anno = paste0(A1, "-", A2),
-                  Anno2 = if_else(Anno == "N-S", "S-N", Anno))
-  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "S-N", "S-S"))
-  return(temp)
-}
-
-
-annotateAnchorTSS <- function(bedpe){
-  tb.loop = 
-    setOverlapColumn("Whyte.SE",
-                     setOverlapColumn("CTCF",
-                                      setOverlapColumn("RAD21",
-                                                       setOverlapColumn("H3K27ac",
-                                                                        setOverlapColumn("H3K4me3TSS", bedpe)))))
-  return(tb.loop)
-}
-
-setOverlapColumn <- function(peakName, loop){
-  tb.loop = as_tibble(loop)
-  overlap = returnOverlapIndexLixt(get(paste0("peak.", peakName)), tb.loop)
-  tb.loop[[paste0("A1_", peakName)]] = FALSE
-  tb.loop[[paste0("A1_", peakName)]][overlap[[1]]] = TRUE
-  tb.loop[[paste0("A2_", peakName)]] = FALSE
-  tb.loop[[paste0("A2_", peakName)]][overlap[[2]]] = TRUE
-  return(tb.loop)
-}
-
-returnOverlapIndexLixt <- function(peak, loop){
-  anchor1.tb = as_tibble(loop) %>% dplyr::select(chrom1, start1, end1)
-  anchor1 = makeGRangesFromDataFrame(data.frame(
-    chr = anchor1.tb$chrom1,
-    start = anchor1.tb$start1,
-    end = anchor1.tb$end1
-  ))
-  
-  anchor2.tb = as_tibble(loop) %>% dplyr::select(chrom2, start2, end2)
-  anchor2 = makeGRangesFromDataFrame(data.frame(
-    chr = anchor2.tb$chrom2,
-    start = anchor2.tb$start2,
-    end = anchor2.tb$end2
-  ))
-  
-  overlap = list(overlap1 = unique(queryHits(findOverlaps(anchor1, peak))),
-                 overlap2 = unique(queryHits(findOverlaps(anchor2, peak))))
-  return(overlap)
-}
-
-saveAnnoGroupBedpe <- function(temp, anno.list, name, annoName, ouDir){
-  loop = temp %>% dplyr::filter(Anno2 %in% anno.list) %>%
-    dplyr::select(c("chrom1", "start1", "end1", "chrom2", "start2", "end2"))
-  fwrite(loop, here(outDir, paste0(name, "_", annoName, ".bedpe")), sep = "\t", col.names = FALSE)
-}
-
-annotateAnchorTSSAnchor <- function(bed){
-  tb.anchor = 
-    setOverlapColumnAnchor("Whyte.SE",
-                     setOverlapColumnAnchor("CTCF",
-                                      setOverlapColumnAnchor("RAD21",
-                                                       setOverlapColumnAnchor("H3K27ac",
-                                                                        setOverlapColumnAnchor("H3K4me3TSS", bed)))))
-  return(tb.anchor)
-}
-
-setOverlapColumnAnchor <- function(peakName, anchor){
-  tb.anchor = as_tibble(anchor)
-  overlap = returnOverlapIndexListAnchor(get(paste0("peak.", peakName)), tb.anchor)
-  tb.anchor[[paste0("A1_", peakName)]] = FALSE
-  tb.anchor[[paste0("A1_", peakName)]][overlap] = TRUE
-  return(tb.anchor)
-}
-
-returnOverlapIndexListAnchor <- function(peak, anchor){
-  anchor1.tb = as_tibble(anchor) %>% dplyr::select(chr, start, end)
-  anchor1 = makeGRangesFromDataFrame(data.frame(
-    chr = anchor1.tb$chr,
-    start = anchor1.tb$start,
-    end = anchor1.tb$end
-  ))
-  
-  overlap = unique(queryHits(findOverlaps(anchor1, peak)))
-  return(overlap)
-}
-
-```
-
-#### (ARCHIVED) Annotation with ChIP
-```{r}
-consensus.loop.tb <- fread(here(loopDir, "chromo_cons_allRes_postprocessed.tsv"))
-
-################################################################################
-# Annotating with strict priority (P-TSS > E > S)
-temp.anno.TSS <- annotateAnchorTSS(consensus.loop.tb) %>%
-  dplyr::mutate(
-    diff_dTAG_DMSO = (score_dTAG - score_DMSO),
-    diff_A485_DMSO = (score_A485 - score_DMSO))
-
-name <- "chromo_cons_allRes_postprocessed_annoHierarchy"
-consensus.loop.anno.tb <- annotateLoopRelaxedTSS(temp.anno.TSS)
-fwrite(consensus.loop.anno.tb, here(loopDir, paste0(name, ".tsv")), 
-       sep = "\t", col.names = TRUE)
-createLoopAnnotation(consensus.loop.anno.tb, name, figDir, colorListLoop)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, unique(consensus.loop.anno.tb$Anno2) , name, "all", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E", "P-S", "P-X", "E-E", "E-S", "E-X"), name, "regulatory", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("S-S", "S-X"), name, "structure", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("X-X"), name, "x-x", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E", "P-S", "P-X"), name, "p-n", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E", "E-E"), name, "pe-pe", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E"), name, "p-pe", outDir)
-# 
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P"), name, "p-p", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-E"), name, "p-e", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-S"), name, "p-s", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-X"), name, "p-x", outDir)
-```
-#### (ARCHIVED) Annotation with ChIP (EpiLC expanded)
-```{r}
-consensus.loop.tb <- fread(here(loopDir, "chromo_cons_allRes_fullset_postprocessed.tsv"))
-
-################################################################################
-# Annotating with strict priority (P-TSS > E > S)
-temp.anno.TSS <- annotateAnchorTSS(consensus.loop.tb) %>%
-  dplyr::mutate(
-    diff_dTAG_DMSO = (score_dTAG - score_DMSO),
-    diff_A485_DMSO = (score_A485 - score_DMSO))
-
-name <- "chromo_cons_allRes_fullset_postprocessed_annoHierarchy"
-consensus.loop.anno.tb <- annotateLoopRelaxedTSS(temp.anno.TSS)
-fwrite(consensus.loop.anno.tb, here(loopDir, paste0(name, ".tsv")), 
-       sep = "\t", col.names = TRUE)
-createLoopAnnotation(consensus.loop.anno.tb, name, figDir, colorListLoop)
-```
 
 ## ChromHMM based annotation
 ### Functions
@@ -1217,82 +952,349 @@ temp$Anno2 <- factor(temp$Anno2, levels = rev(c("P-P", "P-E", "E-E",
                                                 "SP-SP", "SP-SE", "SP-S", "SE-SE", "SE-S", "S-S")))
 
 createLoopAnnotation(temp, paste0(name, "_annotated_complex"), figDir)
+```
 
-############################################################ START FROM HERE
+## ChIP-based annotation
+```{r}
+refDir <- here("reference")
+peak.H3K4me3 <- importPeak(here(refDir, "ChIP","H3K4me3_ESC_unionPeaks.bed"))
 
-# 2. Draw the alluvial plot
-ggplot(counts,
-       aes(axis1 = Anno2, axis2 = Anno2_chromHmm, y = Freq)) +
-  # flows
-  geom_alluvium(aes(fill = Anno2), width = 0.25) +
-  # strata (the blocks at each axis)
-  geom_stratum(width = 0.25, fill = "grey80", color = "black") +
-  # stratum labels
-  geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
-  # axis labels
-  scale_x_discrete(limits = c("Anno2", "Anno2_chromHmm"),
-                   labels = c("Anno2", "Anno2_chromHmm")) +
-  labs(title = "Alluvial Flow: ChIP → chromHMM",
-       y = "Count of Segments",
-       x = NULL) +
-  theme_minimal()
+# Filtering H3K4me3 peaks near TSS
+flankSize <- 2500
+gene.tb <- fread(here(refDir, "mm10", "mm10_GRCm38.p6_gene_sorted.bed")) %>%
+  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
+                TSSstart = TSS - flankSize,
+                TSSend = TSS + flankSize) %>%
+  dplyr::select(V1, TSSstart, TSSend)
+colnames(gene.tb) <- c("chr", "start", "end")
+TSSflank.gr <- makeGRangesFromDataFrame(gene.tb)
+temp <- peak.H3K4me3[unique(queryHits(findOverlaps(peak.H3K4me3, TSSflank.gr)))]
+fwrite(as_tibble(temp), here(refDir, "ChIP",
+                             paste0("H3K4me3_ESC_unionPeaks_", 
+                                    flankSize/1000, "kbTSS.bed")), sep = "\t", col.names = FALSE)
+```
+#### (ARCHIVED) Import ChIP peaks
+```{r}
+#### Importing ChIP-exo peaks
+refDir <- here("reference")
+peak.H3K27ac <- importPeak(here(refDir, "ChIP", "H3K27ac_ESC_unionPeaks.bed"))
+peak.H3K4me3TSS <- importPeak(here(refDir, "ChIP","H3K4me3_ESC_unionPeaks_2.5kbTSS.bed"))
+peak.CTCF <- importPeak(here(refDir, "ChIP","CTCF_ESC_unionPeaks.bed"))
+peak.RAD21 <- importPeak(here(refDir, "ChIP","RAD21_ESC-DMSO_unionPeaks.bed"))
+peak.Whyte.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Whyte_ESC_mm10.bed"))
+peak.Dylan.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Dylan_ESC.bed"))
+```
+#### (ARCHIVED) Functions
+```{r}
+createLoopAnnotation <- function(bedpe.loop.anno, name, figDir, colorList){
+  temp = bedpe.loop.anno %>%
+    dplyr::mutate(sample = name)
+  
+  num = nrow(temp)
+  p7 = ggplot(temp, aes(x = sample, fill = Anno2)) +
+    geom_bar(color = "black") +
+    theme_bw() +
+    labs(title = paste0(num, " loops"),
+         x = "", y = "Counts") +
+    scale_y_continuous(labels = comma_format()) +
+    theme(plot.title = element_text(hjust = 0.5),
+          aspect.ratio = 5,
+          legend.position = "right",
+          legend.direction  = "vertical") +
+    scale_fill_manual(values = colorList)
+  
+  width = 3
+  height = 5
+  svglite(here(figDir,
+               paste0("loopClassify_", name, ".svg")),
+          width = width, height = height)
+  plot(p7)
+  invisible(dev.off())
+  png(here(figDir,
+           paste0("loopClassify_", name, ".png")),
+      width = width, height = height, res = 600, units = "in")
+  plot(p7)
+  invisible(dev.off())
+}
 
+
+annotateLoopRelaxedTSS <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_H3K4me3TSS), "P", 
+                   if_else((A1_H3K27ac), "E",
+                           if_else((A1_CTCF|A1_RAD21), "S", "X"))),
+      A2 = if_else((A2_H3K4me3TSS), "P", 
+                   if_else((A2_H3K27ac), "E",
+                           if_else((A2_CTCF|A2_RAD21), "S", "X")))
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "E-P", "P-E", 
+                                  if_else(Anno == "S-P", "P-S",
+                                          if_else(Anno == "X-P", "P-X",
+                                                  if_else(Anno == "S-E", "E-S",
+                                                          if_else(Anno == "X-E", "E-X",
+                                                                  if_else(Anno == "X-S", "S-X",
+                                                                          Anno)))))),
+    )
+  
+  temp$Anno2 = factor(temp$Anno2, level = c("X-X",
+                                            "S-X", "S-S",
+                                            "E-X","E-S","E-E",
+                                            "P-E","P-X", "P-S", "P-P"))
+  
+  # Checking the precense of super enhancer
+  temp <- temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(AnnoSE = ifelse(A1_Whyte.SE | A2_Whyte.SE, "SE", "NO"))
+  temp$AnnoSE <- factor(temp$AnnoSE, level = c("SE", "NO"))
+  
+  return(temp)
+}
+
+annotateLoopPromoterTSS <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_H3K4me3TSS), "P", "N"),
+      A2 = if_else((A2_H3K4me3TSS), "P", "N")
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "N-P", "P-N", Anno))
+  
+  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "P-N", "P-P"))
+  
+  return(temp)
+}
+
+annotateLoopEnhancer <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_H3K27ac), "E", "N"),
+      A2 = if_else((A2_H3K27ac), "E", "N")
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "N-E", "E-N", Anno))
+  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "E-N", "E-E"))
+  
+  return(temp)
+}
+
+annotateLoopStructure <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_CTCF|A1_RAD21), "S", "N"),
+      A2 = if_else((A2_CTCF|A2_RAD21), "S", "N")
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "N-S", "S-N", Anno))
+  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "S-N", "S-S"))
+  return(temp)
+}
+
+
+annotateAnchorTSS <- function(bedpe){
+  tb.loop = 
+    setOverlapColumn("Whyte.SE",
+                     setOverlapColumn("CTCF",
+                                      setOverlapColumn("RAD21",
+                                                       setOverlapColumn("H3K27ac",
+                                                                        setOverlapColumn("H3K4me3TSS", bedpe)))))
+  return(tb.loop)
+}
+
+setOverlapColumn <- function(peakName, loop){
+  tb.loop = as_tibble(loop)
+  overlap = returnOverlapIndexLixt(get(paste0("peak.", peakName)), tb.loop)
+  tb.loop[[paste0("A1_", peakName)]] = FALSE
+  tb.loop[[paste0("A1_", peakName)]][overlap[[1]]] = TRUE
+  tb.loop[[paste0("A2_", peakName)]] = FALSE
+  tb.loop[[paste0("A2_", peakName)]][overlap[[2]]] = TRUE
+  return(tb.loop)
+}
+
+returnOverlapIndexLixt <- function(peak, loop){
+  anchor1.tb = as_tibble(loop) %>% dplyr::select(chrom1, start1, end1)
+  anchor1 = makeGRangesFromDataFrame(data.frame(
+    chr = anchor1.tb$chrom1,
+    start = anchor1.tb$start1,
+    end = anchor1.tb$end1
+  ))
+  
+  anchor2.tb = as_tibble(loop) %>% dplyr::select(chrom2, start2, end2)
+  anchor2 = makeGRangesFromDataFrame(data.frame(
+    chr = anchor2.tb$chrom2,
+    start = anchor2.tb$start2,
+    end = anchor2.tb$end2
+  ))
+  
+  overlap = list(overlap1 = unique(queryHits(findOverlaps(anchor1, peak))),
+                 overlap2 = unique(queryHits(findOverlaps(anchor2, peak))))
+  return(overlap)
+}
+
+saveAnnoGroupBedpe <- function(temp, anno.list, name, annoName, ouDir){
+  loop = temp %>% dplyr::filter(Anno2 %in% anno.list) %>%
+    dplyr::select(c("chrom1", "start1", "end1", "chrom2", "start2", "end2"))
+  fwrite(loop, here(outDir, paste0(name, "_", annoName, ".bedpe")), sep = "\t", col.names = FALSE)
+}
+
+annotateAnchorTSSAnchor <- function(bed){
+  tb.anchor = 
+    setOverlapColumnAnchor("Whyte.SE",
+                     setOverlapColumnAnchor("CTCF",
+                                      setOverlapColumnAnchor("RAD21",
+                                                       setOverlapColumnAnchor("H3K27ac",
+                                                                        setOverlapColumnAnchor("H3K4me3TSS", bed)))))
+  return(tb.anchor)
+}
+
+setOverlapColumnAnchor <- function(peakName, anchor){
+  tb.anchor = as_tibble(anchor)
+  overlap = returnOverlapIndexListAnchor(get(paste0("peak.", peakName)), tb.anchor)
+  tb.anchor[[paste0("A1_", peakName)]] = FALSE
+  tb.anchor[[paste0("A1_", peakName)]][overlap] = TRUE
+  return(tb.anchor)
+}
+
+returnOverlapIndexListAnchor <- function(peak, anchor){
+  anchor1.tb = as_tibble(anchor) %>% dplyr::select(chr, start, end)
+  anchor1 = makeGRangesFromDataFrame(data.frame(
+    chr = anchor1.tb$chr,
+    start = anchor1.tb$start,
+    end = anchor1.tb$end
+  ))
+  
+  overlap = unique(queryHits(findOverlaps(anchor1, peak)))
+  return(overlap)
+}
+
+```
+
+#### (ARCHIVED) Annotation with ChIP
+```{r}
+consensus.loop.tb <- fread(here(loopDir, "chromo_union_allRes_postprocessed.tsv"))
+
+################################################################################
+# Annotating with strict priority (P-TSS > E > S)
+temp.anno.TSS <- annotateAnchorTSS(consensus.loop.tb)
+consensus.loop.anno.tb <- annotateLoopRelaxedTSS(temp.anno.TSS)
+
+
+
+loop <- as_tibble(consensus.loop.anno.tb)
+anchor1.tb <- as_tibble(loop) %>% dplyr::select(chrom1, start1, end1, A1)
+colnames(anchor1.tb) <- c("chr", "start", "end", "Anno_ChIP")
+anchor2.tb <- as_tibble(loop) %>% dplyr::select(chrom2, start2, end2, A2)
+colnames(anchor2.tb) <- c("chr", "start", "end", "Anno_ChIP")
+anchor.tb <- bind_rows(anchor1.tb, anchor2.tb) %>% 
+  distinct() %>%
+  dplyr::mutate(id = paste(chr, start, end, sep = "_"))
+
+
+################################################################################
+# Comparing with ChromHMM based annotation
+
+temp <- fread(here(loopDir, "chromo_union_allRes_postprocessed_anchor.bed")) %>% dplyr::select(V1, V2, V3, V5)
+colnames(temp) <- c("chr", "start", "end", "Anno_chromHMM")
+temp <- temp %>%
+  dplyr::mutate(id = paste(chr, start, end, sep = "_")) %>%
+  dplyr::select(id, Anno_chromHMM)
+
+anchor.tb <- anchor.tb %>% left_join(temp, by = c("id")) %>% dplyr::select(id, Anno_ChIP, Anno_chromHMM)
+
+anchor.tb$Anno_ChIP <- factor(anchor.tb$Anno_ChIP, levels = (c("P", "E", "S", "X")))
+anchor.tb$Anno_chromHMM <- factor(anchor.tb$Anno_chromHMM, levels = (c("P", "E", "SP", "SE", "S", "X")))
+
+
+flow_df <- anchor.tb %>%
+  dplyr::count(Anno_ChIP, Anno_chromHMM, name = "freq")
+
+lodes_df <- flow_df %>%
+  mutate(fill_group = Anno_ChIP) %>%
+  mutate(alluvium_id = row_number()) %>%
+  pivot_longer(cols = c(Anno_ChIP, Anno_chromHMM),
+               names_to = "x",
+               values_to = "stratum")
+
+# 2. Set the factor levels for the stratum and axis (x) columns
+#    This is the key step that enforces the correct display order.
+unified_levels <- c("P", "E", "SP", "SE", "S", "X")
+lodes_df$stratum <- factor(lodes_df$stratum, levels = unified_levels)
+lodes_df$x <- factor(lodes_df$x, levels = c("Anno_ChIP", "Anno_chromHMM"))
+# Ensure the fill variable is also a factor with the correct levels
+lodes_df$fill_group <- factor(lodes_df$fill_group, levels = c("P", "E", "S", "X"))
+
+
+# 3. Plot using the new long-format data frame and aesthetics
+p <- ggplot(data = lodes_df,
+       aes(x = x, stratum = stratum, alluvium = alluvium_id,
+           y = freq)) +
+  geom_flow(aes(fill = fill_group), width = 1/4,
+            reverse = FALSE) +
+  geom_stratum(width = 1/4, color = "black",
+               reverse = FALSE) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), reverse = FALSE) +
+  labs(x = NULL,
+       y = "Number of anchors") +
+  theme_minimal() +  scale_x_discrete(expand = expansion(add = 0.25)) +
+  theme(legend.position = "none")
+
+
+name <- "alluvial_loopAnnoComparison"
+width <- 3
+height <- 4
+svglite(here(figDir,
+             paste0(name, ".svg")),
+        width = width, height = height)
+plot(p)
+invisible(dev.off())
+png(here(figDir,
+         paste0(name, ".png")),
+    width = width, height = height, res = 600, units = "in")
+plot(p)
+invisible(dev.off())
 
 
 
 # 
-# annotation.tb <- annotateAnchorTSSAnchor(anchor.tb)  %>% dplyr::rowwise() %>%
-#     dplyr::mutate(
-#       annot_chip = if_else((A1_H3K4me3TSS), "P", 
-#                    if_else((A1_H3K27ac), "E",
-#                            if_else((A1_CTCF|A1_RAD21), "S", "X")))
-#     ) %>%
-#   dplyr::select(annot_chromHmm, annot_chip) %>% ungroup()
-#   
 # 
-# temp <- annotation.tb %>% dplyr::mutate(name = "anchors") %>%
-#   dplyr::select(name, annot_chip)
-# temp <- temp %>%
-#   mutate(
-#     annot_chip = fct_relevel(annot_chip, (c("P", "E", "S", "X")))
-#   )
-# num = nrow(temp)
-# p7 = ggplot(temp, aes(x = name, fill = annot_chip)) +
-#   geom_bar(color = "black") +
-#   theme_bw() +
-#   labs(title = paste0(num, " anchors"),
-#        x = "", y = "Counts") +
-#   scale_y_continuous(labels = comma_format()) +
-#   theme(plot.title = element_text(hjust = 0.5),
-#         aspect.ratio = 5,
-#         legend.position = "right",
-#         legend.direction  = "vertical")
 # 
-# library(ggalluvial)
 # 
-# counts <- annotation.tb %>%
-#   group_by(annot_chromHmm, annot_chip) %>%
-#   summarise(Freq = n(), .groups = "drop")
 # 
-# counts$annot_chromHmm <- factor(counts$annot_chromHmm, levels = c("P", "E", "S", "X"))
-# counts$annot_chip <- factor(counts$annot_chip, levels = c("P", "E", "S", "X"))
+# fwrite(consensus.loop.anno.tb, here(loopDir, paste0(name, ".tsv")), 
+#        sep = "\t", col.names = TRUE)
+# createLoopAnnotation(consensus.loop.anno.tb, name, figDir, colorListLoop)
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, unique(consensus.loop.anno.tb$Anno2) , name, "all", outDir)
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E", "P-S", "P-X", "E-E", "E-S", "E-X"), name, "regulatory", outDir)
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("S-S", "S-X"), name, "structure", outDir)
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("X-X"), name, "x-x", outDir)
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E", "P-S", "P-X"), name, "p-n", outDir)
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E", "E-E"), name, "pe-pe", outDir)
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E"), name, "p-pe", outDir)
 # 
-# # 2. Draw the alluvial plot
-# ggplot(counts,
-#        aes(axis1 = annot_chromHmm, axis2 = annot_chip, y = Freq)) +
-#   # flows
-#   geom_alluvium(aes(fill = annot_chromHmm), width = 0.25) +
-#   # strata (the blocks at each axis)
-#   geom_stratum(width = 0.25, fill = "grey80", color = "black") +
-#   # stratum labels
-#   geom_text(stat = "stratum", aes(label = after_stat(stratum)), size = 3) +
-#   # axis labels
-#   scale_x_discrete(limits = c("annot_chromHmm", "annot_chip"),
-#                    labels = c("ChromHMM\nannotation", "ChIP\nannotation")) +
-#   labs(title = "Alluvial Flow: chromHMM → ChIP",
-#        y = "Count of Segments",
-#        x = NULL) +
-#   theme_minimal()
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P"), name, "p-p", outDir)
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-E"), name, "p-e", outDir)
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-S"), name, "p-s", outDir)
+# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-X"), name, "p-x", outDir)
+```
+#### (ARCHIVED) Annotation with ChIP (EpiLC expanded)
+```{r}
+consensus.loop.tb <- fread(here(loopDir, "chromo_cons_allRes_fullset_postprocessed.tsv"))
 
+################################################################################
+# Annotating with strict priority (P-TSS > E > S)
+temp.anno.TSS <- annotateAnchorTSS(consensus.loop.tb) %>%
+  dplyr::mutate(
+    diff_dTAG_DMSO = (score_dTAG - score_DMSO),
+    diff_A485_DMSO = (score_A485 - score_DMSO))
+
+name <- "chromo_cons_allRes_fullset_postprocessed_annoHierarchy"
+consensus.loop.anno.tb <- annotateLoopRelaxedTSS(temp.anno.TSS)
+fwrite(consensus.loop.anno.tb, here(loopDir, paste0(name, ".tsv")), 
+       sep = "\t", col.names = TRUE)
+createLoopAnnotation(consensus.loop.anno.tb, name, figDir, colorListLoop)
 ```
 

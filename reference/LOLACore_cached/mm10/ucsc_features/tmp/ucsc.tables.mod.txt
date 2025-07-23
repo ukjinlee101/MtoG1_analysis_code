@@ -1,0 +1,10 @@
+cpgIslandExt
+ensGene
+genomicSuperDups
+microsat
+nestedRepeats
+rmsk
+simpleRepeat
+wgEncodeGencodeBasicVM7
+wgEncodeGencodeCompVM7
+jaxQtl

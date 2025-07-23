@@ -1,0 +1,2 @@
+collector	date	source	description
+Nathan	2015-01-01	Cistrome	Downloaded from http://cistrome.org/NR_Cistrome/Epigenome.html. (Scripts in my shared directory.)

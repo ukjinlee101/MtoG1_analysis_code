@@ -200,7 +200,8 @@ loops_adjusted <- loops %>%
   dplyr::filter(loopSize < 2000000) %>%
   dplyr::select(-temp_start1, -temp_end1, -temp_start2, -temp_end2, -size) # Remove temporary columns
 
-loops_adjusted <- loops_adjusted %>% dplyr::filter(chrom1 %in% canonical)
+loops_adjusted <- loops_adjusted %>% dplyr::filter(chrom1 %in% canonical) %>%
+  distinct()
 
 fwrite(loops_adjusted %>% dplyr::select(seq(1, 6)),
        here(loopDir, paste0("Hansen_union_allRes_postprocessed.bedpe")), sep = "\t",

@@ -1,0 +1,11 @@
+filename	size
+ensGene.bed	24386
+jaxQtl.bed	601
+genomicSuperDups.bed	9451
+nestedRepeats.bed	84482
+wgEncodeGencodeBasicVM7.bed	13235
+simpleRepeat.bed	391268
+cpgIslandExt.bed	13771
+microsat.bed	81519
+rmsk.bed	2196438
+wgEncodeGencodeCompVM7.bed	23667

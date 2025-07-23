@@ -1,0 +1,11 @@
+filename	description
+cpgIslandExt.bed 	 cpgIslandExt.bed
+ensGene.bed 	 ensGene.bed
+genomicSuperDups.bed 	 genomicSuperDups.bed
+jaxQtl.bed 	 jaxQtl.bed
+microsat.bed 	 microsat.bed
+nestedRepeats.bed 	 nestedRepeats.bed
+rmsk.bed 	 rmsk.bed
+simpleRepeat.bed 	 simpleRepeat.bed
+wgEncodeGencodeBasicVM7.bed 	 wgEncodeGencodeBasicVM7.bed
+wgEncodeGencodeCompVM7.bed 	 wgEncodeGencodeCompVM7.bed
