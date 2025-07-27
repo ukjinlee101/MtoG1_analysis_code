@@ -1,3 +1,0 @@
-collector	date	source	description
-Florian	2016-04-21	UCSC Genome Browser	Selected bed tracks from the UCSC database.
-ns5bc	2018-04-12	/nm/t1/resources/regions/LOLACore/mm10/ucsc_features	Converted via liftOver from mm10 to mm9 (mapped: 7938682, unmapped: 786806). Only chr+start+end maintained

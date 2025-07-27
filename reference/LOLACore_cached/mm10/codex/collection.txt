@@ -1,2 +1,0 @@
-collector	date	source	description
-Nathan	2015-04-15	Provided by Rebecca Hannah, from http://codex.stemcells.cam.ac.uk/	A comprehensive and functional compendium of Next Generation Sequencing experiments

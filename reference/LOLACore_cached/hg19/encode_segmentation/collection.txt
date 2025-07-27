@@ -1,2 +1,0 @@
-collector	date	source	description
-Nathan	2016-04-27	ENCODE	Encode ChromHMM and Segway combined segmentation

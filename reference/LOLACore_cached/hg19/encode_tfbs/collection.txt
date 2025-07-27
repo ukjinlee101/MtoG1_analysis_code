@@ -1,2 +1,0 @@
-collector	date	source	description
-Nathan	2015-01-01	ENCODE	All ENCODE ChIP data

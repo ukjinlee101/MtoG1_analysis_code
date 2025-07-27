@@ -1,2 +1,0 @@
-collector	date	source	description
-Florian	2016-04-21	UCSC Genome Browser	Selected bed tracks from the UCSC database.
