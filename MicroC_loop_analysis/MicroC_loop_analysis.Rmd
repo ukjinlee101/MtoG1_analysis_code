@@ -751,6 +751,20 @@ extractAnchor <- function(loop){
   anchors <- reduce(makeGRangesFromDataFrame(bind_rows(anchor1, anchor2)))
     return(anchors)
 }
+
+convPvalue <- function(pvalue){
+  out <- ifelse(pvalue < 0.0001, "****",
+                ifelse(pvalue < 0.001, "***",
+                       ifelse(pvalue < 0.01, "**",
+                              ifelse(pvalue < 0.05, "*", "ns"))))
+  return(out)
+}
+
+getOverlapLoopNum <- function(loop, peak){
+  anchor <- extractAnchor(loop)
+  a <- unique(queryHits(findOverlaps(anchor, peak)))
+  return(length(a))
+}
 ```
 
 #### [FIG] Scatterplot
@@ -1044,7 +1058,119 @@ plot_loop_scores_and_save_bedpe(data, score_DMSO, score_dTAG,
                                 anno_col = "Anno")
 
 
+plot_loop_scores_and_save_bedpe(data, score_DMSO, score_A485, 
+                                ooe_DMSO, ooe_A485, pseudo_ooe = 0.01,
+                                c("P-P", "P-E", "P-S", "P-X",
+                                  "E-E", "E-S", "E-X",
+                                  "S-S", "S-X",
+                                  "X-X"),
+                                name = "chromosight_score_all_A485vsDMSO",
+                                title = "chromo_score_all_A485vsDMSO", figDir, commonLoopDir)
+
 ```
+#### [FIG] Comparing OOE acrosso condition
+```{r}
+commonLoopDir <- here("../data/loop_analysis")
+diffCutoff <- 0.2
+pseudo_ooe <- 0.01
+loop.all <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+  dplyr::filter(Anno_simple %in% c("P-P", "P-E", "E-E")) %>%
+  dplyr::mutate(diff = score_dTAG - score_DMSO) %>%
+  dplyr::mutate(updown = case_when(
+    diff > diffCutoff  ~ "UP/NO",
+    diff < -diffCutoff ~ "DOWN",
+    TRUE               ~ "UP/NO"))
+
+plot_df_ooe <- loop.all %>% dplyr::select(id, ooe_DMSO, ooe_dTAG, ooe_A485, updown) %>%
+  dplyr::filter(!is.na(ooe_DMSO), !is.na(ooe_dTAG), !is.na(ooe_A485)) %>%
+  dplyr::mutate(
+    ooe_DMSO = if_else(ooe_DMSO == 0, pseudo_ooe, ooe_DMSO),
+    ooe_dTAG = if_else(ooe_dTAG == 0, pseudo_ooe, ooe_dTAG),
+    ooe_A485 = if_else(ooe_A485 == 0, pseudo_ooe, ooe_A485),
+    fc_dTAG    = log2(ooe_dTAG / ooe_DMSO),
+    fc_A485    = log2(ooe_A485 / ooe_DMSO)
+  )
+
+
+plot_df_ooe$updown <- factor(plot_df_ooe$updown, levels = c("UP/NO", "DOWN"))
+plot_df_long <- plot_df_ooe %>%
+  pivot_longer(
+    cols      = c(fc_dTAG, fc_A485),
+    names_to  = "treatment",
+    values_to = "fc"
+  )
+plot_df_long$treatment <- factor(plot_df_long$treatment, levels = c("fc_dTAG", "fc_A485"))
+p1 <- ggplot(plot_df_long, aes(x = updown, y = fc, fill = updown)) +
+  geom_violin(
+    linewidth   = lineThick * mmToLineUnit,
+    lineend     = "square",
+    alpha       = .4,
+    show.legend = FALSE
+  ) +
+  geom_boxplot(
+    width       = 0.3,
+    color       = "black",
+    linewidth   = lineThick * mmToLineUnit,
+    lineend     = "square",
+    outlier.shape = NA,
+    alpha       = 0.6,
+    show.legend = FALSE
+  ) +
+  stat_summary(
+    aes(group = updown),
+    fun     = mean,
+    geom    = "point",
+    shape   = 21,
+    size    = 0.5,
+    fill    = "black",
+    color   = "black",
+    position = position_dodge(.3)
+  ) +
+  scale_fill_manual(values = c("grey30", strong_blue)) +
+  coord_cartesian(ylim = c(-3, 3)) +
+  geom_hline(
+    yintercept = 0,
+    size       = lineThick * mmToLineUnit,
+    lineend    = "square"
+  ) +
+  geom_hline(
+    yintercept = c(-0.5, 0.5),
+    linetype   = "dashed",
+    alpha      = 0.5,
+    size       = lineThick * mmToLineUnit,
+    lineend    = "square"
+  ) +
+  facet_wrap(~ treatment, ncol = 2) +
+  labs(y = "log2 fc of obs/exp") +
+  theme_classic() +
+  theme(
+    axis.title.x  = element_blank(),
+    axis.text.x   = element_text(angle = 45, hjust = 1, vjust = 1, size = fontSizeM),
+    axis.title.y  = element_text(size = fontSizeM, family = fontType),
+    axis.text     = element_text(size = fontSizeS, family = fontType),
+    axis.line     = element_line(
+                       color = "#000000",
+                       size  = lineThick * mmToLineUnit,
+                       lineend = "square"
+                     ),
+    axis.ticks    = element_line(
+                       color = "#000000",
+                       size  = lineThick * mmToLineUnit,
+                       lineend = "square"
+                     ),
+    panel.background = element_rect(fill = "transparent")
+  )
+   
+name <- "chromosight_score_complex_reg_dTAGvsDMSO_compareA485"
+width <- panelSize(2.5)*mmToInch
+height <- panelSize(2)*mmToInch
+fileName <- paste0("violin_", name)
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p1)
+dev.off()  
+
+```
+
 #### [FIG] LOLA on anchor
 ```{r}
 #-------------------------------------------------------------------------------
@@ -1488,23 +1614,7 @@ data <- data %>% dplyr::mutate(
 
 
 data$group2 <- factor(data$group2, levels = c("reg_reg", "reg_nonReg", "strReg_nonReg", "str"))
-# ggplot(data %>% dplyr::filter(group2 != "XXXXX"), aes(x = dist_bin, y = fc, fill = group2)) +
-#   geom_boxplot(outliers = FALSE) +
-#   # optional: overlay the individual points
-#   facet_wrap(~ group2, scales = "free_x", ncol = 4) +
-#   scale_x_discrete(drop = FALSE) +                # keep empty bins visible
-#   labs(
-#     x = "Distance bin",
-#     y = "Δ log2(obs/exp)",
-#     title = "Structural/Regulatory loop perturbation by loop‐size bin"
-#   ) +
-#   theme_classic() +
-#   theme(
-#     axis.text.x  = element_text(angle = 45, hjust = 1),
-#     strip.background = element_rect(fill = "white", colour = "black"),
-#     strip.text = element_text(face = "bold")
-#   ) + geom_hline(yintercept = 0) +
-#       coord_cartesian(ylim = c(-3, 2))
+
 p <- ggplot(
   data %>% dplyr::filter(group2 %in% c("reg_reg", "str")),
   aes(x = dist_bin, y = fc, fill = group2)
@@ -1621,53 +1731,6 @@ getSumScores <- function(track, anchor) {
   return(all_median_scores)
 }
 
-plotSumScores <- function(track, peak, name){
-  peakTrack <- track[unique(queryHits(findOverlaps(track, peak)))]
-  a <- getSumScores(peakTrack, anchor.up)
-  b <- getSumScores(peakTrack, anchor.no)
-  c <- getSumScores(peakTrack, anchor.down)
-  a.tb <- tibble(loop = "UP",
-                 sumScore = a)
-  b.tb <- tibble(loop = "NO",
-                 sumScore = b)
-  c.tb <- tibble(loop = "DOWN",
-                 sumScore = c)
-  data <- bind_rows(a.tb, b.tb, c.tb) %>% drop_na()
-  ggplot(data, aes(x = loop, y = sumScore)) + 
-    labs(x = NULL, y = paste0(name, " average peak score per anchor")) +
-    geom_violin(aes(fill = group), color = "black",
-                linewidth = lineThick * mmToLineUnit, lineend = "square",
-                show.legend = FALSE) +
-    geom_boxplot(width = 0.1, color = "black",
-                 linewidth = lineThick * mmToLineUnit, lineend = "square",
-                 outlier.size = 1, outlier.stroke = NA) + theme_classic() +
-    stat_summary(
-      aes(group = loop), fun = mean,
-      geom = "point", shape = 21, size = 1,
-      fill = "red", color = "black"
-    ) +
-    coord_cartesian(ylim = c(0, quantile(data$sumScore, 0.95))) + theme(
-    axis.title = element_text(
-      size = fontSizeS, family = fontType, color = "#000000"
-    ),
-    axis.text = element_text(
-      size = fontSizeS, family = fontType, color = "#000000"
-    ),
-    axis.text.x = element_text(
-      angle = 45, hjust = 1, vjust = 1
-    ),
-    axis.line = element_line(
-      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
-    ),
-    axis.ticks = element_line(
-      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
-    ),
-    panel.background = element_rect(fill = "transparent"),
-    legend.text = element_text(family = fontType, size = fontSizeS),
-    legend.title = element_text(family = fontType, size = fontSizeS)
-  )
-}
-
 plotSumScoresBinary <- function(track, peak, name, anchor.upno, anchor.down){
   peakTrack <- track[unique(queryHits(findOverlaps(track, peak)))]
   b <- getSumScores(peakTrack, anchor.upno)
@@ -1687,6 +1750,10 @@ plotSumScoresBinary <- function(track, peak, name, anchor.upno, anchor.down){
     geom_boxplot(width = 0.3, color = "black",
                  linewidth = lineThick * mmToLineUnit, lineend = "square",
                  outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + theme_classic() +
+    scale_fill_manual(
+      name = "Reg loop type",
+      values = c("grey30", strong_blue)
+    ) +
     stat_summary(
       aes(group = loop), fun = mean,
       geom = "point", shape = 21, size = 0.5,
@@ -1714,13 +1781,13 @@ plotSumScoresBinary <- function(track, peak, name, anchor.upno, anchor.down){
       legend.text = element_text(family = fontType, size = fontSizeS),
       legend.title = element_text(family = fontType, size = fontSizeS)
     ) + 
-    coord_cartesian(ylim = c(quantile(data$sumScore, 0.0), quantile(data$sumScore, 0.9))) + 
+    coord_cartesian(ylim = c(quantile(data$sumScore, 0.0), quantile(data$sumScore, 0.95))) + 
     annotate(
-     "text", x = 1, y = quantile(data$sumScore, 0.5),
-     label = paste0("p12: ", convPvalue(p12)),
-     color = "black", hjust = 0, size = 3
-   ) +   guides(
-    fill = guide_legend(
+      "text", x = 1, y = quantile(data$sumScore, 0.5),
+      label = paste0("p12: ", convPvalue(p12)),
+      color = "black", hjust = 0, size = 1
+    ) +   guides(
+      fill = guide_legend(
         keywidth = 0.2,  # Adjust the width of the legend keys
         keyheight = 0.2  # Adjust the height of the legend keys
     )
@@ -1739,35 +1806,807 @@ plotSumScoresBinary <- function(track, peak, name, anchor.upno, anchor.down){
 
 # Sum peak score
 ####
-track <- import(here(refDir, "33255_H3K4me3_04-745_Bruce-4_trim_q20_dedup_black_depthNorm.bw"), format = "BigWig")
-peak <- importPeak(here(refDir, "33255_H3K4me3_04-745_Bruce-4_peaks.mergePeak.bed"))
-#plotSumScores(track, peak, "H3K4me3")
+track <- import(here(refDir, "ChIP", "H3K4me3_ESC_avg_depthNorm.bw"), format = "BigWig")
+peak <- importPeak(here(refDir, "ChIP", "H3K4me3_ESC_unionPeaks.bed"))
 plotSumScoresBinary(track, peak, "H3K4me3", anchor.upno, anchor.down)
 
-track <- import(here(refDir, "GSM2438476_EC-DG-3458-H3K27AC_ASYN_1.bw"), format = "BigWig")
-peak <- importPeak(here(refDir, "GSM2438476_EC-DG-3458-H3K27AC_ASYN_1.narrowPeak.bed"))
-#plotSumScores(track, peak, "H3K27ac")
+track <- import(here(refDir, "ChIP", "H3K27ac_ESC_avg_depthNorm.bw"), format = "BigWig")
+peak <- importPeak(here(refDir, "ChIP", "H3K27ac_ESC_unionPeaks.bed"))
 plotSumScoresBinary(track, peak, "H3K27ac", anchor.upno, anchor.down)
 
-track <- import(here(refDir, "GSM2683440_J1_H3K14ac_mm10Lifted.black.bw"), format = "BigWig")
-peak <- importPeak(here(refDir, "GSM2683440_J1_H3K14ac_mm10Lifted.bed"))
-#plotSumScores(track, peak, "H3K14ac")
-plotSumScoresBinary(track, peak, "H3K14ac", anchor.upno, anchor.down)
-
-track <- import(here(refDir, "33248_CTCF_07-729_Bruce-4_trim_q20_dedup_black_depthNorm.bw"), format = "BigWig")
-peak <- importPeak(here(refDir, "33248_CTCF_07-729_Bruce-4_peaks.mergePeak.bed"))
-#plotSumScores(track, peak, "CTCF")
+track <- import(here(refDir, "ChIP", "CTCF_ESC_Rep1_33248_depthNorm.bw"), format = "BigWig")
+peak <- importPeak(here(refDir, "ChIP", "CTCF_ESC_unionPeaks.bed"))
 plotSumScoresBinary(track, peak, "CTCF", anchor.upno, anchor.down)
 
-track <- import(here(refDir, "33250_RAD21_ab992_Bruce-4_trim_q20_dedup_black_depthNorm.bw"), format = "BigWig")
-peak <- importPeak(here(refDir, "33250_RAD21_ab992_Bruce-4_peaks.mergePeak.bed"))
-#plotSumScores(track, peak, "RAD21")
+track <- import(here(refDir, "ChIP", "RAD21_ESC-DMSO_Rep1_depthNorm.bw"), format = "BigWig")
+peak <- importPeak(here(refDir, "ChIP", "RAD21_ESC-DMSO_unionPeaks.bed"))
 plotSumScoresBinary(track, peak, "RAD21", anchor.upno, anchor.down)
 
 
 ```
 
+#### [FIG] SE overlap & enrichment
+```{r}
+peak.Whyte.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Whyte_ESC_mm10.bed"))
+peak.Dylan.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Dylan_ESC.bed"))
+```
 
+Q1. How many SEs are covered with Micro-C loops?
+
+```{r}
+name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
+loop <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+  dplyr::filter(Anno_simple %in% c("P-P", "P-E", "E-E"))
+anchor <- extractAnchor(loop)
+
+### Whyte
+n <- length(unique(subjectHits(findOverlaps(anchor, peak.Whyte.SE))))
+total <- length(peak.Whyte.SE)
+counts <- c(n, total - n)
+labels <- paste(c("covered", "NOT covered"), counts)
+pie(counts, labels = labels,  main = paste0("Whyte SE coverage \n", total), col = c("grey", "white"))
+
+fileName <- here(figDir, "pie_SE_Whyte")
+width <- panelSize(4)*mmToInch
+height <- panelSize(4)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(counts, labels = labels,  main = paste0("Whyte SE coverage \n", total), col = c("grey", "white"),
+    cex = 1, cex.main = 1)
+dev.off()
+
+
+
+### Dylan
+n <- length(unique(subjectHits(findOverlaps(anchor, peak.Dylan.SE))))
+total <- length(peak.Dylan.SE)
+counts <- c(n, total - n)
+labels <- paste(c("covered", "NOT covered"), counts)
+pie(counts, labels = labels, main = paste0("Dylan SE coverage \n", total), col = c("grey", "white"))
+
+fileName <- here(figDir, "pie_SE_Murphy")
+width <- panelSize(4)*mmToInch
+height <- panelSize(4)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(counts, labels = labels, main = paste0("Murphy SE coverage \n", total), col = c("grey", "white"))
+
+dev.off()
+```
+
+Q2. Fisher's exact test?
+```{r}
+name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
+loop <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+  dplyr::filter(Anno_simple %in% c("P-P", "P-E", "E-E"))
+
+
+getSEOverlapFisher <- function(allLoop, subsetLoop, peak){
+  all.overlap <- getOverlapLoopNum(allLoop, peak)
+  all.notOverlap <- nrow(allLoop) - all.overlap
+  
+  subset.overlap <- getOverlapLoopNum(subsetLoop, peak)
+  subset.notOverlap <- nrow(subsetLoop) - subset.overlap
+  
+  contingency_table <- matrix(c(subset.overlap, subset.notOverlap,
+                                all.overlap, all.notOverlap), nrow = 2, byrow = TRUE)
+  colnames(contingency_table) <- c("Overlapping", "Not_Overlapping")
+  rownames(contingency_table) <- c("All loops", "Subset loops")
+  
+  # Perform Fisher's Exact Test
+  fisher_test_result <- fisher.test(contingency_table)
+  return(fisher_test_result)
+}
+
+loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe")))
+loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe")))
+loop.upno <- bind_rows(loop.up, loop.no)
+loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
+
+
+### Dylan
+# Seeding
+temp <- getSEOverlapFisher(loop, loop.upno, peak.Dylan.SE)
+result.tb <- tibble(loopType = "UP/NO",
+                    target = "Dylan SE",
+                    pvalue = temp$p.value,
+                    oddsRatio = temp$estimate)
+
+temp <- getSEOverlapFisher(loop, loop.down, peak.Dylan.SE)
+result.tb <- result.tb %>% 
+  add_row(loopType = "DOWN",
+          target = "Dylan SE",
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+### Whyte
+# Add row
+temp <- getSEOverlapFisher(loop, loop.upno, peak.Whyte.SE)
+result.tb <- result.tb %>% 
+  add_row(loopType = "UP/NO",
+          target = "Whyte SE",
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+temp <- getSEOverlapFisher(loop, loop.down, peak.Whyte.SE)
+result.tb <- result.tb %>% 
+  add_row(loopType = "DOWN",
+          target = "Whyte SE",
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+
+# Visualization
+library(circlize)
+data <- result.tb
+heatmap_data <- data %>% dplyr::select(target, loopType, oddsRatio) %>%
+pivot_wider(names_from = loopType, values_from = oddsRatio) %>%
+  column_to_rownames(var = "target")
+
+pvalue_data <- data %>% dplyr::select(target, loopType, pvalue) %>%
+  pivot_wider(names_from = loopType, values_from = pvalue) %>%
+  column_to_rownames(var = "target")
+
+col_fun <- colorRamp2(c(0, 1, 2), 
+                      c("#4852A0", "white", "#CB333A"))
+
+data$loopType <- factor(data$loopType, levels = c("UP/NO", "DOWN"))
+data$target <- factor(data$target, levels = c("Whyte SE", "Dylan SE"))
+
+p <- ggplot(data, aes(x = loopType, y = target, size = -log10(pvalue), fill = oddsRatio)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 1*ptToMM      # Line width for the border
+  ) + theme_bw() + 
+  scale_size_continuous(range = c(1, 3)) +  # Set min and max point sizes here
+  scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
+                      values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
+                      #low = "white", high = "#CB333A",
+                      #                  limits = c(1, 3),
+                      oob = scales::squish, # Define gradient colors
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08   # Adjust height of the color bar
+                      )
+  ) +
+  labs(x = NULL, y = NULL)  +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here(figDir, "dotplot_SE_enrichment_dotplot")
+width <- panelSize(1.8)*mmToInch
+height <- panelSize(1.1)*mmToInch
+svglite(paste0(fileName, ".svg"),  height = height, width = width)
+print(p)
+dev.off()
+```
+
+#### [FIG] Hub enrichment
+```{r}
+loop <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+  dplyr::filter(Anno_simple %in% c("P-P", "P-E", "E-E"))
+
+name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
+loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe")))
+loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe")))
+anchor.upno <- extractAnchor(bind_rows(loop.up, loop.no))
+
+loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
+anchor.down <- extractAnchor(loop.down)
+
+
+getSEOverlapFisher <- function(allLoop, subsetLoop, peak){
+  all.overlap <- getOverlapLoopNum(allLoop, peak)
+  all.notOverlap <- nrow(allLoop) - all.overlap
+  
+  subset.overlap <- getOverlapLoopNum(subsetLoop, peak)
+  subset.notOverlap <- nrow(subsetLoop) - subset.overlap
+  
+  contingency_table <- matrix(c(subset.overlap, subset.notOverlap,
+                                all.overlap, all.notOverlap), nrow = 2, byrow = TRUE)
+  colnames(contingency_table) <- c("Overlapping", "Not_Overlapping")
+  rownames(contingency_table) <- c("All loops", "Subset loops")
+  
+  # Perform Fisher's Exact Test
+  fisher_test_result <- fisher.test(contingency_table)
+  return(fisher_test_result)
+}
+
+
+i <- 2
+data <- fread(here(refDir, "mm10", "Dylan_hub_esc.csv"))
+
+data.hub <- data %>% dplyr::filter(all_lcon > i)
+temp <- data.hub %>% dplyr::select(c(1, 2, 3))
+colnames(temp) <- c("chr", "start", "end")
+hub.anchor <- makeGRangesFromDataFrame(temp)
+
+
+temp <- getSEOverlapFisher(loop, loop.upno, hub.anchor)
+result.tb <- tibble(loopType = "UP/NO",
+                    target = paste0("hub_", i),
+                    pvalue = temp$p.value,
+                    oddsRatio = temp$estimate)
+temp <- getSEOverlapFisher(loop, loop.down, hub.anchor)
+result.tb <- result.tb %>% 
+  add_row(loopType = "DOWN",
+          target =  paste0("hub_", i),
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+
+for(i in c(5)){
+  data <- fread(here(refDir, "mm10", "Dylan_hub_esc.csv"))
+  
+  data.hub <- data %>% dplyr::filter(all_lcon > i)
+  temp <- data.hub %>% dplyr::select(c(1, 2, 3))
+  colnames(temp) <- c("chr", "start", "end")
+  hub.anchor <- makeGRangesFromDataFrame(temp)
+  
+  
+  temp <- getSEOverlapFisher(loop, loop.upno, hub.anchor)
+  result.tb <- result.tb %>% add_row(loopType = "UP/NO",
+                      target = paste0("hub_", i),
+                      pvalue = temp$p.value,
+                      oddsRatio = temp$estimate)
+  temp <- getSEOverlapFisher(loop, loop.down, hub.anchor)
+  result.tb <- result.tb %>% 
+    add_row(loopType = "DOWN",
+            target =  paste0("hub_", i),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+  
+  
+}
+
+library(circlize)
+data <- result.tb
+heatmap_data <- data %>% dplyr::select(target, loopType, oddsRatio) %>%
+pivot_wider(names_from = loopType, values_from = oddsRatio) %>%
+  column_to_rownames(var = "target")
+
+pvalue_data <- data %>% dplyr::select(target, loopType, pvalue) %>%
+  pivot_wider(names_from = loopType, values_from = pvalue) %>%
+  column_to_rownames(var = "target")
+
+# col_fun <- colorRamp2(c(0, 1, 2), 
+#                       c("blue", "white", "red"))
+
+data$target <- factor(data$target, levels = c("hub_5", "hub_2"))
+data$loopType <- factor(data$loopType, levels = c("UP/NO", "DOWN"))
+p <- ggplot(data, aes(x = loopType, y = target, size = -log10(pvalue), fill = oddsRatio)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 1*ptToMM      # Line width for the border
+  ) + theme_bw() + 
+  scale_size_continuous(range = c(1, 3)) +  # Set min and max point sizes here
+  scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
+                      values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
+                      #low = "white", high = "#CB333A",
+                      #                  limits = c(1, 3),
+                      oob = scales::squish, # Define gradient colors
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08   # Adjust height of the color bar
+                      )
+  ) + labs(x = NULL, y = NULL)  +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+
+fileName <- here(figDir, "dotplot_hub_enrichment_dotplot_all")
+width <- panelSize(1.65)*mmToInch
+height <- panelSize(1.1)*mmToInch
+svglite(paste0(fileName, ".svg"),  height = height, width = width)
+print(p)
+dev.off()
+```
+#### [FIG] Bookmarking enrichment
+```{r}
+runFisherExact <- function(interest.gr, background.gr, query.gr){
+  overlaps_interest <- countOverlaps(interest.gr, query.gr)
+  a <- sum(overlaps_interest > 0)
+  total_interest <- length(interest.gr)
+  c <- total_interest - a
+  
+  overlaps_background <- countOverlaps(background.gr, query.gr)
+  b <- sum(overlaps_background > 0)
+  total_background <- length(background.gr)
+  d <- total_background - b
+  
+  # Construct contingency table
+  contingency_table <- matrix(c(a, c, b, d), nrow=2, byrow=TRUE,
+                              dimnames=list("Region" = c("interest.gr", "background.gr"),
+                                            "Overlap" = c("Yes", "No")))
+  
+  # Perform Fisher's exact test
+  fisher_result <- fisher.test(contingency_table)
+  
+  return(fisher_result)
+}
+
+runFisherExactCombination <- function(interestName,
+                                      loop.up.gr, loop.no.gr, loop.down.gr,
+                                      background.gr,
+                                      targetName,
+                                      retained.gr, lost.gr){
+  # SEEDING
+  temp <- runFisherExact(loop.up.gr, background.gr, retained.gr)
+  result.tb <- tibble(interest = paste0(interestName, "_UP"),
+                      target = paste0(targetName, "_retained"),
+                      pvalue = temp$p.value,
+                      oddsRatio = temp$estimate)
+  
+  # ADDING ROWS
+  temp <- runFisherExact(loop.no.gr, background.gr, retained.gr)
+  result.tb <- result.tb %>% 
+    add_row(interest = paste0(interestName, "_NO"),
+            target = paste0(targetName, "_retained"),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+  
+  # ADDING ROWS
+  temp <- runFisherExact(loop.down.gr, background.gr, retained.gr)
+  result.tb <- result.tb %>% 
+    add_row(interest = paste0(interestName, "_DOWN"),
+            target = paste0(targetName, "_retained"),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+  
+  # ADDING ROWS
+  temp <- runFisherExact(loop.up.gr, background.gr, lost.gr)
+  result.tb <- result.tb %>% 
+    add_row(interest = paste0(interestName, "_UP"),
+            target = paste0(targetName, "_lost"),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+  
+  # ADDING ROWS
+  temp <- runFisherExact(loop.no.gr, background.gr, lost.gr)
+  result.tb <- result.tb %>% 
+    add_row(interest = paste0(interestName, "_NO"),
+            target = paste0(targetName, "_lost"),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+  
+  # ADDING ROWS
+  temp <- runFisherExact(loop.down.gr, background.gr, lost.gr)
+  result.tb <- result.tb %>% 
+    add_row(interest = paste0(interestName, "_DOWN"),
+            target = paste0(targetName, "_lost"),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+  
+  return(result.tb)
+}
+
+runFisherExactCombinationBinary <- function(interestName,
+                                      loop.upno.gr, loop.down.gr,
+                                      background.gr,
+                                      targetName,
+                                      retained.gr, lost.gr){
+  # SEEDING
+  temp <- runFisherExact(loop.upno.gr, background.gr, retained.gr)
+  result.tb <- tibble(interest = paste0(interestName, "_UP/NO"),
+                      target = paste0(targetName, "_retained"),
+                      pvalue = temp$p.value,
+                      oddsRatio = temp$estimate)
+  
+
+  # ADDING ROWS
+  temp <- runFisherExact(loop.down.gr, background.gr, retained.gr)
+  result.tb <- result.tb %>% 
+    add_row(interest = paste0(interestName, "_DOWN"),
+            target = paste0(targetName, "_retained"),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+  
+  # ADDING ROWS
+  temp <- runFisherExact(loop.upno.gr, background.gr, lost.gr)
+  result.tb <- result.tb %>% 
+    add_row(interest = paste0(interestName, "_UP/NO"),
+            target = paste0(targetName, "_lost"),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+
+  
+  # ADDING ROWS
+  temp <- runFisherExact(loop.down.gr, background.gr, lost.gr)
+  result.tb <- result.tb %>% 
+    add_row(interest = paste0(interestName, "_DOWN"),
+            target = paste0(targetName, "_lost"),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+  
+  return(result.tb)
+}
+
+runFisherExactCombinationRetained <- function(interestName,
+                                      loop.up.gr, loop.no.gr, loop.down.gr,
+                                      background.gr,
+                                      targetName,
+                                      retained.gr){
+  # SEEDING
+  temp <- runFisherExact(loop.up.gr, background.gr, retained.gr)
+  result.tb <- tibble(interest = paste0(interestName, "_UP"),
+                      target = paste0(targetName, "_retained"),
+                      pvalue = temp$p.value,
+                      oddsRatio = temp$estimate)
+  
+  # ADDING ROWS
+  temp <- runFisherExact(loop.no.gr, background.gr, retained.gr)
+  result.tb <- result.tb %>% 
+    add_row(interest = paste0(interestName, "_NO"),
+            target = paste0(targetName, "_retained"),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+  
+  # ADDING ROWS
+  temp <- runFisherExact(loop.down.gr, background.gr, retained.gr)
+  result.tb <- result.tb %>% 
+    add_row(interest = paste0(interestName, "_DOWN"),
+            target = paste0(targetName, "_retained"),
+            pvalue = temp$p.value,
+            oddsRatio = temp$estimate)
+  
+
+  return(result.tb)
+}
+
+runFisherExactCombinationTarget <- function(targetName, interestName,
+                                      loop.up.gr, loop.no.gr, loop.down.gr,
+                                      background.gr){
+  # RETAINED loop
+  retained <- fread(here(refDir, "TF_bookmarking", targetName, "am_a.bed")) %>% dplyr::select(c(1, 2, 3))
+  colnames(retained) <- c("chr", "start", "end")
+  retained.gr <- makeGRangesFromDataFrame(retained)
+  # LOST loop
+  lost <- fread(here(refDir, "TF_bookmarking", targetName, "oa.bed")) %>% dplyr::select(c(1, 2, 3))
+  colnames(lost) <- c("chr", "start", "end")
+  lost.gr <- makeGRangesFromDataFrame(lost)
+  
+  result <- runFisherExactCombination(interestName,
+                                      loop.up.gr, loop.no.gr, loop.down.gr,
+                                      background.gr,
+                                      targetName,
+                                      retained.gr, lost.gr)
+  
+  return(result)
+}
+
+runFisherExactCombinationTargetBinary <- function(targetName, interestName,
+                                      loop.upno.gr, loop.down.gr,
+                                      background.gr){
+  # RETAINED loop
+  retained <- fread(here(refDir, "TF_bookmarking", targetName, "am_a.bed")) %>% dplyr::select(c(1, 2, 3))
+  colnames(retained) <- c("chr", "start", "end")
+  retained.gr <- makeGRangesFromDataFrame(retained)
+  # LOST loop
+  lost <- fread(here(refDir, "TF_bookmarking", targetName, "oa.bed")) %>% dplyr::select(c(1, 2, 3))
+  colnames(lost) <- c("chr", "start", "end")
+  lost.gr <- makeGRangesFromDataFrame(lost)
+  
+  result <- runFisherExactCombinationBinary(interestName,
+                                      loop.upno.gr, loop.down.gr,
+                                      background.gr,
+                                      targetName,
+                                      retained.gr, lost.gr)
+  
+  return(result)
+}
+
+runFisherExactCombinationTargetRetained <- function(targetName, interestName,
+                                      loop.up.gr, loop.no.gr, loop.down.gr,
+                                      background.gr){
+  # RETAINED loop
+  retained <- fread(here(refDir, "TF_bookmarking", targetName, "am_a.bed")) %>% dplyr::select(c(1, 2, 3))
+  colnames(retained) <- c("chr", "start", "end")
+  retained.gr <- makeGRangesFromDataFrame(retained)
+  # LOST loop
+  result <- runFisherExactCombinationRetained(interestName,
+                                      loop.up.gr, loop.no.gr, loop.down.gr,
+                                      background.gr,
+                                      targetName,
+                                      retained.gr)
+  
+  return(result)
+}
+```
+
+```{r}
+#### Importing loops of interest
+background <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+  dplyr::filter(Anno_simple %in% c("P-P", "P-E", "E-E"))
+background.gr <- (extractAnchor(background))
+
+name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
+loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe")))
+loop.up.gr <- (extractAnchor(loop.up))
+
+loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe")))
+loop.no.gr <- (extractAnchor(loop.no))
+
+loop.upno.gr <- extractAnchor(bind_rows(loop.up, loop.no))
+
+loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
+loop.down.gr <- (extractAnchor(loop.down))
+
+interestName <- "regLoop"
+
+```
+###### H3K27ac only
+```{r}
+targetName <- "H3K27ac_effie"
+# RETAINED loop
+retained <- fread(here(refDir, "TF_bookmarking", targetName, "am_a.bed")) %>% dplyr::select(c(1, 2, 3))
+colnames(retained) <- c("chr", "start", "end")
+retained.gr <- makeGRangesFromDataFrame(retained)
+# LOST loop
+lost <- fread(here(refDir, "TF_bookmarking", targetName, "oa.bed")) %>% dplyr::select(c(1, 2, 3))
+colnames(lost) <- c("chr", "start", "end")
+lost.gr <- makeGRangesFromDataFrame(lost)
+
+
+# SEEDING
+temp <- runFisherExact(loop.upno.gr, background.gr, retained.gr)
+result.tb <- tibble(interest = paste0(interestName, "_UP/NO"),
+                    target = paste0(targetName, "_retained"),
+                    pvalue = temp$p.value,
+                    oddsRatio = temp$estimate)
+
+# ADDING ROWS
+temp <- runFisherExact(loop.down.gr, background.gr, retained.gr)
+result.tb <- result.tb %>% 
+  add_row(interest = paste0(interestName, "_DOWN"),
+          target = paste0(targetName, "_retained"),
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+# ADDING ROWS
+temp <- runFisherExact(loop.upno.gr, background.gr, lost.gr)
+result.tb <- result.tb %>% 
+  add_row(interest = paste0(interestName, "_UP/NO"),
+          target = paste0(targetName, "_lost"),
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+# ADDING ROWS
+temp <- runFisherExact(loop.down.gr, background.gr, lost.gr)
+result.tb <- result.tb %>% 
+  add_row(interest = paste0(interestName, "_DOWN"),
+          target = paste0(targetName, "_lost"),
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+
+result.tb <- result.tb %>%
+  mutate(interest = recode(interest, 
+                           "regLoop_UP/NO" = "UP/NO",
+                           "regLoop_DOWN" = "DOWN"),
+         target = recode(target,
+                         "H3K27ac_effie_retained" = "Retained",
+                         "H3K27ac_effie_lost" = "Lost"))
+
+result.tb$interest <- factor(result.tb$interest, levels = c("UP/NO", "DOWN"))
+
+p <- ggplot(result.tb, aes(x = interest, y = target, size = -log10(pvalue), fill = oddsRatio)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 0.5*ptToMM      # Line width for the border
+  ) + theme_bw() + 
+  scale_size_continuous(range = c(1, 3)) +  # Set min and max point sizes here
+  scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
+                      values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
+                      #low = "white", high = "#CB333A",
+                      #                  limits = c(1, 3),
+                      oob = scales::squish, # Define gradient colors
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08   # Adjust height of the color bar
+                      )
+  ) +
+  labs(x = NULL, y = NULL)  +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here(figDir, "dotplot_bookmarking_H3K27ac_reg")
+width <- panelSize(1.7)*mmToInch
+height <- panelSize(1.1)*mmToInch
+svglite(paste0(fileName, ".svg"),  height = height, width = width)
+print(p)
+dev.off()
+
+  
+```
+###### all targets
+```{r}
+#### Importing loops of target
+
+temp1 <- runFisherExactCombinationTargetBinary("ESRRB_dsg", interestName,
+                                      loop.upno.gr, loop.down.gr,
+                                      background.gr)
+temp2 <- runFisherExactCombinationTargetBinary("H3K27ac_effie", interestName,
+                                      loop.upno.gr, loop.down.gr,
+                                      background.gr)
+temp3 <- runFisherExactCombinationTargetBinary("KLF4_effie", interestName,
+                                      loop.upno.gr, loop.down.gr,
+                                      background.gr)
+temp4 <- runFisherExactCombinationTargetBinary("OCT4_effie", interestName,
+                                      loop.upno.gr, loop.down.gr,
+                                      background.gr)
+temp5 <- runFisherExactCombinationTargetBinary("SOX2_effie", interestName,
+                                      loop.upno.gr, loop.down.gr,
+                                      background.gr)
+
+
+data <- bind_rows(temp1, temp2, temp3, temp4, temp5)
+
+
+
+result.tb <- data %>%
+  mutate(interest = recode(interest, 
+                           "regLoop_UP/NO" = "UP/NO",
+                           "regLoop_DOWN" = "DOWN"),
+         target = recode(target,
+                         "H3K27ac_effie_retained" = "H3K27ac_retained",
+                         "H3K27ac_effie_lost" = "H3K27ac_lost",
+                         "ESRRB_dsg_retained" = "ESRRB_retained",
+                         "ESRRB_dsg_lost" = "ESRRB_lost",
+                         "KLF4_effie_retained" = "KLF4_retained",
+                         "KLF4_effie_lost" = "KLF4_lost",
+                         "OCT4_effie_retained" = "OCT4_retained",
+                         "OCT4_effie_lost" = "OCT4_lost",
+                         "SOX2_effie_retained" = "SOX2_retained",
+                         "SOX2_effie_lost" = "SOX2_lost"))
+
+result.tb$interest <- factor(result.tb$interest, levels = c("UP/NO", "DOWN"))
+result.tb$target <- factor(result.tb$target, levels = rev(c("H3K27ac_retained", "H3K27ac_lost",
+                                                        "ESRRB_retained", "ESRRB_lost",
+                                                        "KLF4_retained", "KLF4_lost",
+                                                        "OCT4_retained", "OCT4_lost",
+                                                        "SOX2_retained","SOX2_lost")))
+
+p <- ggplot(result.tb, aes(x = interest, y = target, size = -log10(pvalue), fill = oddsRatio)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 1*ptToMM      # Line width for the border
+  ) + theme_bw() + 
+  scale_size_continuous(range = c(1, 3)) +  # Set min and max point sizes here
+  scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
+                      values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
+                      #low = "white", high = "#CB333A",
+                      #                  limits = c(1, 3),
+                      oob = scales::squish, # Define gradient colors
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08   # Adjust height of the color bar
+                      )
+  ) +
+  labs(x = NULL, y = NULL)  +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here(figDir, "dotplot_bookmarking_alltarget_reg")
+width <- panelSize(2.2)*mmToInch
+height <- panelSize(2)*mmToInch
+svglite(paste0(fileName, ".svg"),  height = height, width = width)
+print(p)
+dev.off()
+
+
+
+
+
+
+
+
+```
 
 ## EXPLORATORY
 ### Chromosight scores
