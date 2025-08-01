@@ -85,7 +85,7 @@ do
     # Expand the region of interest to +- 2Mb (slop)
     slopBed -i ${TEMPDIR}/region1.${gene} -g ${GENOMEDIR}/genome.fa.fai -b 2000000 > ${TEMPDIR}/slop.${gene}
     # Create 5kb windows with 500 bp steps within 4Mb regions (step)
-    bedtools makewindows -b ${TEMPDIR}/slop.${gene} -w 5000 -s 500 > ${TEMPDIR}/step.${gene}
+    bedtools makewindows -b ${TEMPDIR}/slop.${gene} -w 5000 -s 250 > ${TEMPDIR}/step.${gene}
     # Count number of restriction sites within each window (step1)
     intersectBed -a ${TEMPDIR}/step.${gene} -b ${REFDIR}/mm10/MboI_mm10.bed -c > ${TEMPDIR}/step1.${gene}
 

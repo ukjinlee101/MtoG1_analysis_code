@@ -1,0 +1,125 @@
+---
+title: "R Notebook"
+---
+
+# IMPORTING REQUIRED PACKAGES
+```{r}
+# LIST OF PACKAGES
+pkgs = c(
+  "tidyverse",
+  "here",
+  "svglite",
+  "ggplot2",
+  "ggrepel",
+  "stringr",
+  "BiocManager",
+  "RColorBrewer",
+  "viridis",
+  "magick",
+  "nlme",
+  "ashr",
+  "factoextra",
+  "plotly",
+  "remotes",
+  "cowplot", "tibble", "dplyr",
+  "gridExtra",
+  "eulerr", "data.table", "clusterProfiler", "zoo"
+)
+bio_pkgs = c("biomaRt",
+             "DESeq2",
+             "ComplexHeatmap",
+             "apeglm",
+             "vsn", "caTools",
+             "sva",
+             "limma",
+             "mixOmics", "plotgardener", "org.Mm.eg.db")
+
+# INSTALL PACKAGES
+#install.packages(pkgs)
+#BiocManager::install(bio_pkgs)
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+
+#remotes::install_github("EvaYiwenWang/PLSDAbatch")
+require(PLSDAbatch)
+
+# CLEANING
+rm(pkgs, bio_pkgs)
+
+options(scipen = 999)
+```
+# Make v4c
+(1) Extract read pairs which a readmate maps from the 10kb  bin that the read mate maps around the vitual read point
+(2) Make successive over-lapping windows for each chromosome at a 10 kb resolution (1 kb step)
+(3) Counted all secondmapped read mate in all overlapping bins
+-- up until this part is done by step1.sh
+(4) Normalize with CPM for total Micro_C reads
+(5) Visualize
+
+```{r}
+bgDir <- here("..", "data", "v4C", "bedgraph")
+dir.create(bgDir, showWarnings = FALSE, recursive = TRUE)
+statDir <- here("..", "data", "v4C", "stats")
+allInfoDir <- here("..", "data", "v4C", "allInfo")
+
+for(res in c(5)){
+for(expName in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled", "EpiG1DMSO_pooled", "EpiG1dTAG_pooled", "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled")){
+  fileList <- as_tibble(list.files(allInfoDir))
+  
+  shiftSize <- res*1000/20
+  print(expName)
+  
+  firstLine <- readLines(paste0(statDir, "/", expName, ".stats.txt"), n = 1)
+  validPairNum <- as.numeric(sub("total\\t(\\d+)", "\\1", firstLine))
+  
+  
+  sampleList <- fileList %>% dplyr::filter(startsWith(value, paste0("allinfo.", res, "kb.", expName, "."))) %>% dplyr::rowwise() %>%
+    dplyr::mutate(vp = unlist(strsplit(value, "\\."))[[4]]) %>%
+    dplyr::select(value, vp)
+  
+  
+  for(i in seq(1, length(sampleList$value))){
+    sample <- sampleList$value[[i]]
+    vp <- sampleList$vp[[i]]
+    
+    tb <- as_tibble(fread(here(allInfoDir, sample)))
+    colnames(tb) = c('chr', 'start', 'end', 'restrictionsites', 'coverage', 'regioncenter')
+    
+    # Skipping setting the center to 0
+    #tb <- tb %>% dplyr::mutate(coverage = ifelse(regioncenter == 1, 0, coverage))
+    
+    # Calculate normFactor. CPM using total Micro-C reads
+    normFactor = 1000000 / validPairNum
+    
+    tb <- tb %>% dplyr::mutate(normCov = coverage*normFactor)
+    #tb$normCovWindow<- rollmean(tb$normCov, window, align="center", fill=T)
+    out.tb <- tb %>% dplyr::mutate(pos = (start + end)/2,
+                                   startPos = pos - shiftSize/2,
+                                   endPos = pos + shiftSize/2 - 1) %>%
+      dplyr::select(chr, startPos, endPos, normCov)
+    # out.tb <- tb %>% dplyr::mutate(end2 = start + 499) %>%
+    #   dplyr::select(chr, start, end2, normCov)
+    
+    fwrite(out.tb, file = here(bgDir, paste0("v4c_", expName, "_", vp, "_", res, "kb.bedGraph")), 
+           col.names = FALSE, sep = "\t")
+  }
+  
+  fileList = as_tibble(list.files(here(bgDir)))
+  
+  temp = (fileList %>% dplyr::filter(startsWith(value, paste0("v4c_", expName, "_"))) %>%
+            dplyr::filter(endsWith(value, paste0("_", res, "kb.bedGraph"))))$value
+  
+  a = lapply(temp, function(file){
+    aa = as_tibble(fread(here(bgDir, file)))
+    file.remove(here(bgDir, file))
+    return(aa)
+  }) %>% dplyr::bind_rows()
+  
+  
+  fwrite(a, file = here(bgDir, paste0("v4c_", expName, "_", res, "kb.bedGraph")), 
+         col.names = FALSE, sep = "\t")
+}
+}
+```

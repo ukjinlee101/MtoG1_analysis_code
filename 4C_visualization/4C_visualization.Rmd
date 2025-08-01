@@ -69,63 +69,6 @@ for(dir in c(figDir, rdsDir)){
 
 # Making bigwig with sliding bin normalization
 ```{r}
-# makeNorm4CBigwig_rep <- function(VP, binSize, shiftSize){
-#   
-#   reads.1 <- readRDS(here(rdsDir, paste0(VP, "_", name, "_Exp1-Rep1.rds")))$reads
-#   reads.2 <- readRDS(here(rdsDir, paste0(VP, "_", name, "_Exp2-Rep1.rds")))$reads
-#   
-#   # Import chr info
-#   seqinfo_from_db <- getChromInfoFromUCSC("mm10")
-#   seqinfo_from_db <- seqinfo_from_db[grep("^chr[0-9XY]+$", seqinfo_from_db$chrom), ]
-#   seqinfo_object <- Seqinfo(
-#     seqnames = seqinfo_from_db$chrom,
-#     seqlengths = seqinfo_from_db$size,
-#     isCircular =seqinfo_from_db$circular,
-#     genome = "mm10"
-#   )
-#   
-#   # Make slinding norm
-#   bin.D1 <- as.data.frame(slideBinNormReads(reads.1, binSize, shiftSize))
-#   temp1 <- bin.D1 %>% dplyr::mutate(
-#     pos = start + binSize/2-1,
-#     bw_start = pos - shiftSize/2+1,
-#     bw_end = pos + shiftSize/2
-#   ) %>%
-#     dplyr::select(seqnames, bw_start, bw_end, strand, reads)
-#   colnames(temp1) <- c("seqnames", "start", "end", "strand", "score")
-#   
-#   bin.Gr <- makeGRangesFromDataFrame(temp1, keep.extra.columns = TRUE)
-#   seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
-#   seqinfo(bin.Gr) <- seqinfo_object
-#   export(bin.Gr, paste0(VP, "_", name, "_rep1.bw"), format = "BigWig")
-#   
-#   bin.D2 <- as.data.frame(slideBinNormReads(reads.2, binSize, shiftSize))
-#   temp2 <- bin.D2 %>% dplyr::mutate(
-#     pos = start + binSize/2-1,
-#     bw_start = pos - shiftSize/2+1,
-#     bw_end = pos + shiftSize/2
-#   ) %>%
-#     dplyr::select(seqnames, bw_start, bw_end, strand, reads)
-#   colnames(temp2) <- c("seqnames", "start", "end", "strand", "score")
-#   
-#   bin.Gr <- makeGRangesFromDataFrame(temp2, keep.extra.columns = TRUE)
-#   seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
-#   seqinfo(bin.Gr) <- seqinfo_object
-#   export(bin.Gr, paste0(VP, "_", name, "_rep2.bw"), format = "BigWig")
-#   
-#   
-#   temp <- full_join(temp1, temp2, by = c("seqnames", "start", "end", "strand")) %>%
-#     dplyr::mutate(score = (score.x + score.y)/2) %>%
-#     dplyr::select(seqnames, start, end, strand, score)
-#   
-#   bin.Gr <- makeGRangesFromDataFrame(temp, keep.extra.columns = TRUE)
-#   seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
-#   seqinfo(bin.Gr) <- seqinfo_object
-#   export(bin.Gr, paste0(VP, "_", name, "_avg.bw"), format = "BigWig")
-#   
-# }
-# 
-
 makeNorm4CBigwig <- function(VP, name, expName, bwDir, binSize, shiftSize){
   
   reads.1 <- readRDS(here(rdsDir, paste0("4C_", VP, "_", name, "_", expName, ".rds")))$reads
@@ -154,75 +97,49 @@ makeNorm4CBigwig <- function(VP, name, expName, bwDir, binSize, shiftSize){
   seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
   seqinfo(bin.Gr) <- seqinfo_object
   export(bin.Gr, here(bwDir, paste0(VP, "_", name, "_", expName, ".bw")), format = "BigWig")
+}
+
+makeNorm4CBigwig_avg <- function(VP, name, expNameList, bwDir, binSize, shiftSize){
+
+  # Import chr info
+  seqinfo_from_db <- getChromInfoFromUCSC("mm10")
+  seqinfo_from_db <- seqinfo_from_db[grep("^chr[0-9XY]+$", seqinfo_from_db$chrom), ]
+  seqinfo_object <- Seqinfo(
+    seqnames = seqinfo_from_db$chrom,
+    seqlengths = seqinfo_from_db$size,
+    isCircular =seqinfo_from_db$circular,
+    genome = "mm10"
+  )
   
-   
+  # process each replicates
+  dfs <- map(expNameList, function(expName){
+    reads <- readRDS(here(rdsDir, paste0("4C_", VP, "_", name, "_", expName, ".rds")))$reads
+    df <- as.data.frame(slideBinNormReads(reads, binSize, shiftSize)) %>%
+      dplyr::mutate(
+        pos = start + binSize/2-1,
+        bw_start = pos - shiftSize/2+1,
+        bw_end = pos + shiftSize/2
+      ) %>%
+      dplyr::select(seqnames, start = bw_start, end = bw_end, strand, score = reads)
+    df
+  })
+  
+  # Join an average replicates
+  merged <- purrr::reduce(dfs, full_join, by = c("seqnames", "start", "end", "strand"))
+  score_cols <- grep("^score", names(merged), value = TRUE)
+  
+  avg_df <- merged %>%
+    dplyr::mutate(score = rowMeans(across(all_of(score_cols)), na.rm = TRUE)) %>%
+    dplyr::select(seqnames, start, end, strand, score)
+  
+  bin.Gr <- makeGRangesFromDataFrame(avg_df, keep.extra.columns = TRUE)
+  seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
+  seqinfo(bin.Gr) <- seqinfo_object
+  export(bin.Gr, here(bwDir, paste0(VP, "_", name, "_avg.bw")), format = "BigWig")
 }
 
 
-bwDir <- here("../data", "4C")
-dir.create(bwDir, recursive = TRUE, showWarnings = FALSE)
-
-binSize <- 5e3
-shiftSize <- binSize/20
-
-VP <- "Klf4"
-name <- "ESC-G1DMSO"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp2", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-name <- "ESC-G1dTAG"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-name <- "EpiLC-G1DMSO"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp2", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-name <- "EpiLC-G1dTAG"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-
-
-
-
-binSize <- 10e3
-shiftSize <- binSize/20
-VP <- "Tbx3"
-name <- "ESC-G1DMSO"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-name <- "ESC-G1dTAG"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-
-VP <- "Myc"
-name <- "ESC-G1DMSO"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp2", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-name <- "ESC-G1dTAG"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-name <- "EpiLC-G1DMSO"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp2", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-name <- "EpiLC-G1dTAG"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-
-VP <- "Fosl2"
-name <- "ESC-G1DMSO"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-name <- "ESC-G1dTAG"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-name <- "EpiLC-G1DMSO"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
-name <- "EpiLC-G1dTAG"
-makeNorm4CBigwig(VP, name, "Exp1", bwDir, binSize, shiftSize)
-makeNorm4CBigwig(VP, name, "Exp3", bwDir, binSize, shiftSize)
+ 
 ```
 
 
