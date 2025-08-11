@@ -673,14 +673,72 @@ for(expandSize in c(5000, 10000, 25000)){
     intersect = c("Lee_chromo","Tjian_chromo","Tjian_mustache"),
     name = "",
     base_annotations = list(
-      'Loop #' = intersection_size()
+      'Loop #' = intersection_size(text = list(size = fontSizeS*ptToMM,
+                                               family = fontType,
+                                               color = "#000000"))
+    ),
+    matrix = intersection_matrix(
+      geom = geom_point(size = 1.2)                         # shrink dots
+    ),
+    themes = upset_default_themes(
+      text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text.x = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text.y = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      )
     )
-  ) + ggtitle(paste0(expandSize, "bp expanded, 1 Chebychev dist"))
+  ) + ggtitle(paste0(expandSize, "bp expanded, 1 Chebychev dist")) +
+    theme(
+      text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+        
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+    )
   
   
   fileName <- here(figDir, paste0("offSet2_", expandSize, "bp_expanded"))
-  width <- panelSize(5.5)*mmToInch
-  height <- panelSize(3)*mmToInch
+  width <- panelSize(2.4)*mmToInch
+  height <- panelSize(1.7)*mmToInch  
   svglite(paste0(fileName, ".svg"), width = width, height = height)
   print(p)
   dev.off()
@@ -770,6 +828,43 @@ getOverlapLoopNum <- function(loop, peak){
   return(length(a))
 }
 ```
+
+#### [FIG] Loop size, strength
+```{r}
+commonLoopDir <- here("../data/loop_analysis")
+figDir <- here("../figure/loop_analysis")
+dir.create(figDir, showWarnings = FALSE, recursive = TRUE)
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+  dplyr::mutate(size = start2 - start1,
+                group = case_when(
+                  Anno %in% c("P-P", "P-E", "E-E") ~ "pure regulatory",
+                  Anno %in% c("P-SP", "P-SE", "E-SP", "E-SE") ~ "reg_strReg",
+                  Anno %in% c("P-S", "E-S") ~ "reg_str",
+                  Anno %in% c("SP-SP", "SP-SE", "SE-SE") ~ "strReg_strReg",
+                  Anno %in% c("SP-S", "SE-S") ~ "strReg_str",
+                  Anno %in% c("P-X", "E-X") ~ "reg_other",
+                  Anno %in% c("SP-X", "SE-X") ~ "strReg_other",
+                  Anno %in% c("S-S", "S-X") ~ "str",
+                  Anno %in% c("X-X") ~ "other",
+                  TRUE ~ NA
+                ))
+
+
+ggplot(data, aes(y = size, x = group))  + geom_violin() +
+  geom_boxplot(width = 0.3, color = "black",
+               linewidth = lineThick * mmToLineUnit, lineend = "square",
+               outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) +
+  coord_cartesian(ylim = c(0, 800*1000))
+
+
+ggplot(data, aes(y = ooe_DMSO, x = Anno))  + geom_violin() +
+  geom_boxplot(width = 0.3, color = "black",
+               linewidth = lineThick * mmToLineUnit, lineend = "square",
+               outlier.shape = NA,  alpha = 0.6, show.legend = FALSE)+
+  coord_cartesian(ylim = c(0, 7))
+
+```
+
 
 #### [FIG] Scatterplot
 ```{r}
@@ -2624,9 +2719,8 @@ dev.off()
 
 ```
 
-## [4] Loop + Transcription
-### Chromosight
-#### [FIG] RNA-seq loopscore scatterplot
+## [4] Loop + Transcription (Chromosight)
+### [FIG] RNA-seq loopscore scatterplot
 ```{r}
 loadLoopAnnoData <- function(fileName){
   data <- as_tibble(fread(fileName)) %>%
@@ -3141,6 +3235,85 @@ plot_insScore <- function(temp.tb, note, ymin = -1.5, ymax = 0){
 plot_insScore(dataToPlot, "nearestBoundary_diff_dTAGvsDMSO_binaryGroup", ymin = -0.3, ymax = 0.2)
 
 
+getPvalWilcox <- function(data, group1, group2){
+  distance1 <- (data %>% dplyr::filter(group ==group1) )$negInsScore_DMSO
+  distance2 <- (data %>% dplyr::filter(group ==group2) )$negInsScore_DMSO
+  wil <- wilcox.test(distance1, distance2)
+  return(wil$p.value)
+}
+
+plot_insScoreSingle <- function(temp.tb, note, ymin = -1.5, ymax = 0){
+  p12 <- round(getPvalWilcox(temp.tb, "group1", "group2"), 5)
+  
+  p <- ggplot(temp.tb, aes(x = ".", fill = group, y =  negInsScore_DMSO)) + 
+    labs(x = NULL, y = "- Insulation score") +  # Remove x-axis title
+    scale_fill_manual(values = rev((c("#777777", "#F28E2C")))) +
+
+    introdataviz::geom_split_violin(linewidth = lineMedium * mmToLineUnit, lineend = "square",
+                                    alpha = .4) +
+    geom_boxplot(width = 0.3, color = "black",
+                 linewidth = lineMedium * mmToLineUnit, lineend = "square",
+                 outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + theme_classic() +
+    stat_summary(
+      aes(group = group), fun = mean,
+      geom = "point", shape = 21, size = 0.5,
+      fill = "black", color = "black", position = position_dodge(.3)
+    ) +
+    geom_hline(yintercept = 0, linewidth = lineThick*mmToLineUnit) +
+    theme_classic() + coord_cartesian(ylim = c(ymin, ymax)) +
+    annotate("text", x = 1, y = ymin + 0.1, label = paste0("p12: ", convPvalue(p12)),
+             color = "black", hjust = 0, size = 1) +
+    theme(
+      axis.title = element_text(
+        size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+    )+   guides(
+      fill = guide_legend(
+        keywidth = 0.2,  # Adjust the width of the legend keys
+        keyheight = 0.2  # Adjust the height of the legend keys
+      ))
+  
+  
+  fileName <- paste0("TAD_insulation_score_binaryGroup_", note)
+  width <- panelSize(1.55)*mmToInch
+  height <- panelSize(1.2)*mmToInch
+  png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+  print(p)
+  dev.off()
+  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+  print(p)
+  dev.off()
+}
+
+dataToPlot <- dataToPlot %>% mutate(negInsScore_DMSO = -(2^log2InsScore_DMSO))
+plot_insScoreSingle(dataToPlot, "nearestBoundary_DMSO_dTAGvsDMSO_binaryGroup", ymin = -1, ymax = 0)
+
+
 ```
 
 
@@ -3398,7 +3571,1544 @@ dev.off()
 
 ```
 
+### ChIP peak density
+#### [FIG] H3K4me3 peak number per 10kb
+```{r}
+process_group <- function(group_name, gene_data, bins) {
+  # Filter for the specific group
+  TSS_group <- makeGRangesFromDataFrame(
+    gene_data %>% filter(ensembl %in% get(group_name)), 
+    keep.extra.columns = TRUE
+  )
+  
+  # Process each TSS in the group
+  all_results <- map_dfr(seq_len(length(TSS_group)), function(i) {
+    # Find overlapping bins
+    overlapping_bins <- findOverlaps(TSS_group[i], bins)
+    bins_near_tss <- as_tibble(bins[subjectHits(overlapping_bins)])
+    
+    # Calculate distance bin
+    TSScenter <- (as_tibble(TSS_group[i]) %>%
+                    mutate(center = (start + end) / 2))$center
+    centerBinStart <- floor(TSScenter / 10e3) * 10e3 + 1
+    bins_near_tss <- bins_near_tss %>%
+      mutate(distanceBin = abs((start - centerBinStart)) / 10e3)
+    
+    # Summarize results
+    result <- bins_near_tss %>%
+      group_by(distanceBin) %>%
+      summarise(mean_peak_counts = mean(peak_counts, na.rm = TRUE), .groups = "drop") %>%
+      mutate(gene = TSS_group[i]$ensembl)
+    return(result)
+  })
+  
+  # Calculate mean and SD for the group
+  mean_data <- all_results %>%
+    group_by(distanceBin) %>%
+    summarise(mean_peak_counts = mean(mean_peak_counts, na.rm = TRUE))
+  
+  sd_data <- all_results %>%
+    group_by(distanceBin) %>%
+    summarise(sd_peak_counts = sd(mean_peak_counts, na.rm = TRUE))
+  
+  # Join and add group name
+  summary_data <- left_join(mean_data, sd_data, by = "distanceBin") %>%
+    mutate(group = group_name)
+  
+  return(summary_data)
+}
 
+##########################################################
+
+
+## Import peak
+peak <- importPeak(here(refDir, "ChIP", "H3K4me3_ESC_unionPeaks.bed"))
+
+## Import 10kb bin
+temp <- fread(here(refDir, "mm10", "mm10.bin.10kb.bed")) %>% dplyr::select(c(1, 2, 3))
+colnames(temp) <- c("chr", "start", "end")
+temp <- temp %>% dplyr::mutate(start = start+1)
+bins.10kb <- makeGRangesFromDataFrame(temp)
+
+## Count overlap
+counts <- countOverlaps(bins.10kb, peak)
+mcols(bins.10kb)$peak_counts <- counts
+
+## Getting TSS
+flankSize <- 1e6
+gene.tb <- fread(here(refDir, "mm10", "mm10_GRCm38.p6_gene_sorted.bed")) %>%
+  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
+                TSSstart = TSS - flankSize,
+                TSSend = TSS + flankSize) %>%
+  dplyr::select(V1, TSSstart, TSSend, V6)
+colnames(gene.tb) <- c("chr", "start", "end", "ensembl")
+
+
+group1 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group1.tsv"))$gene
+group2 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group2.tsv"))$gene
+
+##########################################################
+# List of groups to process
+groups <- c("group1", "group2")
+
+# Process each group and combine results
+summary_data <- map_dfr(groups, ~ process_group(.x, gene.tb, bins.10kb))
+
+# Add the additional rows for distanceBin = 0
+summary_data <- summary_data %>%
+  mutate(distanceBin = distanceBin + 1) %>%
+  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "group1") %>%
+  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "group2")
+
+n1 <- length(group1)
+n2 <- length(group2)
+
+# summary_data <- summary_data %>%
+#   mutate(
+#     se = if_else(group == "group1", sd_peak_counts / sqrt(n1), sd_peak_counts/sqrt(n2)),
+#     ci_low  = mean_peak_counts - 2*se,
+#     ci_high = mean_peak_counts + 2*se
+#   )
+
+# Plot the results
+p <- ggplot(summary_data, aes(x = distanceBin, y = mean_peak_counts, fill = group, color = group, group = group)) + 
+  geom_smooth(
+    linewidth = lineMedium,
+    method = "loess", 
+    formula = y ~ x, 
+    span   = 0.2,    # smaller = wigglier, larger = smoother
+    se     = TRUE,   # show confidence band
+    alpha  = 0.2, 
+  ) +
+  labs(
+    x = "Distance bin (10kb)",
+    y = "H3K4me3 peak count"
+  ) +
+  theme_classic() +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    # legend.text = element_text(family = fontType, size = fontSizeS),
+    # legend.title = element_text(family = fontType, size = fontSizeS),
+    legend.position = "none"  # Moves legend inside the plot (x, y relative coordinates)
+  ) +
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    ))+
+  scale_color_manual(values = rev(c("#777777", "#F28E2C"))) +
+    scale_fill_manual(values = rev(c("#777777", "#F28E2C")))
+
+
+##########################################################
+
+fileName <- paste0("binPeakDensity_H3K4me3_binaryGroup")
+width <- 38*mmToInch
+height <- 35*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+```
+
+#### [FIG] RAD21 peak number at promoter
+```{r}
+dataDir <- here("..", "data")
+peak.RAD21 <- importPeak(here(refDir, "ChIP", "RAD21_ESC-DMSO_unionPeaks.bed"))
+
+################################################################################
+flankSize <- 5000
+gene.tb <- fread(here(refDir, "mm10", "mm10_GRCm38.p6_gene_sorted.bed")) %>%
+  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
+                TSSstart = TSS - flankSize,
+                TSSend = TSS + flankSize) %>%
+  dplyr::select(V6, V5, V1, TSSstart, TSSend)
+colnames(gene.tb) <- c("ensembl_gene_id", "external_gene_name", "chr", "start", "end")
+
+
+# Convert gene.tb to a GRanges object
+gene_gr <- GRanges(
+  seqnames = gene.tb$chr,
+  ranges = IRanges(start = gene.tb$start, end = gene.tb$end),
+  gene_id = gene.tb$ensembl_gene_id
+)
+
+# Count overlaps between peaks and genes
+overlap_counts <- countOverlaps(gene_gr, peak.RAD21)
+
+# Add overlap counts to the original gene.tb data
+gene.tb$peak_count <- overlap_counts
+
+
+group1 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group1.tsv"))$gene
+group2 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group2.tsv"))$gene
+
+
+gene.tb <- gene.tb %>% dplyr::mutate(group = case_when(
+  ensembl_gene_id %in% group1 ~ "group1",
+  ensembl_gene_id %in% group2 ~ "group2",
+  TRUE ~ NA
+)) %>%
+  dplyr::filter(!is.na(group))
+
+###############################################################################
+
+dataToPlot <- gene.tb %>%
+  mutate(peakNum = case_when(
+    peak_count == 0 ~ "peakNum0",
+    peak_count == 1 ~ "peakNum1",
+    peak_count >- 2 ~ "peakNumOver2",
+    TRUE ~ NA
+  ))
+
+# Create the stacked barplot
+dataToPlot_short <- dataToPlot %>%
+  group_by(group, peakNum) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  group_by(group) %>%
+  mutate(ratio = count / sum(count))
+
+# Define the gradient colors
+gradient_colors <- c("#D4D4D4", "#E48D8A", "#F44641")
+
+# Create the stacked barplot with gradient colors
+p <- ggplot(dataToPlot_short, aes(x = group, y = ratio, fill = peakNum)) +
+  geom_bar(stat = "identity", position = "stack",
+           linewidth = lineMedium * mmToLineUnit, lineend = "square") +
+  theme_classic() + labs(x = NULL , y = "Ratio") +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) +
+  scale_fill_manual(values = gradient_colors, 
+                    guide = guide_legend(
+      override.aes = list(size = 0.5), # Adjust legend key symbol size
+      keywidth = 2 / 2.54, # Convert 2mm to cm
+      keyheight = 2 / 2.54 # Convert 2mm to cm
+    )) 
+
+width <- panelSize(1.7)*mmToInch
+height <- panelSize(1.3)*mmToInch
+fileName <- paste0("ChIP_peak_RAD21occupancy_promoter")
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()  
+
+```
+### Loop analysis per gene group
+```{r}
+commonLoopDir <- here("../data/loop_analysis")
+diffDir <- here("../data/RNA_diff")
+name <- "chromosight"
+
+geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_complex_ensemblList.tsv"))) %>%
+  dplyr::mutate(distance = start2 - start1,
+                loopID = paste(chrom1, start1, start2, sep = "_"))
+```
+
+##### [FIG] Loop number per gene: P-N
+```{r}
+
+group1 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group1.tsv"))$gene
+group2 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group2.tsv"))$gene
+
+# Counting number of loop per genes
+tempSum <- geneAnnoData %>% dplyr::select(loopID, gene, Anno) %>% unnest(gene) %>% group_by(gene) %>%  summarize(
+    loop = list(loopID),
+    anno = list(Anno),
+    count = n())
+
+tempSum <- tempSum %>% dplyr::mutate(
+  group = ifelse(gene %in% group1, "group1",
+                 ifelse(gene %in% group2, "group2", NA))
+) %>% dplyr::filter(!is.na(group)) %>% dplyr::filter(group %in% c("group1", "group2"))
+
+# 
+getPvalWilcox <- function(data, group1, group2){
+  distance1 <- (data %>% dplyr::filter(group ==group1) )$count
+  distance2 <- (data %>% dplyr::filter(group ==group2) )$count
+  wil <- wilcox.test(distance1, distance2)
+  return(wil$p.value)
+}
+
+
+pv12 <- round(getPvalWilcox(tempSum,"group1", "group2"), 5)
+
+
+p <- ggplot(tempSum, aes(x = group, y = count, fill = group)) + 
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "black", alpha = 0.6,
+                 linewidth = lineThick * mmToLineUnit, lineend = "square", show.legend = FALSE) + theme_classic() +       
+  scale_y_continuous(breaks = seq(0, 10, by = 2)) + 
+  labs(x = NULL, y = "# of P-N loops per gene") +
+  coord_cartesian(ylim = c(0, 8)) +
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black"
+  )+
+  annotate("text", x = 1, y = 3, label = paste0("pv12: ", convPvalue(pv12)),
+           color = "black", hjust = 0, size = 1) +
+  theme(
+      axis.title = element_text(
+        size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+    ) +  scale_fill_manual(values = rev(c("#777777", "#F28E2C")))
+
+
+
+fileName <- paste0("count_barplot_diffGroup_dTAG_vs_DMSO_binaryGroup")
+width <- panelSize(0.8)*mmToInch
+height <- panelSize(1.5)*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+```
+
+##### [FIG] Counting loop types
+```{r}
+#######
+temp2 <- tempSum %>% rowwise() %>% mutate(total = length(anno),
+                                          num_pp = sum(anno == "P-P"),
+                                          num_pe = sum(anno == "P-E"),
+                                          num_px = sum(anno == "P-X"),
+                                          num_ps = sum(anno %in% c("P-S", "P-SP", "P-SE")),
+                                          num_sps = sum(anno %in% c("SP-SP", "SP-SE", "SP-S")),
+                                          num_spn = sum(anno %in% c("E-SP", "SP-X")),
+                                          num_str = num_ps + num_sps + num_spn
+)
+
+
+loopType <- temp2 %>% group_by(group) %>% summarise(num_pp = sum(num_pp),
+                                        num_pe = sum(num_pe),
+                                        # num_str = sum(num_str),
+                                        num_ps = sum(num_ps),
+                                        num_sps = sum(num_sps),
+                                        num_spn = sum(num_spn),
+                                        num_px = sum(num_px))
+
+
+loopTypeLong <- loopType %>% pivot_longer(-group, names_to = "type", values_to = "count")
+
+loopTypeLong$type <- factor(loopTypeLong$type, levels = c("num_pp", "num_pe", "num_px",
+                                                          "num_ps", "num_spn", 
+                                                          "num_sps" ))
+
+# Plotting
+p <- ggplot(loopTypeLong, aes(fill=type, y=count, x=group)) + 
+    geom_bar(position="fill", stat="identity") + theme_classic() +
+  scale_fill_manual(values = c(strong_red, strong_orange, strong_yellow, strong_blue, "grey30", "grey10")) +theme(
+      axis.title = element_text(
+        size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )+   
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    ))
+
+fileName <- paste0("count_barplot_diffGroup_dTAG_vs_DMSO_binaryGroup_alltypes")
+width <- panelSize(1.5)*mmToInch
+height <- panelSize(1.5)*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+```
+
+##### [FIG] Loop number per gene: structural
+```{r}
+########
+data <- temp2 %>% dplyr::select(group, num_str)
+colnames(data) <- c("group", "count")
+pv12 <- round(getPvalWilcox(data,"group1", "group2"), 5)
+
+p <- ggplot(data, aes(x = group, y = count, fill = group)) + 
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "black", alpha = 0.6,
+                 linewidth = lineThick * mmToLineUnit, lineend = "square", show.legend = FALSE) + theme_classic() +       
+  scale_y_continuous(breaks = seq(0, 10, by = 2)) + 
+  labs(x = NULL, y = "# of PromStr loops per gene") +
+  coord_cartesian(ylim = c(0, 4)) +
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black"
+  )+
+  annotate("text", x = 1, y = 3, label = paste0("pv12: ", convPvalue(pv12)),
+           color = "black", hjust = 0, size = 1) +
+  theme(
+      axis.title = element_text(
+        size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+    ) +  scale_fill_manual(values = rev(c("#777777", "#F28E2C")))
+
+fileName <- paste0("count_barplot_diffGroup_dTAG_vs_DMSO_str_binaryGroup")
+width <- panelSize(0.8)*mmToInch
+height <- panelSize(1.5)*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+```
+###### (WIP) GO
+```{r}
+group1 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group1.tsv"))$gene
+group2 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group2.tsv"))$gene
+
+
+GO1 <- enrichGO(gene = group1, OrgDb = org.Mm.eg.db, keyType = "ENSEMBL", ont = "BP", readable = TRUE)
+GO2 <- enrichGO(gene = group2, OrgDb = org.Mm.eg.db, keyType = "ENSEMBL", ont = "BP", readable = TRUE)
+GO1.df <- as.data.frame(GO1)
+GO2.df <- as.data.frame(GO2)
+# fwrite(GO1.df, here("GO_binary_group1.tsv"), sep = "\t")
+# fwrite(GO2.df, here("GO_binary_group2.tsv"), sep = "\t")
+# GO1.df <- fread(here("GO_binary_group1.tsv"))
+# GO2.df <- fread(here("GO_binary_group2.tsv"))
+
+subset1 <- GO1.df %>% dplyr::select(ID, Description, GeneRatio, p.adjust) %>% dplyr::mutate(group = "Group 1") %>%
+  dplyr::arrange(p.adjust)
+subset1$GeneRatio <- sapply(strsplit(subset1$GeneRatio, "/"), function(x) as.numeric(x[1]) / as.numeric(x[2]))
+
+subset2 <- GO2.df %>% dplyr::select(ID, Description, GeneRatio, p.adjust) %>% dplyr::mutate(group = "Group 2") %>%
+  dplyr::arrange(p.adjust)
+subset2$GeneRatio <- sapply(strsplit(subset2$GeneRatio, "/"), function(x) as.numeric(x[1]) / as.numeric(x[2]))
+
+
+GOlist <- factor(c("GO:0001824", "GO:0030879", "GO:0021953", "GO:0019827",
+                 "GO:0022613", "GO:0050767", "GO:0034470", "GO:0016055",
+                 "GO:0006397", "GO:0030900", "GO:0008380"))
+
+data <- bind_rows(subset1, subset2) %>%
+  dplyr::filter(ID %in% GOlist)
+
+descOrder <- sort(unique(data$Description))[c(4, 10, 2, 1, 3, 11, 7, 8, 6, 5, 9)]
+pValueLogMax <- 10
+data <- data %>% dplyr::rowwise() %>% dplyr::mutate(pValueLog = min(-log10(p.adjust), pValueLogMax))
+p <- ggplot(data, aes(x = group, y = factor(Description, levels = descOrder), size = pValueLog, fill = GeneRatio)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 1*ptToMM) +
+  scale_size_continuous(range = c(0.5, 2)) +  # Set min and max point sizes here
+  scale_fill_gradient(low = "white", high = "#CB333A",
+                      # limits = c(0, 1),
+                      oob = scales::squish, # Define gradient colors
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08   # Adjust height of the color bar
+                      )
+  ) +
+  labs(x = NULL, y = NULL) +
+  theme_bw() +  # Apply theme_bw first, so custom theme settings come after
+  theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeS,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000",
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS,         # Ensure size is set for y-axis text
+      family = fontType,
+      color = "#000000",
+      lineheight = 0.9          # Allows wrapping for y-axis labels to fit into 2 lines
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+
+
+fileName <- here(figDir, "..", "GO", "GO_groups_binaryGrouping")
+width <- panelSize(2.5)*mmToInch
+height <- panelSize(1.2)*mmToInch
+svglite(paste0(fileName, ".svg"), height = height, width = width)
+print(p)
+dev.off()
+```
+
+##### [FIG] Loop number per gene: P-P
+```{r}
+########
+data <- temp2 %>% dplyr::select(group, num_pp)
+colnames(data) <- c("group", "count")
+pv12 <- round(getPvalWilcox(data,"group1", "group2"), 5)
+
+p <- ggplot(data, aes(x = group, y = count, fill = group)) + 
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "black", alpha = 0.6,
+                 linewidth = lineThick * mmToLineUnit, lineend = "square", show.legend = FALSE) + theme_classic() +       
+  scale_y_continuous(breaks = seq(0, 10, by = 2)) + 
+  labs(x = NULL, y = "# of P-P loops per gene") +
+  coord_cartesian(ylim = c(0, 4)) +
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black"
+  )+
+  annotate("text", x = 1, y = 3, label = paste0("pv12: ", convPvalue(pv12)),
+           color = "black", hjust = 0, size = 1) +
+  theme(
+      axis.title = element_text(
+        size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+    ) +  scale_fill_manual(values = rev(c("#777777", "#F28E2C")))
+
+fileName <- paste0("count_barplot_diffGroup_dTAG_vs_DMSO_pp_binaryGroup")
+width <- panelSize(0.8)*mmToInch
+height <- panelSize(1.5)*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+```
+
+##### [FIG] Loop number per gene: P-E
+```{r}
+########
+data <- temp2 %>% dplyr::select(group, num_pe)
+colnames(data) <- c("group", "count")
+pv12 <- round(getPvalWilcox(data,"group1", "group2"), 5)
+
+p <- ggplot(data, aes(x = group, y = count, fill = group)) + 
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "black", alpha = 0.6,
+                 linewidth = lineThick * mmToLineUnit, lineend = "square", show.legend = FALSE) + theme_classic() +       
+  scale_y_continuous(breaks = seq(0, 10, by = 2)) + 
+  labs(x = NULL, y = "# of P-E loops per gene") +
+  coord_cartesian(ylim = c(0, 4)) +
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black"
+  )+
+  annotate("text", x = 1, y = 3, label = paste0("pv12: ", convPvalue(pv12)),
+           color = "black", hjust = 0, size = 1) +
+  theme(
+      axis.title = element_text(
+        size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+    ) +  scale_fill_manual(values = rev(c("#777777", "#F28E2C")))
+
+fileName <- paste0("count_barplot_diffGroup_dTAG_vs_DMSO_pe_binaryGroup")
+width <- panelSize(0.8)*mmToInch
+height <- panelSize(1.5)*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+```
+
+
+##### [FIG] Grouping genes with structural loop number
+###### Grouping
+```{r}
+# temp2 contains genes from group 1, 2, 5, 8 and loop counts
+#calculating diff score and log2fc distribution based on p-n numbers
+
+psOver4 <- (temp2 %>% dplyr::filter(num_str >= 4))$gene
+ps3 <- (temp2 %>% dplyr::filter(num_str == 3))$gene
+ps2 <- (temp2 %>% dplyr::filter(num_str == 2))$gene
+ps1 <- (temp2 %>% dplyr::filter(num_str == 1))$gene
+ps0 <- (temp2 %>% dplyr::filter(num_str == 0))$gene
+
+# 
+# temp2 <- tempSum %>% rowwise() %>% mutate(total = length(anno),
+#                                           num_pp = sum(anno == "P-P"),
+#                                           num_pe = sum(anno == "P-E"),
+#                                           num_px = sum(anno == "P-X"),
+#                                           num_ps = sum(anno %in% c("P-S", "P-SP", "P-SE")),
+#                                           num_sps = sum(anno %in% c("SP-SP", "SP-SE", "SP-S")),
+#                                           num_spn = sum(anno %in% c("E-SP", "SP-X")),
+#                                           num_str = num_ps + num_sps + num_spn
+# 
+
+## Dividing genes into groups
+temp <- geneAnnoData %>% dplyr::mutate(diff = score_dTAG - score_DMSO) %>%
+  dplyr::filter(Anno %in% c("P-P", "P-E", "P-X")) %>%
+  dplyr::select(diff, gene) %>%
+  unnest(gene) %>% group_by(gene) %>%
+  summarize(mean_diff_score = mean(diff),
+            .groups = 'drop')
+
+diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
+
+temp <- left_join(temp, diff.RNA, by = c("gene" = "ensembl_gene_id")) %>% 
+  drop_na(shrinked_log2FC)
+
+
+temp <- temp %>% dplyr::mutate(
+  psNum = case_when(
+    gene %in% ps0 ~ "ps0",
+    gene %in% ps1 ~ "ps1",
+    gene %in% ps2 ~ "ps2",
+    gene %in% ps3 ~ "ps3",
+    gene %in% psOver4 ~ "psOver4",
+    TRUE ~ NA
+  )) %>%
+  drop_na(psNum)
+
+```
+
+
+
+###### loop score
+```{r}
+getPvalWilcox <- function(data, group1, group2){
+  distance1 <- (data %>% dplyr::filter(psNum ==group1) )$mean_diff_score
+  distance2 <- (data %>% dplyr::filter(psNum ==group2) )$mean_diff_score
+  wil <- wilcox.test(distance1, distance2)
+  return(wil$p.value)
+}
+
+ps01 <- round(getPvalWilcox(temp, "ps0", "ps1"), 5)
+ps12 <- round(getPvalWilcox(temp, "ps1", "ps2"), 5)
+ps23 <- round(getPvalWilcox(temp, "ps2", "ps3"), 5)
+ps34 <- round(getPvalWilcox(temp, "ps3", "psOver4"), 5)
+ps24 <- round(getPvalWilcox(temp, "ps2", "psOver4"), 5)
+ps14 <- round(getPvalWilcox(temp, "ps1", "psOver4"), 5)
+ps04 <- round(getPvalWilcox(temp, "ps0", "psOver4"), 5)
+
+
+p <- ggplot(temp, aes(x = psNum, y = mean_diff_score)) + 
+  geom_violin(aes(fill = psNum), 
+              color = "black",
+              linewidth = lineMedium * mmToLineUnit, lineend = "square",
+              show.legend = FALSE) +
+  geom_boxplot(width = 0.3, color = "black",
+               linewidth = lineMedium * mmToLineUnit, lineend = "square",
+               outlier.shape = NA
+  ) + theme_classic() + labs(x = NULL , y = "Average Δ loop score") +
+  stat_summary(
+    aes(group = psNum), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black"
+  ) +
+  geom_hline(yintercept = 0, linewidth = lineThick * mmToLineUnit) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1, vjust = 1
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )+
+  annotate("text", x = 1, y = -0.3, label = paste0("ps01: ", convPvalue(ps01), "\n",
+                                                "ps12: ", convPvalue(ps12), "\n",
+                                                "ps23: ", convPvalue(ps23), "\n",
+                                                "ps34: ", convPvalue(ps34), "\n",
+                                                "ps24: ", convPvalue(ps24), "\n", 
+                                                "ps14: ", convPvalue(ps14), "\n",
+                                                "ps04: ", convPvalue(ps04), "\n"), 
+           color = "black", hjust = 0, size = 2) +
+    scale_fill_manual(values = c("#777777", "#8B7E65", "#A28452", "#C2884D", "#F28E2C")) +
+  coord_cartesian(ylim = c(-0.7, 0))
+
+
+
+fileName <- paste0("psGroup_loopDiffScorre_dTAGvsDMSO")
+width <- 33*mmToInch
+height <-38*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+```
+
+###### log2FC
+```{r}
+temp <- temp %>% dplyr::mutate(absLog2FC = abs(log2FoldChange))
+
+ks_result1 <- ks.test(
+  temp %>% dplyr::filter(psNum == "psOver4") %>% pull(absLog2FC),
+  temp %>% dplyr::filter(psNum == "ps3") %>% pull(absLog2FC)
+)
+ks_result2 <- ks.test(
+  temp %>% dplyr::filter(psNum == "psOver4") %>% pull(absLog2FC),
+  temp %>% dplyr::filter(psNum == "ps2") %>% pull(absLog2FC)
+)
+ks_result3 <- ks.test(
+  temp %>% dplyr::filter(psNum == "psOver4") %>% pull(absLog2FC),
+  temp %>% dplyr::filter(psNum == "ps1") %>% pull(absLog2FC)
+)
+ks_result4 <- ks.test(
+  temp %>% dplyr::filter(psNum == "psOver4") %>% pull(absLog2FC),
+  temp %>% dplyr::filter(psNum == "ps0") %>% pull(absLog2FC)
+)
+
+p <- ggplot(temp, aes(x = absLog2FC, color = psNum)) +
+scale_color_manual(values = (c("#777777", "#8B7E65", "#A28452", "#C2884D", "#F28E2C"))) +
+  stat_ecdf(size = 0.4, linewidth = lineMedium * mmToLineUnit, lineend = "square" ) + # Use stat_ecdf to plot the empirical CDF
+  labs(
+    x = "Abs. log2(fold change)",
+    y = "Cumulative Probability"
+  ) + coord_cartesian(xlim = c(0, 1.5)) +
+  theme_classic() + # Clean theme
+  theme(
+      axis.title = element_text(
+        size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.position = "none",
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+    ) + scale_y_continuous(labels = scales::number_format(accuracy = 0.1))
+
+
+fileName <- paste0("psGroup_abslog2FC_dTAGvsDMSO")
+width <- 33*mmToInch
+height <-33*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+
+
+
+```
+
+
+###### (WIP) GO
+```{r}
+# GOfigDir <- here(figDir, "../GO")
+# getGO("psOver4", GOfigDir, psOver4)
+# getGO("psOver3", GOfigDir, psOver3)
+# getGO("psOver2", GOfigDir, psOver2)
+# getGO("psOver1", GOfigDir, psOver1)
+# getGO("psOver0", GOfigDir, psOver0)
+# 
+# #####################
+GO0.df <- as.data.frame(enrichGO(gene = ps0, OrgDb = org.Mm.eg.db, keyType = "ENSEMBL", ont = "BP"))
+GO1.df <- as.data.frame(enrichGO(gene = ps1, OrgDb = org.Mm.eg.db, keyType = "ENSEMBL", ont = "BP"))
+GO2.df <- as.data.frame(enrichGO(gene = ps2, OrgDb = org.Mm.eg.db, keyType = "ENSEMBL", ont = "BP"))
+GO3.df <- as.data.frame(enrichGO(gene = ps3, OrgDb = org.Mm.eg.db, keyType = "ENSEMBL", ont = "BP"))
+GO4.df <- as.data.frame(enrichGO(gene = psOver4, OrgDb = org.Mm.eg.db, keyType = "ENSEMBL", ont = "BP"))
+
+
+subset0 <- GO0.df %>% dplyr::select(ID, Description, GeneRatio, p.adjust) %>% dplyr::mutate(group = "psOver0") %>%
+  dplyr::mutate(
+    gr = sapply(GeneRatio, function(x) {
+      # Split the string by "/"
+      parts <- unlist(strsplit(x, "/"))
+      # Convert to numeric and perform the division
+      as.numeric(parts[1]) / as.numeric(parts[2])
+    })
+  ) %>% dplyr::arrange(desc(gr))
+subset1 <- GO1.df %>% dplyr::select(ID, Description, GeneRatio, p.adjust) %>% dplyr::mutate(group = "psOver1") %>%
+  dplyr::mutate(
+    gr = sapply(GeneRatio, function(x) {
+      # Split the string by "/"
+      parts <- unlist(strsplit(x, "/"))
+      # Convert to numeric and perform the division
+      as.numeric(parts[1]) / as.numeric(parts[2])
+    })
+  ) %>% dplyr::arrange(desc(gr))
+subset2 <- GO2.df %>% dplyr::select(ID, Description, GeneRatio, p.adjust) %>% dplyr::mutate(group = "psOver2") %>%
+  dplyr::mutate(
+    gr = sapply(GeneRatio, function(x) {
+      # Split the string by "/"
+      parts <- unlist(strsplit(x, "/"))
+      # Convert to numeric and perform the division
+      as.numeric(parts[1]) / as.numeric(parts[2])
+    })
+  ) %>% dplyr::arrange(desc(gr))
+subset3 <- GO3.df %>% dplyr::select(ID, Description, GeneRatio, p.adjust) %>% dplyr::mutate(group = "psOver3") %>%
+  dplyr::mutate(
+    gr = sapply(GeneRatio, function(x) {
+      # Split the string by "/"
+      parts <- unlist(strsplit(x, "/"))
+      # Convert to numeric and perform the division
+      as.numeric(parts[1]) / as.numeric(parts[2])
+    })
+  ) %>% dplyr::arrange(desc(gr))
+subset4 <- GO4.df %>% dplyr::select(ID, Description, GeneRatio, p.adjust) %>% dplyr::mutate(group = "psOver4") %>%
+  dplyr::mutate(
+    gr = sapply(GeneRatio, function(x) {
+      # Split the string by "/"
+      parts <- unlist(strsplit(x, "/"))
+      # Convert to numeric and perform the division
+      as.numeric(parts[1]) / as.numeric(parts[2])
+    })
+  ) %>% dplyr::arrange(desc(gr))
+
+
+GOlist <- factor(c("GO:0006397", "GO:0008380", "GO:0022613", "GO:0034470",
+                   "GO:0016055", "GO:0007389", "GO:0048562", "GO:0045165",
+                   "GO:0072001", "GO:0007517", "GO:0048705", "GO:0003002"))
+
+data <- bind_rows(bind_rows(bind_rows(bind_rows(subset0, subset1), subset2), subset3), subset4) %>%
+  dplyr::filter(ID %in% GOlist)
+
+p <- ggplot(data, aes(x = group, y = Description, color = p.adjust, size = gr)) +
+  geom_point() + theme_bw() +
+  scale_color_gradient(low = "red", high = "blue", limits = c(0, 0.05)) +
+  scale_size_continuous(range = c(0, 3)) +
+  labs(x = NULL, y = NULL) +
+  theme(axis.text = element_text(size = 6),  # Set axis text size
+        axis.title = element_text(size = 6), # Set axis title size (if not removed)
+        legend.text = element_text(size = 6), # Set legend text size
+        legend.title = element_text(size = 6))
+# 
+# fileName <- here(figDir, "..", "GO", "GO_groups_ps")
+# height = 2
+# width = 3.4
+# svglite(paste0(fileName, ".svg"), height = height, width = width)
+# print(p)
+# dev.off()
+```
+
+### Finding largest convergent encompassing S-S
+#### Annotating CTCF motif
+```{r}
+peak.CTCF <- fread(here(refDir, "ChIP", "CTCF_ESC_unionPeaks.bed"))
+colnames(peak.CTCF) <- c("chr", "start", "end")
+peak.CTCF <- makeGRangesFromDataFrame(peak.CTCF)
+
+library(BSgenome.Mmusculus.UCSC.mm10)
+
+# Extract sequences
+sequences <- getSeq(BSgenome.Mmusculus.UCSC.mm10, peak.CTCF)
+
+
+# Get the CTCF motif (or provide your own PWM)
+ctcf_motif <- query(MotifDb, c("CTCF", "Mmusculus"))[[1]]
+
+# Scan for the motif
+motif_hits <- lapply(sequences, function(seq) {
+    matchPWM(ctcf_motif, seq, min.score = "80%") # Adjust min.score as needed
+})
+
+motif_hits_reverse <- lapply(sequences, function(seq) {
+    matchPWM(ctcf_motif, reverseComplement(seq), min.score = "80%")
+})
+
+# Combine results
+result <- mapply(function(fwd, rev) {
+    list(forward = fwd, reverse = rev)
+}, motif_hits, motif_hits_reverse, SIMPLIFY = FALSE)
+
+
+result[[5]]
+
+
+result_tibble <- tibble(
+    peak_id = seq_along(result), # Create an identifier for each peak
+    alignment = map_chr(result, function(res) {
+        has_fwd <- length(res$forward) > 0
+        has_rev <- length(res$reverse) > 0
+        
+        if (has_fwd && has_rev) "fwdrev"
+        else if (has_fwd) "fwd"
+        else if (has_rev) "rev"
+        else "none"
+    })
+)
+
+temp <- as_tibble(peak.CTCF) %>% bind_cols(result_tibble) %>%
+  dplyr::select(seqnames, start, end, alignment)
+
+fwrite(temp, here(refDir, "ChIP", "CTCF_ESC_unionPeaks_motifAnnotated.bed"), sep = "\t", col.names = FALSE)
+
+```
+
+#### Filtering convergent S-S loops
+```{r}
+commonLoopDir <- here("../data/loop_analysis")
+figDir <- here("../figure/loop_analysis")
+
+# IMPORT S-S LOOPS
+allLoops <- as_tibble(fread(here(commonLoopDir, "loopScore_chromosight.tsv")))
+strLoops <- allLoops %>% dplyr::filter(Anno %in% c("S-S", "SE-SE", "SP-SP", "SP-SE", "SE-S", "SP-S"))
+temp <- strLoops %>% dplyr::select(c(1, 2, 3, 5, 6))  # Assuming columns include anchor positions
+colnames(temp) <- c("chrom", "start1", "end1", "start2", "end2")
+strLoopsGr1 <- makeGRangesFromDataFrame(
+  temp %>% dplyr::select(chrom, start = start1, end = end1)
+)
+strLoopsGr2 <- makeGRangesFromDataFrame(
+  temp %>% dplyr::select(chrom, start = start2, end = end2)
+)
+
+# IMPORT CTCF MOTIF ANNOTATION
+ctcfMotifs <- fread(here(refDir, "ChIP", "CTCF_ESC_unionPeaks_motifAnnotated.bed"))
+colnames(ctcfMotifs) <- c("chrom", "start", "end", "motif")
+ctcfGr <- makeGRangesFromDataFrame(ctcfMotifs, keep.extra.columns = TRUE)
+
+# Annotate each loop anchor with CTCF motifs
+anchor1_with_ctcf <- findOverlaps(strLoopsGr1, ctcfGr)
+anchor2_with_ctcf <- findOverlaps(strLoopsGr2, ctcfGr)
+
+# Get motif information for anchor1 overlaps
+anchor1_ctcf_motif <- rep(NA, length(strLoopsGr1))  # Initialize motif vector
+anchor1_ctcf_motif[queryHits(anchor1_with_ctcf)] <- ctcfGr[subjectHits(anchor1_with_ctcf)]$motif
+
+# Get motif information for anchor2 overlaps
+anchor2_ctcf_motif <- rep(NA, length(strLoopsGr2))  # Initialize motif vector
+anchor2_ctcf_motif[queryHits(anchor2_with_ctcf)] <- ctcfGr[subjectHits(anchor2_with_ctcf)]$motif
+
+# Add motif information to strLoops
+strLoops <- strLoops %>%
+  mutate(
+    anchor1_motif = anchor1_ctcf_motif,
+    anchor2_motif = anchor2_ctcf_motif
+  )
+
+# Filter for convergent CTCF interactions (forward in anchor1, reverse in anchor2)
+convergent_loops <- strLoops %>%
+  filter(anchor1_motif %in% c("fwd", "fwdrev") &
+           (anchor2_motif %in% c("rev", "fwdrev")))
+```
+
+#### Processing
+```{r}
+# Extract loop boundary from left to right
+temp <- convergent_loops %>% dplyr::select(c(1, 2, 6))
+colnames(temp) <- c("chrom", "start", "end")
+strLoopsGr <- makeGRangesFromDataFrame(temp)
+
+# IMPORT TSS
+flankSize <- 10
+gene.tb <- fread(here(refDir, "mm10", "mm10_GRCm38.p6_gene_sorted.bed")) %>%
+  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
+                TSSstart = TSS - flankSize,
+                TSSend = TSS + flankSize) %>%
+  dplyr::select(V1, TSSstart, TSSend, V6, V5)
+colnames(gene.tb) <- c("chrom", "start", "end", "ensembl", "gene")
+geneGr <- makeGRangesFromDataFrame(gene.tb, keep.extra.columns = TRUE)
+
+
+# Find overlaps between loops and TSS
+overlaps <- findOverlaps(geneGr, strLoopsGr)
+
+# Annotate overlaps
+tss_with_loops <- geneGr[queryHits(overlaps)]
+loops_with_tss <- strLoopsGr[subjectHits(overlaps)]
+
+# Combine into a data frame for processing
+loop_data <- data.frame(gene = tss_with_loops$ensembl,
+                        loop_chr = seqnames(loops_with_tss),
+                        loop_start = start(loops_with_tss),
+                        loop_end = end(loops_with_tss),
+                        loop_width = width(loops_with_tss))
+
+# Identify the largest loop for each gene
+largest_loops <- loop_data[order(loop_data$gene, -loop_data$loop_width), ]
+largest_loops <- largest_loops[!duplicated(largest_loops$gene), ]
+largest_loops <- largest_loops %>% dplyr::mutate(loopID = paste(loop_chr, loop_start, loop_end, sep = "_"))
+largest_loops <- largest_loops[order(largest_loops$loop_chr, largest_loops$loop_start),]
+rownames(largest_loops) <- NULL
+
+# Checking smaller loops
+allLoopsGr <- makeGRangesFromDataFrame(allLoops, 
+                                       seqnames.field = "chrom1", 
+                                       start.field = "start1", 
+                                       end.field = "end2")
+largestLoopsGr <- makeGRangesFromDataFrame(largest_loops, 
+                                           seqnames.field = "loop_chr", 
+                                           start.field = "loop_start", 
+                                           end.field = "loop_end")
+largestLoopsGr <- sort(unique(largestLoopsGr))
+complete_overlaps <- subsetByOverlaps(allLoopsGr, largestLoopsGr, type = "within")
+overlaps <- findOverlaps(complete_overlaps, largestLoopsGr)
+
+
+completeOverlapDf <- as.data.frame(complete_overlaps) %>% dplyr::mutate(loopIDAll = paste(seqnames, start, end, sep = "_"))
+largestLoopsDf <- as.data.frame(largestLoopsGr) %>% dplyr::mutate(loopID = paste(seqnames, start, end, sep = "_"))
+
+loopIDpairs <- data.frame(loopID = completeOverlapDf$loopIDAll[queryHits(overlaps)],
+                          loopID2 = largestLoopsDf$loopID[subjectHits(overlaps)])
+
+##################################
+name <- "chromosight"
+geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_complex_ensemblList.tsv"))) %>% unnest(gene) %>%
+  dplyr::mutate(loopID = paste(chrom1, start1, end2, sep = "_"))
+
+temp <- geneAnnoData %>% dplyr::left_join(loopIDpairs, by = c("loopID"))
+temp2 <- temp %>% dplyr::select(gene, loopID2) %>%
+  group_by(gene) %>%              # Group data by the 'gene' column
+  summarize(geneHasSS = !all(is.na(loopID2)))  # Check if all loopID2 values for each gene are NA
+temp <- temp %>% left_join(temp2, by = c("gene"))
+data.all <- temp %>% dplyr::mutate(group = ifelse(!geneHasSS, "No",
+                                              ifelse(is.na(loopID2), "Outside", "Within")),
+                               size = start2 - start1)
+
+##################################
+outfile <- data.all %>% dplyr::select(loopID2, gene) %>% dplyr::filter(!is.na(loopID2)) %>%
+  separate(loopID2, into = c("chrom", "start", "end"), sep = "_", convert = TRUE)
+fwrite(outfile, here(commonLoopDir, "convergent_ss_domain.bed"), sep = "\t", col.names = FALSE)
+```
+
+#### [FIG] Plotting
+```{r}
+data <- data.all %>% dplyr::filter(Anno %in% c("P-SE", "P-E", "E-SP", "SP-SE"))
+
+temp <- data %>% dplyr::select(chrom1, start1, end1, chrom2, start2, end2, group) %>% distinct()
+
+temp1 <- temp %>% dplyr::filter(group == "No") %>% dplyr::select(-group)
+fwrite(temp1, here(commonLoopDir, "insulated_domain_ss_no.bedpe"), sep = "\t", col.names = FALSE)
+temp2 <- temp %>% dplyr::filter(group == "Within") %>% dplyr::select(-group)
+fwrite(temp2, here(commonLoopDir, "insulated_domain_ss_within.bedpe"), sep = "\t", col.names = FALSE)
+temp3 <- temp %>% dplyr::filter(group == "Outside") %>% dplyr::select(-group)
+fwrite(temp3, here(commonLoopDir, "insulated_domain_ss_outside.bedpe"), sep = "\t", col.names = FALSE)
+
+temp <- data %>% dplyr::select(id, group, size) %>% distinct()
+
+
+getPvalWilcox <- function(data, group1, group2){
+  distance1 <- (data %>% dplyr::filter(group ==group1) )$size
+  distance2 <- (data %>% dplyr::filter(group ==group2) )$size
+  wil <- wilcox.test(distance1, distance2)
+  return(wil$p.value)
+}
+
+convPvalue(getPvalWilcox(temp, "No", "Within"))
+convPvalue(getPvalWilcox(temp, "No", "Outside"))
+convPvalue(getPvalWilcox(temp, "Outside", "Within"))
+
+
+p <- ggplot(temp, aes(x = group, y = size, fill = group)) + 
+  geom_violin(linewidth = lineMedium* mmToLineUnit, lineend = "square", alpha = .4, , show.legend = FALSE) + 
+  geom_boxplot(width = 0.3, color = "black",
+                 linewidth = lineMedium * mmToLineUnit, lineend = "square",
+                 outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + 
+  theme_classic() + scale_y_continuous(labels = label_kb_mb) +
+  scale_fill_manual(values = c("#777777", "#F28E2C", "#F28E2C")) +
+  stat_summary(
+      aes(group = group), fun = mean,
+      geom = "point", shape = 21, size = 0.5,
+      fill = "black", color = "black", position = position_dodge(.3)
+  ) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),    
+    axis.text.x = element_text(
+      size = fontSizeM,
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) +labs(y = "Loop size")
+
+fileName <- paste0("insulationBoundary_size_convSS_PE")
+width <-33*mmToInch
+height <- 35*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+
+
+###################################
+
+
+pseudo_ooe <- 0.01
+
+data <- data %>% dplyr::filter(!is.na(ooe_DMSO), !is.na(ooe_dTAG)) %>%
+  dplyr::mutate(
+    ooe_DMSO = if_else(ooe_DMSO == 0, pseudo_ooe, ooe_DMSO),
+    ooe_dTAG = if_else(ooe_dTAG == 0, pseudo_ooe, ooe_dTAG),
+    fc_dTAG    = log2(ooe_dTAG / ooe_DMSO),
+    diff_dTAG = score_dTAG - score_DMSO
+  )
+
+getPvalWilcox <- function(data, group1, group2){
+  distance1 <- (data %>% dplyr::filter(group ==group1) )$diff_dTAG
+  distance2 <- (data %>% dplyr::filter(group ==group2) )$diff_dTAG
+  wil <- wilcox.test(distance1, distance2)
+  return(wil$p.value)
+}
+
+temp <- data %>% dplyr::select(group, id, diff_dTAG) %>% distinct()
+
+convPvalue(getPvalWilcox(temp, "No", "Within"))
+convPvalue(getPvalWilcox(temp, "No", "Outside"))
+convPvalue(getPvalWilcox(temp, "Outside", "Within"))
+
+p <- ggplot(data, aes(x = group, y = diff_dTAG, fill = group)) + 
+  geom_violin(linewidth = lineMedium * mmToLineUnit, lineend = "square", alpha = .4, , show.legend = FALSE) + 
+  geom_boxplot(width = 0.3, color = "black",
+               linewidth = lineMedium * mmToLineUnit, lineend = "square",
+               outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + 
+  theme_classic() +   
+    scale_fill_manual(values = c("#777777", "#F28E2C", "#F28E2C")) +
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black", position = position_dodge(.3)
+  ) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),    
+    axis.text.x = element_text(
+      size = fontSizeM,
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) +labs(y = "Δ loop score") +    
+  geom_hline(yintercept = 0,
+             alpha = 1,
+             color = "black",
+             size = lineThick*mmToLineUnit,
+             lineend = "square") + 
+  geom_hline(yintercept = -0.2,
+             alpha = 0.5, 
+             color = "black",
+             size = lineThick*mmToLineUnit,
+             lineend = "square", linetype = "dashed") +
+  coord_cartesian(ylim = c(-0.7, 0.5))
+    
+fileName <- paste0("insulationBoundary_delta_convSS_pe")
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()  
+
+
+###################### 
+convPvalue(getPvalWilcox(temp, "No", "Within"))
+convPvalue(getPvalWilcox(temp, "No", "Outside"))
+convPvalue(getPvalWilcox(temp, "Outside", "Within"))
+
+temp <- data %>% dplyr::select(group, id, fc_dTAG) %>% distinct()
+
+p <- ggplot(temp, aes(x = group, y = fc_dTAG, fill = group)) + 
+  geom_violin(linewidth = lineMedium* mmToLineUnit, lineend = "square", alpha = .4, , show.legend = FALSE) + 
+  geom_boxplot(width = 0.3, color = "black",
+               linewidth = lineMedium * mmToLineUnit, lineend = "square",
+               outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + 
+  theme_classic() + 
+  scale_fill_manual(values = c("#777777", "#F28E2C", "#F28E2C")) +
+  
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black", position = position_dodge(.3)
+  ) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),    
+    axis.text.x = element_text(
+      size = fontSizeM,
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) +labs(y = "log2(fc of obs/exp)") +    
+  geom_hline(yintercept = 0,
+             alpha = 1,
+             color = "black",
+             size = lineThick*mmToLineUnit,
+             lineend = "square") + 
+  coord_cartesian(ylim = c(-2.5, 2))
+width <-30*mmToInch
+height <- 35*mmToInch
+fileName <- paste0("insulationBoundary_obsexp_convSS_pe")
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()  
+
+
+
+
+
+#####################
+
+data <- data.all
+gene.withinBoundary <- unique((data %>% dplyr::filter(group == "Within"))$gene)
+gene.outsideBoundary <- unique((data %>% dplyr::filter(group == "Outside"))$gene)
+gene.noBoundary <- unique((data %>% dplyr::filter(group == "No"))$gene)
+
+gene.wBoundary <- unique(c(gene.withinBoundary, gene.outsideBoundary))
+
+dataDir <- here("..", "data")
+gene.group1 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group1.tsv"))$gene
+gene.group2 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group2.tsv"))$gene
+
+
+print("perc of gene with loop within Boundary")
+sum(gene.group1 %in% gene.withinBoundary)/length(gene.group1)*100
+sum(gene.group2 %in% gene.withinBoundary)/length(gene.group2)*100
+
+print("perc of gene with loop outside Boundary")
+sum(gene.group1 %in% gene.outsideBoundary)/length(gene.group1)*100
+sum(gene.group2 %in% gene.outsideBoundary)/length(gene.group2)*100
+
+print("perc of gene with loop with no Boundary")
+sum(gene.group1 %in% gene.noBoundary)/length(gene.group1)*100
+sum(gene.group2 %in% gene.noBoundary)/length(gene.group2)*100
+
+
+diff.RNA <- fread(here(dataDir, "RNA_diff", "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name) %>%
+  dplyr::mutate(group = case_when(
+    ensembl_gene_id %in% gene.wBoundary ~ "withinBoundary",
+    ensembl_gene_id %in% gene.noBoundary ~ "noBoundary",
+    TRUE ~ NA
+  )) %>%
+  dplyr::filter(!is.na(group)) %>%
+  dplyr::mutate(absLog2FC = abs(log2FoldChange))
+ks_result <- ks.test(
+  diff.RNA %>% dplyr::filter(group == "withinBoundary") %>% pull(absLog2FC),
+  diff.RNA %>% dplyr::filter(group == "noBoundary") %>% pull(absLog2FC)
+)
+
+# ggplot(diff.RNA, aes(x = group, y = log2FoldChange)) + geom_violin() + geom_boxplot(width = 0.1)
+
+# getPvalWilcox <- function(data, group1, group2){
+#   distance1 <- (data %>% dplyr::filter(group ==group1) )$absLog2FC
+#   distance2 <- (data %>% dplyr::filter(group ==group2) )$absLog2FC
+#   wil <- wilcox.test(distance1, distance2)
+#   return(wil$p.value)
+# }
+# convPvalue(getPvalWilcox(diff.RNA, "withBoundary", "noBoundary"))
+# 
+
+# Create the CDF plot
+p <- ggplot(diff.RNA, aes(x = absLog2FC, color = group)) +
+  scale_color_manual(values = (c("#777777", "#F28E2C"))) +
+
+stat_ecdf(size = 0.4, linewidth = lineMedium * mmToLineUnit, lineend = "square"  ) + # Use stat_ecdf to plot the empirical CDF
+  labs(
+    x = "Abs. log2(fold change)",
+    y = "Cumulative Probability"
+  ) + coord_cartesian(xlim = c(0, 1)) +
+  theme_classic() + # Clean theme
+  theme(
+      axis.title = element_text(
+        size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.position = "none",
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+    )
+
+fileName <- paste0("log2FC_cdf_insulationBoundary_convSS_pe")
+width <- 33*mmToInch
+height <-33*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+print(p)
+dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+```
 
 
 
@@ -12208,436 +13918,6 @@ dev.off()
 ```
 
 
-## [2.14] Looking deeper into TAD and insulation
-### Insulation score of TSS?
-#### Importing insulation score
-```{r}
-# Import insulation score calculated with python
-resultDir <- here("../../result")
-insScore.DMSO <- fread(here(resultDir, "TAD", "insulationScore_25kb_G1DMSO.tsv")) %>% 
-  dplyr::select(c("chrom", "start", "end", "log2_insulation_score_125000")) %>%
-  dplyr::mutate(binID = paste(chrom, start, end, sep = "_"))
-colnames(insScore.DMSO) <- c("chrom", "start", "end", "insulationScore", "binID")
-insScore.dTAG <- fread(here(resultDir, "TAD", "insulationScore_25kb_G1dTAG.tsv")) %>% 
-  dplyr::select(c("chrom", "start", "end", "log2_insulation_score_125000")) %>%
-  dplyr::mutate(binID = paste(chrom, start, end, sep = "_"))
-colnames(insScore.dTAG) <- c("chrom", "start", "end", "insulationScore", "binID")
-
-#insScore <- full_join(insScore.DMSO, insScore.dTAG, by = c("binID")) %>%
-#  dplyr::select(binID, chrom.x, start.x, end.x, insulationScore.x, insulationScore.y) 
-
-#colnames(insScore) <- c("binID", "chr", "start", "end", "insulation_score_DMSO", "insulation_scoare_dTAG")
-
-#View(insScore)
-
-```
-
-#### Linking to gene
-```{r}
-gene.TSS.tb <- fread(here(refDir, "mm10_GRCm38.p6_gene_sorted.bed")) %>%
-  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3)) %>%
-  dplyr::select(V6, V5, V1, TSS)
-colnames(gene.TSS.tb) <- c("ensembl", "gene", "chr", "TSS")
-
-getInsulationScore <- function(chr, TSS, insScore.tb){
-  temp.tb <- insScore.tb %>% dplyr::filter(chrom == chr, start < TSS, end > TSS)
-  out <- temp.tb$insulationScore
-  if(length(out) < 1){
-    return(NA)
-  }else{
-    return(temp.tb$insulationScore)
-  }
-}
-
-gene.insScore.all <- gene.TSS.tb %>% rowwise() %>% dplyr::mutate(
-  log2_insScore_DMSO = getInsulationScore(chr, TSS, insScore.DMSO),
-  insScore_DMSO = 2^log2_insScore_DMSO,
-  log2_insScore_dTAG = getInsulationScore(chr, TSS, insScore.dTAG),
-  insScore_dTAG = 2^log2_insScore_dTAG,
-  diff_insScore = insScore_dTAG - insScore_DMSO)
-
-
-```
-
-
-
-##### Plotting for groups
-```{r}
-group1 <- fread(here(refDir, "geneList_dTAG_vs_DMSO_RNA_loop_group1.tsv"))$gene
-group2 <- fread(here(refDir, "geneList_dTAG_vs_DMSO_RNA_loop_group2.tsv"))$gene
-group5 <- fread(here(refDir, "geneList_dTAG_vs_DMSO_RNA_loop_group5.tsv"))$gene
-group8 <- fread(here(refDir, "geneList_dTAG_vs_DMSO_RNA_loop_group8.tsv"))$gene
-
-
-gene.insScore <- gene.insScore.all %>% rowwise() %>% dplyr::mutate(
-  group = ifelse(ensembl %in% group1, "group1",
-                 ifelse(ensembl %in% group2, "group2",
-                        ifelse(ensembl %in% group5, "group5",
-                               ifelse(ensembl %in% group8, "group8", NA))))) %>% 
-  dplyr::filter(!is.na(group))
-
-
-getPvalWilcox <- function(data, group1, group2){
-  distance1 <- (data %>% dplyr::filter(group ==group1) )$score
-  distance2 <- (data %>% dplyr::filter(group ==group2) )$score
-  wil <- wilcox.test(distance1, distance2)
-  return(wil$p.value)
-}
-
-
-plot_insScore <- function(temp.tb, note, ymin = 0, ymax = 1.5){
-  p12 <- round(getPvalWilcox(temp.tb, "group1", "group2"), 5)
-  p15 <- round(getPvalWilcox(temp.tb, "group1", "group5"), 5)
-  p18 <- round(getPvalWilcox(temp.tb, "group1", "group8"), 5)
-  p25 <- round(getPvalWilcox(temp.tb, "group2", "group5"), 5)
-  p28 <- round(getPvalWilcox(temp.tb, "group2", "group8"), 5)
-  p58 <- round(getPvalWilcox(temp.tb, "group5", "group8"), 5)
-  
-  p <- ggplot(temp.tb, aes(x = group, y = score)) + geom_violin(aes(fill = group), show.legend = FALSE) + 
-    geom_boxplot(width = 0.1, outlier.shape = NA) +
-    stat_summary(aes(group = group), fun = mean, geom = "point", shape = 21, size = 2, fill = "red", color = "black") +
-    theme_classic() + coord_cartesian(ylim = c(ymin, ymax)) +
-    annotate("text", x = 1, y = ymin + 1, label = paste0("p12: ", convPvalue(p12), "\n",
-                                                         "p15: ", convPvalue(p15), "\n",
-                                                         "p18: ", convPvalue(p18), "\n",
-                                                         "p25: ", convPvalue(p25), "\n",
-                                                         "p28: ", convPvalue(p28), "\n",
-                                                         "p58: ",convPvalue( p58), "\n"),
-             color = "black", hjust = 0, size = 3)
-  
-  
-  fileName <- paste0("insulation_score_", note)
-  height <- 3
-  width <- 3
-  png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-  print(p)
-  dev.off()
-  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-  print(p)
-  dev.off()
-}
-
-# DMSO
-temp.tb <- gene.insScore %>% dplyr::select(group, boundaryInsScore_DMSO)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_DMSO")
-
-# dTAG
-temp.tb <- gene.insScore %>% dplyr::select(group, boundaryInsScore_dTAG)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_dTAG")
-
-# diff
-temp.tb <- gene.insScore %>% dplyr::select(group, diff_boundaryInsScore)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_diff", ymin = -0.5, ymax = 1)
-```
-
-##### Plotting for P-N
-```{r}
-temp2 <- readRDS(here(resultDir, "gene_loop_link.rds"))
-
-pnOver8 <- (temp2 %>% dplyr::filter(total >= 8))$gene
-pnOver6 <- (temp2 %>% dplyr::filter(total >= 6, total < 8))$gene
-pnOver4 <- (temp2 %>% dplyr::filter(total >= 4, total < 6))$gene
-pnOver2 <- (temp2 %>% dplyr::filter(total >= 2, total < 4))$gene
-pnOver0 <- (temp2 %>% dplyr::filter(total < 2))$gene
-
-
-gene.insScore <- gene.insScore.all %>% rowwise() %>% dplyr::mutate(
-  group = ifelse(ensembl %in% pnOver8, "p8",
-                 ifelse(ensembl %in% pnOver6, "p6",
-                        ifelse(ensembl %in% pnOver4, "p4",
-                               ifelse(ensembl %in% pnOver2, "p2", 
-                                      ifelse(ensembl %in% pnOver0, "p0", NA))))))  %>% 
-  dplyr::filter(!is.na(group))
-
-getPvalWilcox <- function(data, group1, group2){
-  distance1 <- (data %>% dplyr::filter(group ==group1) )$score
-  distance2 <- (data %>% dplyr::filter(group ==group2) )$score
-  wil <- wilcox.test(distance1, distance2)
-  return(wil$p.value)
-}
-
-plot_insScore <- function(temp.tb, note, ymin = 0, ymax = 1.5){
-  p02 <- round(getPvalWilcox(temp.tb, "p0", "p2"), 5)
-  p24 <- round(getPvalWilcox(temp.tb, "p2", "p4"), 5)
-  p46 <- round(getPvalWilcox(temp.tb, "p4", "p6"), 5)
-  p68 <- round(getPvalWilcox(temp.tb, "p6", "p8"), 5)
-  p48 <- round(getPvalWilcox(temp.tb, "p4", "p8"), 5)
-  p28 <- round(getPvalWilcox(temp.tb, "p2", "p8"), 5)
-  p08 <- round(getPvalWilcox(temp.tb, "p0", "p8"), 5)
-  
-  p <- ggplot(temp.tb, aes(x = group, y = score)) + geom_violin(aes(fill = group), show.legend = FALSE) + 
-    geom_boxplot(width = 0.1, outlier.shape = NA) +
-    stat_summary(aes(group = group), fun = mean, geom = "point", shape = 21, size = 2, fill = "red", color = "black") +
-    theme_classic() + coord_cartesian(ylim = c(ymin, ymax)) +
-    annotate("text", x = 1, y = ymin + 1, label = paste0("p02: ", convPvalue(p02), "\n",
-                                                         "p24: ", convPvalue(p24), "\n",
-                                                         "p46: ", convPvalue(p46), "\n",
-                                                         "p68: ", convPvalue(p68), "\n",
-                                                         "p48: ", convPvalue(p48), "\n",
-                                                         "p28: ",convPvalue( p28), "\n",
-                                                         "p08: ",convPvalue( p08), "\n"),
-             color = "black", hjust = 0, size = 3)  +
-    scale_fill_manual(values = c("#d9d9d9", "#bdbdbd", "#969696", "#737373", "#525252"))
-  
-  
-  fileName <- paste0("insulation_score_", note)
-  height <- 3
-  width <- 3
-  png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-  print(p)
-  dev.off()
-  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-  print(p)
-  dev.off()
-}
-
-# DMSO
-temp.tb <- gene.insScore %>% dplyr::select(group, boundaryInsScore_DMSO)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_DMSO_P-N")
-
-# dTAG
-temp.tb <- gene.insScore %>% dplyr::select(group, boundaryInsScore_dTAG)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_dTAG_P-N")
-
-# diff
-temp.tb <- gene.insScore %>% dplyr::select(group, diff_boundaryInsScore)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_diff_P-N", ymin = -0.5, ymax = 1)
-
-```
-##### Plotting for P-S
-```{r}
-temp2 <- readRDS(here(resultDir, "gene_loop_link.rds"))
-
-psOver4 <- (temp2 %>% dplyr::filter(num_ps >= 4))$gene
-psOver3 <- (temp2 %>% dplyr::filter(num_ps >= 3, num_ps < 4))$gene
-psOver2 <- (temp2 %>% dplyr::filter(num_ps >= 2, num_ps < 3))$gene
-psOver1 <- (temp2 %>% dplyr::filter(num_ps >= 1, num_ps < 2))$gene
-psOver0 <- (temp2 %>% dplyr::filter(num_ps < 1))$gene
-
-
-gene.insScore <- gene.insScore.all %>% rowwise() %>% dplyr::mutate(
-  group = ifelse(ensembl %in% psOver4, "p4",
-                 ifelse(ensembl %in% psOver3, "p3",
-                        ifelse(ensembl %in% psOver2, "p2",
-                               ifelse(ensembl %in% psOver1, "p1", 
-                                      ifelse(ensembl %in% psOver0, "p0", NA))))))  %>% 
-  dplyr::filter(!is.na(group))
-
-getPvalWilcox <- function(data, group1, group2){
-  distance1 <- (data %>% dplyr::filter(group ==group1) )$score
-  distance2 <- (data %>% dplyr::filter(group ==group2) )$score
-  wil <- wilcox.test(distance1, distance2)
-  return(wil$p.value)
-}
-
-plot_insScore <- function(temp.tb, note, ymin = 0, ymax = 1.5){
-  p01 <- round(getPvalWilcox(temp.tb, "p0", "p1"), 5)
-  p12 <- round(getPvalWilcox(temp.tb, "p1", "p2"), 5)
-  p23 <- round(getPvalWilcox(temp.tb, "p2", "p3"), 5)
-  p34 <- round(getPvalWilcox(temp.tb, "p3", "p4"), 5)
-  p24 <- round(getPvalWilcox(temp.tb, "p2", "p4"), 5)
-  p14 <- round(getPvalWilcox(temp.tb, "p1", "p4"), 5)
-  p04 <- round(getPvalWilcox(temp.tb, "p0", "p4"), 5)
-  
-  p <- ggplot(temp.tb, aes(x = group, y = score)) + geom_violin(aes(fill = group), show.legend = FALSE) + 
-    geom_boxplot(width = 0.1, outlier.shape = NA) +
-    stat_summary(aes(group = group), fun = mean, geom = "point", shape = 21, size = 2, fill = "red", color = "black") +
-    theme_classic() + coord_cartesian(ylim = c(ymin, ymax)) +
-    annotate("text", x = 1, y = ymin + 1, label = paste0("p01: ", convPvalue(p01), "\n",
-                                                         "p12: ", convPvalue(p12), "\n",
-                                                         "p23: ", convPvalue(p23), "\n",
-                                                         "p34: ", convPvalue(p34), "\n",
-                                                         "p24: ", convPvalue(p24), "\n",
-                                                         "p14: ",convPvalue( p14), "\n",
-                                                         "p04: ",convPvalue( p04), "\n"), 
-             color = "black", hjust = 0, size = 3) +
-    scale_fill_manual(values = c("#d9d9d9", "#bdbdbd", "#969696", "#737373", "#525252"))
-  
-  
-  fileName <- paste0("insulation_score_", note)
-  height <- 3
-  width <- 3
-  png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-  print(p)
-  dev.off()
-  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-  print(p)
-  dev.off()
-}
-
-# DMSO
-temp.tb <- gene.insScore %>% dplyr::select(group, boundaryInsScore_DMSO)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_DMSO_P-S")
-
-# dTAG
-temp.tb <- gene.insScore %>% dplyr::select(group, boundaryInsScore_dTAG)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_dTAG_P-S")
-
-# diff
-temp.tb <- gene.insScore %>% dplyr::select(group, diff_boundaryInsScore)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_diff_P-S", ymin = -0.5, ymax = 1)
-```
-##### Plotting for P-E
-```{r}
-temp2 <- readRDS(here(resultDir, "gene_loop_link.rds"))
-
-peOver4 <- (temp2 %>% dplyr::filter(num_pe >= 4))$gene
-peOver3 <- (temp2 %>% dplyr::filter(num_pe >= 3, num_pe < 4))$gene
-peOver2 <- (temp2 %>% dplyr::filter(num_pe >= 2, num_pe < 3))$gene
-peOver1 <- (temp2 %>% dplyr::filter(num_pe >= 1, num_pe < 2))$gene
-peOver0 <- (temp2 %>% dplyr::filter(num_pe < 1))$gene
-
-
-gene.insScore <- gene.insScore.all %>% rowwise() %>% dplyr::mutate(
-  group = ifelse(ensembl %in% peOver4, "p4",
-                 ifelse(ensembl %in% peOver3, "p3",
-                        ifelse(ensembl %in% peOver2, "p2",
-                               ifelse(ensembl %in% peOver1, "p1", 
-                                      ifelse(ensembl %in% peOver0, "p0", NA))))))  %>% 
-  dplyr::filter(!is.na(group))
-
-getPvalWilcox <- function(data, group1, group2){
-  distance1 <- (data %>% dplyr::filter(group ==group1) )$score
-  distance2 <- (data %>% dplyr::filter(group ==group2) )$score
-  wil <- wilcox.test(distance1, distance2)
-  return(wil$p.value)
-}
-
-plot_insScore <- function(temp.tb, note, ymin = 0, ymax = 1.5){
-  p01 <- round(getPvalWilcox(temp.tb, "p0", "p1"), 5)
-  p12 <- round(getPvalWilcox(temp.tb, "p1", "p2"), 5)
-  p23 <- round(getPvalWilcox(temp.tb, "p2", "p3"), 5)
-  p34 <- round(getPvalWilcox(temp.tb, "p3", "p4"), 5)
-  p24 <- round(getPvalWilcox(temp.tb, "p2", "p4"), 5)
-  p14 <- round(getPvalWilcox(temp.tb, "p1", "p4"), 5)
-  p04 <- round(getPvalWilcox(temp.tb, "p0", "p4"), 5)
-  
-  p <- ggplot(temp.tb, aes(x = group, y = score)) + geom_violin(aes(fill = group), show.legend = FALSE) + 
-    geom_boxplot(width = 0.1, outlier.shape = NA) +
-    stat_summary(aes(group = group), fun = mean, geom = "point", shape = 21, size = 2, fill = "red", color = "black") +
-    theme_classic() + coord_cartesian(ylim = c(ymin, ymax)) +
-    annotate("text", x = 1, y = ymin + 1, label = paste0("p01: ", convPvalue(p01), "\n",
-                                                         "p12: ", convPvalue(p12), "\n",
-                                                         "p23: ", convPvalue(p23), "\n",
-                                                         "p34: ", convPvalue(p34), "\n",
-                                                         "p24: ", convPvalue(p24), "\n",
-                                                         "p14: ",convPvalue( p14), "\n",
-                                                         "p04: ",convPvalue( p04), "\n"), 
-             color = "black", hjust = 0, size = 3) +
-    scale_fill_manual(values = c("#d9d9d9", "#bdbdbd", "#969696", "#737373", "#525252"))
-  
-  
-  fileName <- paste0("insulation_score_", note)
-  height <- 3
-  width <- 3
-  png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-  print(p)
-  dev.off()
-  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-  print(p)
-  dev.off()
-}
-
-# DMSO
-temp.tb <- gene.insScore %>% dplyr::select(group, boundaryInsScore_DMSO)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_DMSO_P-E")
-
-# dTAG
-temp.tb <- gene.insScore %>% dplyr::select(group, boundaryInsScore_dTAG)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_dTAG_P-E")
-
-# diff
-temp.tb <- gene.insScore %>% dplyr::select(group, diff_boundaryInsScore)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_diff_P-E", ymin = -0.5, ymax = 1)
-```
-##### Plotting for P-P
-```{r}
-temp2 <- readRDS(here(resultDir, "gene_loop_link.rds"))
-
-ppOver4 <- (temp2 %>% dplyr::filter(num_pp >= 4))$gene
-ppOver3 <- (temp2 %>% dplyr::filter(num_pp >= 3, num_pp < 4))$gene
-ppOver2 <- (temp2 %>% dplyr::filter(num_pp >= 2, num_pp < 3))$gene
-ppOver1 <- (temp2 %>% dplyr::filter(num_pp >= 1, num_pp < 2))$gene
-ppOver0 <- (temp2 %>% dplyr::filter(num_pp < 1))$gene
-
-
-gene.insScore <- gene.insScore.all %>% rowwise() %>% dplyr::mutate(
-  group = ifelse(ensembl %in% ppOver4, "p4",
-                 ifelse(ensembl %in% ppOver3, "p3",
-                        ifelse(ensembl %in% ppOver2, "p2",
-                               ifelse(ensembl %in% ppOver1, "p1", 
-                                      ifelse(ensembl %in% ppOver0, "p0", NA))))))  %>% 
-  dplyr::filter(!is.na(group))
-
-getPvalWilcox <- function(data, group1, group2){
-  distance1 <- (data %>% dplyr::filter(group ==group1) )$score
-  distance2 <- (data %>% dplyr::filter(group ==group2) )$score
-  wil <- wilcox.test(distance1, distance2)
-  return(wil$p.value)
-}
-
-plot_insScore <- function(temp.tb, note, ymin = 0, ymax = 1.5){
-  p01 <- round(getPvalWilcox(temp.tb, "p0", "p1"), 5)
-  p12 <- round(getPvalWilcox(temp.tb, "p1", "p2"), 5)
-  p23 <- round(getPvalWilcox(temp.tb, "p2", "p3"), 5)
-  p34 <- round(getPvalWilcox(temp.tb, "p3", "p4"), 5)
-  p24 <- round(getPvalWilcox(temp.tb, "p2", "p4"), 5)
-  p14 <- round(getPvalWilcox(temp.tb, "p1", "p4"), 5)
-  p04 <- round(getPvalWilcox(temp.tb, "p0", "p4"), 5)
-  
-  p <- ggplot(temp.tb, aes(x = group, y = score)) + geom_violin(aes(fill = group), show.legend = FALSE) + 
-    geom_boxplot(width = 0.1, outlier.shape = NA) +
-    stat_summary(aes(group = group), fun = mean, geom = "point", shape = 21, size = 2, fill = "red", color = "black") +
-    theme_classic() + coord_cartesian(ylim = c(ymin, ymax)) +
-    annotate("text", x = 1, y = ymin + 1, label = paste0("p01: ", convPvalue(p01), "\n",
-                                                         "p12: ", convPvalue(p12), "\n",
-                                                         "p23: ", convPvalue(p23), "\n",
-                                                         "p34: ", convPvalue(p34), "\n",
-                                                         "p24: ", convPvalue(p24), "\n",
-                                                         "p14: ",convPvalue( p14), "\n",
-                                                         "p04: ",convPvalue( p04), "\n"), 
-             color = "black", hjust = 0, size = 3) +
-    scale_fill_manual(values = c("#d9d9d9", "#bdbdbd", "#969696", "#737373", "#525252"))
-  
-  
-  fileName <- paste0("insulation_score_", note)
-  height <- 3
-  width <- 3
-  png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-  print(p)
-  dev.off()
-  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-  print(p)
-  dev.off()
-}
-
-# DMSO
-temp.tb <- gene.insScore %>% dplyr::select(group, boundaryInsScore_DMSO)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_DMSO_P-P")
-
-# dTAG
-temp.tb <- gene.insScore %>% dplyr::select(group, boundaryInsScore_dTAG)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_dTAG_P-P")
-
-# diff
-temp.tb <- gene.insScore %>% dplyr::select(group, diff_boundaryInsScore)
-colnames(temp.tb) <- c("group", "score")
-plot_insScore(temp.tb, "nearestBoundary_diff_P-P", ymin = -0.5, ymax = 1)
-```
 
 
 
@@ -21499,307 +22779,7 @@ ggplot(results_long, aes(x = factor(i), y = Percentage, fill = Group)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-###[2.30] H3K27ac peak number per 10kb
-```{r}
-process_group <- function(group_name, gene_data, bins) {
-  # Filter for the specific group
-  TSS_group <- makeGRangesFromDataFrame(
-    gene_data %>% filter(ensembl %in% get(group_name)), 
-    keep.extra.columns = TRUE
-  )
-  
-  # Process each TSS in the group
-  all_results <- map_dfr(seq_len(length(TSS_group)), function(i) {
-    # Find overlapping bins
-    overlapping_bins <- findOverlaps(TSS_group[i], bins)
-    bins_near_tss <- as_tibble(bins[subjectHits(overlapping_bins)])
-    
-    # Calculate distance bin
-    TSScenter <- (as_tibble(TSS_group[i]) %>%
-                    mutate(center = (start + end) / 2))$center
-    centerBinStart <- floor(TSScenter / 10e3) * 10e3 + 1
-    bins_near_tss <- bins_near_tss %>%
-      mutate(distanceBin = abs((start - centerBinStart)) / 10e3)
-    
-    # Summarize results
-    result <- bins_near_tss %>%
-      group_by(distanceBin) %>%
-      summarise(mean_peak_counts = mean(peak_counts, na.rm = TRUE), .groups = "drop") %>%
-      mutate(gene = TSS_group[i]$ensembl)
-    return(result)
-  })
-  
-  # Calculate mean and SD for the group
-  mean_data <- all_results %>%
-    group_by(distanceBin) %>%
-    summarise(mean_peak_counts = mean(mean_peak_counts, na.rm = TRUE))
-  
-  sd_data <- all_results %>%
-    group_by(distanceBin) %>%
-    summarise(sd_peak_counts = sd(mean_peak_counts, na.rm = TRUE))
-  
-  # Join and add group name
-  summary_data <- left_join(mean_data, sd_data, by = "distanceBin") %>%
-    mutate(group = group_name)
-  
-  return(summary_data)
-}
 
-##########################################################
-
-
-
-## Import peak
-refDir <- here("../..", "reference")
-#peak.H3K27ac <- importPeak(here(refDir, "GSM2438476_EC-DG-3458-H3K27AC_ASYN_1.narrowPeak.bed"))
-peak.H3K27ac <- importPeak(here(refDir, "33255_H3K4me3_04-745_Bruce-4_peaks.mergePeak.bed"))
-#peak.H3K27ac <- importPeak(here(refDir, "33250_RAD21_ab992_Bruce-4_peaks.mergePeak.bed"))
-
-## Import 10kb bin
-temp <- fread(here(refDir, "mm10.bin.10kb.bed"))
-colnames(temp) <- c("chr", "start", "end")
-temp <- temp %>% dplyr::mutate(start = start+1)
-bins.10kb <- makeGRangesFromDataFrame(temp)
-
-## Count overlap
-counts <- countOverlaps(bins.10kb, peak.H3K27ac)
-mcols(bins.10kb)$peak_counts <- counts
-
-## Getting TSS
-flankSize <- 1e6
-gene.tb <- fread(here(refDir, "mm10_GRCm38.p6_gene_sorted.bed")) %>%
-  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
-                TSSstart = TSS - flankSize,
-                TSSend = TSS + flankSize) %>%
-  dplyr::select(V1, TSSstart, TSSend, V6)
-colnames(gene.tb) <- c("chr", "start", "end", "ensembl")
-
-gene.group1 <- fread(here(refDir, "geneList_dTAG_vs_DMSO_RNA_loop_binaryGroup1.tsv"))$gene
-gene.group2 <- fread(here(refDir, "geneList_dTAG_vs_DMSO_RNA_loop_binaryGroup2.tsv"))$gene
-
-#TSS1mb.group1.gr <- makeGRangesFromDataFrame(gene.tb %>% dplyr::filter(ensembl %in% gene.group1), keep.extra.columns = TRUE)
-#TSS1mb.group2.gr <- makeGRangesFromDataFrame(gene.tb %>% dplyr::filter(ensembl %in% gene.group2), keep.extra.columns = TRUE)
-
-##########################################################
-# List of groups to process
-groups <- c("gene.group1", "gene.group2")
-
-# Process each group and combine results
-summary_data <- map_dfr(groups, ~ process_group(.x, gene.tb, bins.10kb))
-
-# Add the additional rows for distanceBin = 0
-summary_data <- summary_data %>%
-  mutate(distanceBin = distanceBin + 1) %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "gene.group1") %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "gene.group2")
-
-# Plot the results
-p <- ggplot(summary_data, aes(x = distanceBin, y = mean_peak_counts, color = group)) + 
-  geom_line(size = 0.5) +
-  labs(
-    x = "Distance bin (10kb)",
-    y = "H3K4me3 peak count"
-  ) +
-  theme_classic() +
-  theme(
-    axis.title = element_text(
-      size = fontSizeM,
-      family = fontType,
-      color = "#000000"
-    ),
-    axis.text = element_text(
-      size = fontSizeS,
-      family = fontType,
-      color = "#000000"
-    ),
-    axis.line = element_line(
-      color = "#000000",
-      size = lineThick*mmToLineUnit,
-      lineend = "square"
-    ),
-    axis.ticks = element_line(
-      color = "#000000",
-      size = lineThick*mmToLineUnit,
-      lineend = "square"
-    ),
-    panel.background = element_rect(fill = "transparent"),
-    legend.text = element_text(family = fontType, size = fontSizeS),
-    legend.title = element_text(family = fontType, size = fontSizeS),
-    legend.position = c(0.8, 0.8)  # Moves legend inside the plot (x, y relative coordinates)
-  ) +
-  guides(
-    fill = guide_legend(
-      keywidth = 0.2,  # Adjust the width of the legend keys
-      keyheight = 0.2  # Adjust the height of the legend keys
-    ))+
-  scale_color_manual(values = rev(c("#777777", "#F28E2C")))
-
-##########################################################
-
-fileName <- paste0("binPeakDensity_RAD21_binaryGroup")
-width <- 32*mmToInch
-height <- 35*mmToInch
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-```
-
-
-```{r}
-
-####### DOing this for P-S groups
-resultDir <- here("../../result")
-temp2 <- readRDS(here(resultDir, "gene_loop_link.rds"))
-
-psOver4 <- (temp2 %>% dplyr::filter(num_ps >= 4))$gene
-psOver3 <- (temp2 %>% dplyr::filter(num_ps >= 3, num_ps < 4))$gene
-psOver2 <- (temp2 %>% dplyr::filter(num_ps >= 2, num_ps < 3))$gene
-psOver1 <- (temp2 %>% dplyr::filter(num_ps >= 1, num_ps < 2))$gene
-psOver0 <- (temp2 %>% dplyr::filter(num_ps < 1))$gene
-
-# List of groups to process
-groups <- c("psOver0", "psOver1", "psOver2", "psOver3", "psOver4")
-
-# Process each group and combine results
-summary_data <- map_dfr(groups, ~ process_group(.x, gene.tb, bins.10kb))
-
-# Add the additional rows for distanceBin = 0
-summary_data <- summary_data %>%
-  mutate(distanceBin = distanceBin + 1) %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "psOver0") %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "psOver1") %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "psOver2") %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "psOver3")%>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "psOver4")
-
-# Plot the results
-p <- ggplot(summary_data, aes(x = distanceBin, y = mean_peak_counts, color = group)) + 
-  geom_line(size = 0.5) +
-  labs(
-    x = "Distance bin (10kb)",
-    y = "H3K4me3 peak count"
-  ) +
-  theme_classic() +
-  theme(
-    axis.title = element_text(
-      size = fontSizeM,
-      family = fontType,
-      color = "#000000"
-    ),
-    axis.text = element_text(
-      size = fontSizeS,
-      family = fontType,
-      color = "#000000"
-    ),
-    axis.line = element_line(
-      color = "#000000",
-      size = lineThick*mmToLineUnit,
-      lineend = "square"
-    ),
-    axis.ticks = element_line(
-      color = "#000000",
-      size = lineThick*mmToLineUnit,
-      lineend = "square"
-    ),
-    panel.background = element_rect(fill = "transparent"),
-    legend.text = element_text(family = fontType, size = fontSizeS),
-    legend.title = element_text(family = fontType, size = fontSizeS),
-    legend.position = c(0.8, 0.8)  # Moves legend inside the plot (x, y relative coordinates)
-  ) +
-  guides(
-    fill = guide_legend(
-      keywidth = 0.2,  # Adjust the width of the legend keys
-      keyheight = 0.2  # Adjust the height of the legend keys
-    ))+
-  scale_color_manual(values = c("#777777", "#8B7E65", "#A28452", "#C2884D", "#F28E2C"))
-
-fileName <- paste0("binPeakDensity_RAD21_psGroup11")
-width <- 32*mmToInch
-height <- 35*mmToInch
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-
-### PE
-peOver4 <- (temp2 %>% dplyr::filter(num_pe >= 4))$gene
-peOver3 <- (temp2 %>% dplyr::filter(num_pe >= 3, num_pe < 4))$gene
-peOver2 <- (temp2 %>% dplyr::filter(num_pe >= 2, num_pe < 3))$gene
-peOver1 <- (temp2 %>% dplyr::filter(num_pe >= 1, num_pe < 2))$gene
-peOver0 <- (temp2 %>% dplyr::filter(num_pe < 1))$gene
-
-# List of groups to process
-groups <- c("peOver0", "peOver1", "peOver2", "peOver3", "peOver4")
-
-# Process each group and combine results
-summary_data <- map_dfr(groups, ~ process_group(.x, gene.tb, bins.10kb))
-
-# Add the additional rows for distanceBin = 0
-summary_data <- summary_data %>%
-  mutate(distanceBin = distanceBin + 1) %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "peOver0") %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "peOver1") %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "peOver2") %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "peOver3")%>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "peOver4")
-
-# Plot the results
-ggplot(summary_data, aes(x = distanceBin, y = mean_peak_counts, color = group)) + 
-  geom_line(size = 1) + xlim(0, 10)+
-  labs(
-    title = "Mean Peak Counts",
-    x = "Distance Bin (10 kb)",
-    y = "Mean Peak Counts"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-    axis.text = element_text(size = 12),
-    axis.title = element_text(size = 13)
-  )
-
-###############
-ppOver4 <- (temp2 %>% dplyr::filter(num_pp >= 4))$gene
-ppOver3 <- (temp2 %>% dplyr::filter(num_pp >= 3, num_pp < 4))$gene
-ppOver2 <- (temp2 %>% dplyr::filter(num_pp >= 2, num_pp < 3))$gene
-ppOver1 <- (temp2 %>% dplyr::filter(num_pp >= 1, num_pp < 2))$gene
-ppOver0 <- (temp2 %>% dplyr::filter(num_pp < 1))$gene
-
-# List of groups to process
-groups <- c("ppOver0", "ppOver1", "ppOver2", "ppOver3", "ppOver4")
-
-# Process each group and combine results
-summary_data <- map_dfr(groups, ~ process_group(.x, gene.tb, bins.10kb))
-
-# Add the additional rows for distanceBin = 0
-summary_data <- summary_data %>%
-  mutate(distanceBin = distanceBin + 1) %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "ppOver0") %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "ppOver1") %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "ppOver2") %>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "ppOver3")%>%
-  add_row(distanceBin = 0, mean_peak_counts = 0, sd_peak_counts = 0, group = "ppOver4")
-
-# Plot the results
-ggplot(summary_data, aes(x = distanceBin, y = mean_peak_counts, color = group)) + 
-  geom_line(size = 1) +
-  labs(
-    title = "Mean Peak Counts",
-    x = "Distance Bin (10 kb)",
-    y = "Mean Peak Counts"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
-    axis.text = element_text(size = 12),
-    axis.title = element_text(size = 13)
-  )
-```
 ### [2.31] Testing SEs?
 ```{r}
 peak.Whyte.SE <- importPeak(here(refDir, "superEnhancer_Whyte_ESC_mm10.bed"))
@@ -24603,284 +25583,6 @@ dev.off()
 
 ```
 
-### [3.43] Checking RAD21 peak density at group1 and group2 promoter
-```{r}
-
-peak.RAD21 <- importPeak(here(refDir, "33250_RAD21_ab992_Bruce-4_peaks.mergePeak.bed"))
-
-##########################################################
-flankSize <- 5000
-gene.tb <- fread(here(refDir, "mm10_GRCm38.p6_gene_sorted.bed")) %>%
-  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
-                TSSstart = TSS - flankSize,
-                TSSend = TSS + flankSize) %>%
-  dplyr::select(V6, V5, V1, TSSstart, TSSend)
-colnames(gene.tb) <- c("ensembl_gene_id", "external_gene_name", "chr", "start", "end")
-
-
-# Convert gene.tb to a GRanges object
-gene_gr <- GRanges(
-  seqnames = gene.tb$chr,
-  ranges = IRanges(start = gene.tb$start, end = gene.tb$end),
-  gene_id = gene.tb$ensembl_gene_id
-)
-
-# Count overlaps between peaks and genes
-overlap_counts <- countOverlaps(gene_gr, peak.RAD21)
-
-# Add overlap counts to the original gene.tb data
-gene.tb$peak_count <- overlap_counts
-
-###############################################################################
-
-peakNum0 <- (gene.tb %>% dplyr::filter(peak_count == 0))$ensembl_gene_id
-peakNum1 <- (gene.tb %>% dplyr::filter(peak_count == 1))$ensembl_gene_id
-peakNum2 <- (gene.tb %>% dplyr::filter(peak_count == 2))$ensembl_gene_id
-peakNum3 <- (gene.tb %>% dplyr::filter(peak_count == 3))$ensembl_gene_id
-peakNumOver4 <- (gene.tb %>% dplyr::filter(peak_count >= 4))$ensembl_gene_id
-
-
-###############################################################################
-name <- "chromo_cons_annoHierarchy"
-
-alpha <- 0.05
-fcCutoff <- 0.5
-diff.RNA.G1.dTAG <- fread(here(refDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::filter(padj < alpha, abs(shrinked_log2FC) > fcCutoff)
-diff.RNA.G1.dTAG.noFCcutoff <- fread(here(refDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::filter(padj < alpha)
-geneAnnoData <- loadLoopAnnoData(here(consensusDir, paste0(name, "_p-n_ensemblList.tsv")),
-                                      diffCutoff = 0.2,
-                                      annoList = c("P-P", "P-E", "P-S", "P-X"))%>% 
-  dplyr::mutate(distance = start2 - start1,
-                peakID = paste(chrom1, start1, start2, sep = "_"))
-
-
-## Dividing genes into groups
-temp <- geneAnnoData %>% dplyr::select(diff_dTAG_DMSO, distance, gene) %>% 
-  unnest(gene) %>% group_by(gene) %>%
-  summarize(mean_diff_score = mean(diff_dTAG_DMSO),
-            mean_distance = mean(distance),
-            .groups = 'drop')
-
-diff.RNA <- fread(here(refDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
-
-maxLog2FC = 2
-
-temp <- left_join(temp, diff.RNA, by = c("gene" = "ensembl_gene_id")) %>% 
-  dplyr::mutate(flag = ifelse(gene %in% diff.RNA.G1.dTAG$ensembl_gene_id, "2DOWN", "0NO"),
-                maxFlag = (abs(shrinked_log2FC) > maxLog2FC),
-                log2fcMax = pmax(pmin(shrinked_log2FC, maxLog2FC), -maxLog2FC)) %>% 
-  dplyr::arrange(flag) %>%
-  drop_na(shrinked_log2FC)
-
-temp <- temp %>% dplyr::mutate(
-  pnOver = ifelse(gene %in% peakNum0, "peakNum0",
-                  ifelse(gene %in% peakNum1, "peakNum1",
-                         ifelse(gene %in% peakNum2, "peakNum2",
-                                ifelse(gene %in% peakNum3, "peakNum3",
-                                       ifelse(gene %in% peakNumOver4, "peakNumOver4", NA)))))) %>%
-  drop_na(pnOver)
-
-###############################################################################
-# Checking percentage of genes with RAD21 peaks
-group1 <- fread(here(refDir, "geneList_dTAG_vs_DMSO_RNA_loop_binaryGroup1.tsv"))$gene
-group2 <- fread(here(refDir, "geneList_dTAG_vs_DMSO_RNA_loop_binaryGroup2.tsv"))$gene
-
-aaa <- temp %>% dplyr::mutate(group = case_when(
-  gene %in% group1 ~ "group1",
-  gene %in% group2 ~ "group2",
-  TRUE ~ NA
-)) %>%
-  dplyr::select(group, pnOver, gene) %>%
-  dplyr::filter(group %in% c("group1", "group2")) %>%
-  dplyr::mutate(hasPeak = ifelse(pnOver == "peakNum0", FALSE, TRUE))
-
-bbb <- aaa %>% dplyr::filter(group == "group1") 
-
-sum(bbb$hasPeak)
-bbb <- aaa %>% dplyr::filter(group == "group2") 
-sum(bbb$hasPeak)
-
-aaa_summary <- aaa %>%
-  group_by(group, pnOver) %>%
-  summarize(count = n(), .groups = "drop")
-
-# Create the stacked barplot
-aaa_summary <- aaa %>%
-  group_by(group, pnOver) %>%
-  summarize(count = n(), .groups = "drop") %>%
-  group_by(group) %>%
-  mutate(ratio = count / sum(count))
-
-# Define the gradient colors
-gradient_colors <- c("#D4D4D4", "#DCB0AF", "#E48D8A", "#EC6965", "#F44641")
-# gradient_colors <- c("#D4D4D4", "#A2BBCA", "#71A2C0", "#3F89B7", "#0E71AD")
-
-# Create the stacked barplot with gradient colors
-p <- ggplot(aaa_summary, aes(x = group, y = ratio, fill = pnOver)) +
-  geom_bar(stat = "identity", position = "stack",
-           linewidth = lineMedium * mmToLineUnit, lineend = "square") +
-  theme_classic() + labs(x = NULL , y = "Ratio") +
-  theme(
-    axis.title = element_text(
-      size = fontSizeM, family = fontType, color = "#000000"
-    ),
-    axis.text = element_text(
-      size = fontSizeS, family = fontType, color = "#000000"
-    ),
-    axis.line = element_line(
-      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
-    ),
-    axis.ticks = element_line(
-      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
-    ),
-    panel.background = element_rect(fill = "transparent"),
-    legend.text = element_text(family = fontType, size = fontSizeS),
-    legend.title = element_text(family = fontType, size = fontSizeS)
-  ) +
-  scale_fill_manual(values = gradient_colors, 
-                    guide = guide_legend(
-      override.aes = list(size = 0.5), # Adjust legend key symbol size
-      keywidth = 2 / 2.54, # Convert 2mm to cm
-      keyheight = 2 / 2.54 # Convert 2mm to cm
-    )) 
-
-width <- panelSize(1.7)*mmToInch
-height <- panelSize(1.3)*mmToInch
-fileName <- paste0("rad21perc_promoter")
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()  
-
-```
-
-##### loop score
-```{r}
-getPvalWilcox <- function(data, group1, group2){
-  distance1 <- (data %>% dplyr::filter(pnOver ==group1) )$mean_diff_score
-  distance2 <- (data %>% dplyr::filter(pnOver ==group2) )$mean_diff_score
-  wil <- wilcox.test(distance1, distance2)
-  return(wil$p.value)
-}
-
-ps01 <- round(getPvalWilcox(temp, "peakNum0", "peakNum1"), 5)
-ps12 <- round(getPvalWilcox(temp, "peakNum1", "peakNum2"), 5)
-ps23 <- round(getPvalWilcox(temp, "peakNum2", "peakNum3"), 5)
-ps34 <- round(getPvalWilcox(temp, "peakNum3", "peakNumOver4"), 5)
-ps24 <- round(getPvalWilcox(temp, "peakNum2", "peakNumOver4"), 5)
-ps14 <- round(getPvalWilcox(temp, "peakNum1", "peakNumOver4"), 5)
-ps04 <- round(getPvalWilcox(temp, "peakNum0", "peakNumOver4"), 5)
-
-
-p <- ggplot(temp, aes(x = pnOver, y = mean_diff_score)) + 
-  geom_violin(aes(fill = pnOver), 
-              color = "black",
-              linewidth = lineMedium * mmToLineUnit, lineend = "square",
-              show.legend = FALSE) +
-  geom_boxplot(width = 0.3, color = "black",
-               linewidth = lineMedium * mmToLineUnit, lineend = "square",
-               outlier.shape = NA
-  ) + theme_classic() + labs(x = NULL , y = "Average Δ loop score") +
-  stat_summary(
-    aes(group = pnOver), fun = mean,
-    geom = "point", shape = 21, size = 0.5,
-    fill = "black", color = "black"
-  ) +
-  geom_hline(yintercept = 0, linewidth = lineThick * mmToLineUnit) +
-  theme(
-    axis.title = element_text(
-      size = fontSizeM, family = fontType, color = "#000000"
-    ),
-    axis.text = element_text(
-      size = fontSizeS, family = fontType, color = "#000000"
-    ),
-    axis.text.x = element_text(
-      angle = 45, hjust = 1, vjust = 1
-    ),
-    axis.line = element_line(
-      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
-    ),
-    axis.ticks = element_line(
-      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
-    ),
-    panel.background = element_rect(fill = "transparent"),
-    legend.text = element_text(family = fontType, size = fontSizeS),
-    legend.title = element_text(family = fontType, size = fontSizeS)
-  )+
-  annotate("text", x = 1, y = 0, label = paste0("ps01: ", convPvalue(ps01), "\n",
-                                                "ps12: ", convPvalue(ps12), "\n",
-                                                "ps23: ", convPvalue(ps23), "\n",
-                                                "ps34: ", convPvalue(ps34), "\n",
-                                                "ps24: ", convPvalue(ps24), "\n", 
-                                                "ps14: ", convPvalue(ps14), "\n",
-                                                "ps04: ", convPvalue(ps04), "\n"), 
-           color = "black", hjust = 0, size = 2) +
-    scale_fill_manual(values = c("#777777", "#8B7E65", "#A28452", "#C2884D", "#F28E2C")) +
-  coord_cartesian(ylim = c(-0.5, 0.1))
-
-
-
-fileName <- paste0("diffScore_barplot_RAD21peakWithin10kb_dTAG_vs_DMSO")
-width <- 33*mmToInch
-height <-38*mmToInch
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-```
-
-##### log2FC
-```{r}
-temp <- temp %>% dplyr::mutate(absLog2FC = abs(log2FoldChange))
-p <- ggplot(temp, aes(x = absLog2FC, color = pnOver)) +
-scale_color_manual(values = (c("#777777", "#8B7E65", "#A28452", "#C2884D", "#F28E2C"))) +
-  stat_ecdf(size = 0.4, linewidth = lineMedium * mmToLineUnit, lineend = "square" ) + # Use stat_ecdf to plot the empirical CDF
-  labs(
-    x = "Abs. log2(fold change)",
-    y = "Cumulative Probability"
-  ) + coord_cartesian(xlim = c(0, 1.5)) +
-  theme_classic() + # Clean theme
-  theme(
-      axis.title = element_text(
-        size = fontSizeM,
-      family = fontType,
-      color = "#000000"
-    ),
-    axis.text = element_text(
-      size = fontSizeS,
-      family = fontType,
-      color = "#000000"
-    ),
-    axis.line = element_line(
-      color = "#000000",
-      size = lineThick*mmToLineUnit,
-      lineend = "square"
-    ),
-    axis.ticks = element_line(
-      color = "#000000",
-      size = lineThick*mmToLineUnit,
-      lineend = "square"
-    ),
-    panel.background = element_rect(fill = "transparent"),
-    legend.position = "none",
-    legend.text = element_text(family = fontType, size = fontSizeS),
-    legend.title = element_text(family = fontType, size = fontSizeS)
-    ) + scale_y_continuous(labels = scales::number_format(accuracy = 0.1))
-fileName <- paste0("log2FC_cdf_psGroup_dTAG_vs_DMSO")
-width <- 33*mmToInch
-height <-33*mmToInch
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-
-```
 
 ### [3.44] Checking RAD21 peak density at group1 and group2 promoter
 ```{r}

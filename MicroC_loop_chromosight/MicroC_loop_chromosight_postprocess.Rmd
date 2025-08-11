@@ -956,12 +956,12 @@ createLoopAnnotation(temp, paste0(name, "_annotated_complex"), figDir)
 
 ## ChIP-based annotation
 ```{r}
-refDir <- here("reference")
+refDir <- here("../reference")
 peak.H3K4me3 <- importPeak(here(refDir, "ChIP","H3K4me3_ESC_unionPeaks.bed"))
 
 # Filtering H3K4me3 peaks near TSS
 flankSize <- 2500
-gene.tb <- fread(here(refDir, "mm10", "mm10_GRCm38.p6_gene_sorted.bed")) %>%
+gene.tb <- fread(here(refDir, "mm10", "gencode.vM25.mm10.GRCm38.p6_gene_sorted.bed")) %>%
   dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
                 TSSstart = TSS - flankSize,
                 TSSend = TSS + flankSize) %>%
@@ -976,7 +976,7 @@ fwrite(as_tibble(temp), here(refDir, "ChIP",
 #### (ARCHIVED) Import ChIP peaks
 ```{r}
 #### Importing ChIP-exo peaks
-refDir <- here("reference")
+refDir <- here("../reference")
 peak.H3K27ac <- importPeak(here(refDir, "ChIP", "H3K27ac_ESC_unionPeaks.bed"))
 peak.H3K4me3TSS <- importPeak(here(refDir, "ChIP","H3K4me3_ESC_unionPeaks_2.5kbTSS.bed"))
 peak.CTCF <- importPeak(here(refDir, "ChIP","CTCF_ESC_unionPeaks.bed"))
@@ -1236,16 +1236,47 @@ p <- ggplot(data = lodes_df,
             reverse = FALSE) +
   geom_stratum(width = 1/4, color = "black",
                reverse = FALSE) +
-  geom_text(stat = "stratum", aes(label = after_stat(stratum)), reverse = FALSE) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), reverse = FALSE,
+            size = fontSizeM*ptToMM) +
   labs(x = NULL,
        y = "Number of anchors") +
   theme_minimal() +  scale_x_discrete(expand = expansion(add = 0.25)) +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  # theme_classic() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+    )
 
 
 name <- "alluvial_loopAnnoComparison"
-width <- 3
-height <- 4
+width <- panelSize(1.5)*mmToInch
+height <- panelSize(1.75)*mmToInch  
 svglite(here(figDir,
              paste0(name, ".svg")),
         width = width, height = height)
@@ -1257,44 +1288,6 @@ png(here(figDir,
 plot(p)
 invisible(dev.off())
 
-
-
-# 
-# 
-# 
-# 
-# 
-# fwrite(consensus.loop.anno.tb, here(loopDir, paste0(name, ".tsv")), 
-#        sep = "\t", col.names = TRUE)
-# createLoopAnnotation(consensus.loop.anno.tb, name, figDir, colorListLoop)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, unique(consensus.loop.anno.tb$Anno2) , name, "all", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E", "P-S", "P-X", "E-E", "E-S", "E-X"), name, "regulatory", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("S-S", "S-X"), name, "structure", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("X-X"), name, "x-x", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E", "P-S", "P-X"), name, "p-n", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E", "E-E"), name, "pe-pe", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P", "P-E"), name, "p-pe", outDir)
-# 
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-P"), name, "p-p", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-E"), name, "p-e", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-S"), name, "p-s", outDir)
-# saveAnnoGroupBedpe(consensus.loop.anno.tb, c("P-X"), name, "p-x", outDir)
 ```
-#### (ARCHIVED) Annotation with ChIP (EpiLC expanded)
-```{r}
-consensus.loop.tb <- fread(here(loopDir, "chromo_cons_allRes_fullset_postprocessed.tsv"))
 
-################################################################################
-# Annotating with strict priority (P-TSS > E > S)
-temp.anno.TSS <- annotateAnchorTSS(consensus.loop.tb) %>%
-  dplyr::mutate(
-    diff_dTAG_DMSO = (score_dTAG - score_DMSO),
-    diff_A485_DMSO = (score_A485 - score_DMSO))
-
-name <- "chromo_cons_allRes_fullset_postprocessed_annoHierarchy"
-consensus.loop.anno.tb <- annotateLoopRelaxedTSS(temp.anno.TSS)
-fwrite(consensus.loop.anno.tb, here(loopDir, paste0(name, ".tsv")), 
-       sep = "\t", col.names = TRUE)
-createLoopAnnotation(consensus.loop.anno.tb, name, figDir, colorListLoop)
-```
 

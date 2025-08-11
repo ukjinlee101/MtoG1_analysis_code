@@ -1,0 +1,1882 @@
+# INTRODUCTION
+This RMD document is to have a record of how the figures were made for future reference. Also, the aim is to make publication-ready figures directly to minimize hands-on editing on illustrator. Codes should include how the preprocessed data is handled for making figures
+
+Below are the key parameters to be used across the figures from Nature guidelines.
+- Figure width = 180 mm
+- Figure height = 185 mm, 210 mm, 225 mm
+- Panel size unit = 30 mm
+- Margin between panel = 1.5 mm
+- Font = Helvetica
+- Font size = 7 to 5 pt
+# FIGURE PARAMETERS
+```{r}
+library(colorspace)
+
+fontType <- "Helvetica"
+
+fontSizeL <- 10 # pt
+fontSizeM <- 8
+fontSizeS <- 6
+
+lineThick <- 0.75 # pt
+lineMedium <- 0.5
+lineThin <- 0.25
+
+panelUnit <- 30 # mm
+panelMargin <- 1.5
+
+mmToInch <- 0.03937007874
+mmToLineUnit <- 1/2.13
+mmToLinePlotgarden <- 1/0.75
+ptToMM <- 1/2.845
+
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+weak_red <- lighten(strong_red, amount = 0.4)   # FF7D81
+weak_blue <- lighten(strong_blue, amount = 0.4) # 8A91DD
+no_grey <- "#A8A8A8"
+
+strong_teel <- "#0892A5"
+strong_green <- "#23CE6B" # A485
+strong_darkgreen <- "#054A29"
+strong_yellow <- "#FFBA49"
+strong_orange <- "#F18F01" # dTAG
+strong_lightpurple <- "#BD93D8"
+strong_purple <- "#9E33CB" # Epi
+
+panelSize <- function(num, unit = panelUnit, margin = panelMargin){
+  return(num*unit - 2*margin)
+}
+
+genome <- "mm10"
+```
+# LOADING
+```{r}
+source("./figure_functions.R")
+```
+
+# DIRECTORIES
+```{r}
+figDir <- here("../figure", "miscellaneous")
+rdsDir <- here("..data", "rds")
+refDir <- here("..", "reference")
+for(dir in c(figDir, rdsDir)){  
+  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+}
+```
+# Miscellaneous figures
+## [FIG] FACS/WB plots
+### FACS release experiment
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Create the data frame
+data <- data.frame(
+  Timepoint = c("Async 5 h", "G1 (40 m)", "G1 (40 m)", "G1 (1 h)", "G1 (1 h)"),
+  HA = c(13.35, 10.28, 7.18, 6.89, 6.06)
+)
+
+# Convert Timepoint to an ordered factor (ensures correct plotting order)
+data$Timepoint <- factor(data$Timepoint, levels = c("Async 5 h", "G1 (40 m)", "G1 (1 h)"))
+
+# Calculate summary statistics
+data_summary <- data %>%
+  group_by(Timepoint) %>%
+  summarise(
+    Mean_HA = mean(HA),
+    SD = sd(HA),
+    SE = SD / sqrt(n())  # Calculate Standard Error
+  )
+
+# Bar Plot with Error Bars (SE) and Individual Data Points
+p <- ggplot(data_summary, aes(x = Timepoint, y = Mean_HA)) +
+  # Bar plot for means
+  geom_bar(stat = "identity", fill = "grey50", color = "black", width = 0.75, , linewidth = lineMedium*mmToLineUnit) +
+  # Error bars for SE
+  geom_errorbar(aes(ymin = Mean_HA - SE, ymax = Mean_HA + SE),
+                width = 0.2, color = "black", linewidth = lineMedium*mmToLineUnit) +
+  # Individual data points (jittered for visibility)
+  geom_jitter(data = data, aes(x = Timepoint, y = HA),
+              color = "black", size = 1*ptToMM, width = 0.1) +
+  # Labels and Theme
+  labs(
+    x = NULL,
+    y = "Normalized dTAG / DMSO (%)"
+  ) +
+  theme_classic() +
+   theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+    )
+# Print the plot
+
+fileName <- here(figDir, "FACS_release_FACS")
+width <- panelSize(0.8)*mmToInch
+height <- panelSize(1.2)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+
+
+```
+### WB release experiment
+```{r}
+
+# Create the data frame
+data <- data.frame(
+  Timepoint = c("Async 5 h", "Async 5 h", "Mit", "Mit", "G1 (40 m)", "G1 (40 m)", "G1 (1 h)", "G1 (1 h)"),
+  HA = c(3.21, 3.02, 5.53, 10.56, 3.15, 4.11, 2.55, 3.29)
+)
+
+# Convert Timepoint to an ordered factor (ensures correct plotting order)
+data$Timepoint <- factor(data$Timepoint, levels = c("Async 5 h", "Mit", "G1 (40 m)", "G1 (1 h)"))
+
+# Calculate summary statistics
+data_summary <- data %>%
+  group_by(Timepoint) %>%
+  summarise(
+    Mean_HA = mean(HA),
+    SD = sd(HA),
+    SE = SD / sqrt(n())  # Calculate Standard Error
+  )
+
+# Bar Plot with Error Bars (SE) and Individual Data Points
+p <- ggplot(data_summary, aes(x = Timepoint, y = Mean_HA)) +
+  # Bar plot for means
+  geom_bar(stat = "identity", fill = "grey50", color = "black", width = 0.75, , linewidth = lineMedium*mmToLineUnit) +
+  # Error bars for SE
+  geom_errorbar(aes(ymin = Mean_HA - SE, ymax = Mean_HA + SE),
+                width = 0.2, color = "black", linewidth = lineMedium*mmToLineUnit) +
+  # Individual data points (jittered for visibility)
+  geom_jitter(data = data, aes(x = Timepoint, y = HA),
+              color = "black", size = 1*ptToMM, width = 0.1) +
+  # Labels and Theme
+  labs(
+    x = NULL,
+    y = "Normalized dTAG / DMSO (%)"
+  ) +
+  theme_classic() +
+   theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+    )
+
+# Print the plot
+
+fileName <- here(figDir, "FACS_release_WB")
+width <- panelSize(1)*mmToInch
+height <- panelSize(1.2)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+```
+#### WB async DMSO relative
+```{r}
+
+# Create the data frame
+data <- data.frame(
+  Timepoint = c(1, 2, 3, 4, 5, 6, 7, 8),
+  HA = c(100, 3.21, 65.22, 3.61, 24.40, 0.77, 32.35, 0.83)
+)
+
+# Convert Timepoint to an ordered factor (ensures correct plotting order)
+
+# Calculate summary statistics
+data_summary <- data %>%
+  group_by(Timepoint) %>%
+  summarise(
+    Mean_HA = mean(HA),
+    SD = sd(HA),
+    SE = SD / sqrt(n())  # Calculate Standard Error
+  )
+
+# Bar Plot with Error Bars (SE) and Individual Data Points
+p <- ggplot(data_summary, aes(x = Timepoint, y = Mean_HA)) +
+  # Bar plot for means
+  geom_bar(stat = "identity", fill = "grey50", color = "black", width = 0.75, , linewidth = lineMedium*mmToLineUnit) +
+  # Error bars for SE
+  # geom_errorbar(aes(ymin = Mean_HA - SE, ymax = Mean_HA + SE),
+                # width = 0.2, color = "black", linewidth = lineMedium*mmToLineUnit) +
+  # Individual data points (jittered for visibility)
+  # geom_jitter(data = data, aes(x = Timepoint, y = HA),
+              # color = "black", size = 1*ptToMM, width = 0.1) +
+  # Labels and Theme
+  labs(
+    x = NULL,
+    y = "Relative to Async DMSO (%)"
+  ) +
+  theme_classic() +
+   theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+    )
+
+# Print the plot
+
+fileName <- here(figDir, "FACS_release_WB_relative")
+width <- panelSize(2)*mmToInch
+height <- panelSize(0.7)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+```
+
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Create the data frame
+data <- data.frame(
+  Timepoint = c("22 h", "22 h"),
+  HA = c(69.28115059, 60.02019182)
+)
+
+# Convert Timepoint to an ordered factor (ensures correct plotting order)
+data$Timepoint <- factor(data$Timepoint, levels = c("0 h", "3 h", "8 h", "22 h"))
+
+# Calculate summary statistics
+data_summary <- data %>%
+  group_by(Timepoint) %>%
+  summarise(
+    Mean_HA = mean(HA),
+    SD = sd(HA),
+    SE = SD / sqrt(n())  # Calculate Standard Error
+  )
+
+# Bar Plot with Error Bars (SE)
+p <- ggplot(data_summary, aes(x = Timepoint, y = Mean_HA)) +
+  # Bar plot for means
+  geom_bar(stat = "identity", fill = "grey50", color = "black", width = 0.75, size = lineThick * mmToLineUnit) +
+  # Error bars for SE
+    geom_jitter(data = data, aes(x = Timepoint, y = HA),
+              color = "black", size = 2, width = 0.1) +
+  geom_errorbar(aes(ymin = Mean_HA - SE, ymax = Mean_HA + SE), 
+                width = 0.2, color = "black", size = lineThick * mmToLineUnit) +
+  ylim(0, 100) +
+  # Labels and Theme
+  labs(
+    x = NULL,
+    y = "Relative GAPDH normalized"
+  ) +
+  theme_classic() +  # Apply theme_bw first, so custom theme settings come after
+    theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeM,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS,         # Ensure size is set for y-axis text
+      family = fontType,
+      color = "#000000",
+      lineheight = 0.9          # Allows wrapping for y-axis labels to fit into 2 lines
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here(figDir, "wb_OTX2")
+width <- panelSize(0.7)*mmToInch
+height <- panelSize(1)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+
+```
+
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Create the data frame
+data <- data.frame(
+  Timepoint = c("DM4h", "DM4h", 
+                "dT1h",
+                "dT2h", "dT2h",
+                "dT3h", "dT3h",
+                "dT4h", "dT4h",
+                "dT24h", "dT24h"),
+  HA = c(92.877602,107.122398,
+         22.902566,
+         10.928159, 7.188197,
+         4.432795, 5.367769,
+         4.729208, 7.512748,
+         0.93209, 0.601917)
+)
+
+# Convert Timepoint to an ordered factor (ensures correct plotting order)
+data$Timepoint <- factor(data$Timepoint, levels = c("DM4h", "dT1h", "dT2h", "dT3h", "dT4h", "dT24h"))
+
+# Calculate summary statistics
+data_summary <- data %>%
+  group_by(Timepoint) %>%
+  summarise(
+    Mean_HA = mean(HA),
+    SD = sd(HA),
+    SE = SD / sqrt(n())  # Calculate Standard Error
+  )
+
+# Bar Plot with Error Bars (SE)
+p <- ggplot(data_summary, aes(x = Timepoint, y = Mean_HA)) +
+  # Bar plot for means
+  geom_bar(stat = "identity", fill = "grey50", color = "black", width = 0.75, size = lineThick * mmToLineUnit) +
+  # Error bars for SE
+    geom_jitter(data = data, aes(x = Timepoint, y = HA),
+              color = "black", size = 2, width = 0.1) +
+  geom_errorbar(aes(ymin = Mean_HA - SE, ymax = Mean_HA + SE), 
+                width = 0.2, color = "black", size = lineThick * mmToLineUnit) +
+  ylim(0, 120) +
+  # Labels and Theme
+  labs(
+    x = NULL,
+    y = "Relative GAPDH normalized"
+  ) +
+  theme_classic() +  # Apply theme_bw first, so custom theme settings come after
+    theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeM,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS,         # Ensure size is set for y-axis text
+      family = fontType,
+      color = "#000000",
+      lineheight = 0.9          # Allows wrapping for y-axis labels to fit into 2 lines
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here(figDir, "wb_HA_timeseries")
+width <- panelSize(1)*mmToInch
+height <- panelSize(1)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+
+```
+
+# Release after dTAG, Stacked barplot
+```{r}
+# Data
+data <- data.frame(
+  sample = rep(c("DMSO_30m", "dTAG-13_30m", "DMSO_1h", "dTAG-13_1h"), each = 5),
+  cell_cycle = rep(c("Prophase", "Metaphase", "Anaphase", "Telophase", "Interphase"), times = 4),
+  value = c(75, 38, 0, 0, 0,
+            73, 42, 0, 0, 0,
+            3, 1, 3, 27, 65,
+            4, 1, 1, 37, 57)
+)
+
+data$sample <- factor(data$sample, levels = c("DMSO_30m", "dTAG-13_30m", "DMSO_1h", "dTAG-13_1h"))
+data$cell_cycle <- factor(data$cell_cycle, levels = rev(c("Prophase", "Metaphase", "Anaphase", "Telophase", "Interphase")))
+# Create stacked bar plot
+
+
+custom_colors <- c("Prophase" = "#9370DB",
+                   "Metaphase" = "#FFD700",
+                   "Anaphase" = "#FF8C00",
+                   "Telophase" = "#32CD32",
+                   "Interphase" = "#87CEEB")
+plot <- ggplot(data, aes(x = sample, y = value, fill = cell_cycle)) +
+  geom_bar(stat = "identity", position = "fill") +
+  labs(x = NULL, y = "Percentage", fill = "Cell cycle stages") +
+    scale_fill_manual(values = custom_colors) +
+  theme_classic() +
+  theme(
+    axis.title = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) +
+  guides(
+    fill = guide_legend(
+      keywidth = 0.5,  # Adjust the width of the legend color squares
+      keyheight = 0.5  # Adjust the height of the legend color squares
+    )
+  ) +
+  coord_cartesian(clip = "off")
+
+
+
+width <- panelSize(1.75)*mmToInch
+height <- panelSize(1.25)*mmToInch
+fileName <- here(figDir, paste0("stacked_barplot_cell_cycle_after_release_dtag"))
+svglite(paste0(fileName, ".svg"),
+        width = width,
+        height = height)
+print(plot)
+dev.off()
+
+png(
+  paste0(fileName, ".png"),
+  width = width,
+  height = height,
+  res = 600,
+  units = "in"
+)
+print(plot)
+dev.off()
+
+# 
+# 
+# data <- data.frame(
+#   sample = rep(c("DMSO_30m", "dTAG-13_30m", "DMSO_1h", "dTAG-13_1h"), each = 5),
+#   cell_cycle = rep(c("Prophase", "Metaphase", "Anaphase", "Telophase", "Interphase"), times = 4),
+#   value = c(75, 38, 0, 0, 0,
+#             73, 42, 0, 0, 0,
+#             3, 1, 3, 27, 65,
+#             4, 1, 1, 37, 57)
+# )
+# temp <- data %>% dplyr::filter(sample %in% c("DMSO_30m", "dTAG-13_30m"))
+# contingency_table <- xtabs(value ~ sample + cell_cycle, data = temp)
+# fisher_result <- fisher.test(contingency_table)
+# 
+# 
+# temp <- data %>% dplyr::filter(sample %in% c("DMSO_1h", "dTAG-13_1h"))
+# contingency_table <- xtabs(value ~ sample + cell_cycle, data = temp)
+# fisher_result <- fisher.test(contingency_table)
+# 
+
+
+```
+
+## Saddle plot - dTAG
+```{r}
+library(ggbeeswarm)
+
+temp.tb <- fread(here("../figure/compartment_cscore/A485_vs_dTAG_vs_DMSO_binSize_100000_compScorePerc_0.1", "A485_vs_dTAG_vs_DMSO_100000_CornerScores.txt"))
+
+
+temp.tb <- temp.tb %>% dplyr::select(exp, score, corner, chr) %>%
+  distinct()
+
+# dTAG
+dTAG.tb <- temp.tb %>% dplyr::filter(exp %in% c("G1.DMSO", "G1.dTAG"))
+
+diffScore.dTAG <- dTAG.tb %>%
+  group_by(chr) %>%
+  summarize(score_diff_AA = score[exp == 'G1.dTAG' & corner == 'AA'] - score[exp == 'G1.DMSO' & corner == 'AA'],
+            score_diff_BB = score[exp == 'G1.dTAG' & corner == 'BB'] - score[exp == 'G1.DMSO' & corner == 'BB'],
+            score_diff_AB = score[exp == 'G1.dTAG' & corner == 'AB/BA'] - score[exp == 'G1.DMSO' & corner == 'AB/BA']) %>%
+  dplyr::filter(chr != "chrX")
+
+diffScore.dTAG.long <- diffScore.dTAG %>% pivot_longer(-chr, values_to = 'diffScore', names_to = 'compartment') %>%
+  mutate(compartment = recode(compartment, "score_diff_AA" = "AA", "score_diff_BB" = "BB",
+                      "score_diff_AB" = "AB"))
+
+
+p <- ggplot(diffScore.dTAG.long, aes(x = compartment, y = diffScore)) +
+  theme_classic() + 
+  geom_boxplot(outlier.shape = NA, color = "black", fill = c("grey", "grey", "grey"),  size = lineMedium*mmToLineUnit) +
+  geom_beeswarm(size = 0.2, color = "black", alpha = 1) +
+  geom_hline(yintercept = 0, linewidth = lineThick*mmToLineUnit) +
+  coord_cartesian(ylim = c(-0.15, 0.4)) + theme_classic() +
+  theme(
+    axis.title = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) +    
+  xlab("Compartment") +
+  ylab("Δ corner score")
+
+
+fileName <- here(figDir, "compScore_AABBdiff_dTAG")
+width <- panelSize(1)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+png(paste0(fileName, ".png"), width = width, height =height, res = 600, unit = "in")
+print(p)
+dev.off()
+
+
+
+
+```
+
+## Saddle plot - A485
+```{r}
+library(ggbeeswarm)
+
+temp.tb <- fread(here("../figure/compartment_cscore/A485_vs_dTAG_vs_DMSO_binSize_100000_compScorePerc_0.1", "A485_vs_dTAG_vs_DMSO_100000_CornerScores.txt"))
+
+
+temp.tb <- temp.tb %>% dplyr::select(exp, score, corner, chr) %>%
+  distinct()
+
+A485.tb <- temp.tb %>% dplyr::filter(exp %in% c("G1.DMSO", "G1.A485"))
+
+diffScore.A485 <- A485.tb %>%
+  group_by(chr) %>%
+  summarize(score_diff_AA = score[exp == 'G1.A485' & corner == 'AA'] - score[exp == 'G1.DMSO' & corner == 'AA'],
+            score_diff_BB = score[exp == 'G1.A485' & corner == 'BB'] - score[exp == 'G1.DMSO' & corner == 'BB'],
+            score_diff_AB = score[exp == 'G1.A485' & corner == 'AB/BA'] - score[exp == 'G1.DMSO' & corner == 'AB/BA']) %>%
+  dplyr::filter(chr != "chrX")
+
+diffScore.A485.long <- diffScore.A485 %>% pivot_longer(-chr, values_to = 'diffScore', names_to = 'compartment') %>%
+  mutate(compartment = recode(compartment, "score_diff_AA" = "AA", "score_diff_BB" = "BB",
+                      "score_diff_AB" = "AB"))
+
+
+p <- ggplot(diffScore.A485.long, aes(x = compartment, y = diffScore)) +
+  theme_classic() + 
+  geom_boxplot(outlier.shape = NA, color = "black", fill = c("grey", "grey", "grey"),  size = lineMedium*mmToLineUnit) +
+  geom_beeswarm(size = 0.2, color = "black", alpha = 1) +
+  geom_hline(yintercept = 0, linewidth = lineThick*mmToLineUnit) +
+  coord_cartesian(ylim = c(-0.4, 0.2)) + theme_classic() +
+  theme(
+    axis.title = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) +    
+  xlab("Compartment") +
+  ylab("Δ corner score")
+
+
+fileName <- here(figDir, "compScore_AABBdiff_A485")
+width <- panelSize(1)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+png(paste0(fileName, ".png"), width = width, height =height, res = 600, unit = "in")
+print(p)
+dev.off()
+
+
+
+
+```
+
+## Pie chart for loop updown
+```{r}
+# Define the data
+categories <- c("Up", "No", "Down")
+values <- c(228, 9084, 57169)
+
+# Calculate percentages
+percentages <- round((values / sum(values)) * 100, 2)
+
+# Combine values and percentages for labels
+labels <- paste(categories, "\n", values, "\n(", percentages, "%)", sep = "")
+
+fileName <- here(figDir, "piechart_unionLoops")
+width <- panelSize(2)*mmToInch
+height <- panelSize(2)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(values, 
+    labels = labels, 
+    col = c(strong_red, no_grey, strong_blue), 
+    cex = fontSizeM/12)
+dev.off()
+
+```
+
+```{r}
+# Define the data
+categories <- c("Up", "No", "Down")
+values <- c(39, 2984, 31111)
+
+# Calculate percentages
+percentages <- round((values / sum(values)) * 100, 2)
+
+# Combine values and percentages for labels
+labels <- paste(categories, "\n", values, "\n(", percentages, "%)", sep = "")
+
+fileName <- here(figDir, "piechart_structure")
+width <- panelSize(2)*mmToInch
+height <- panelSize(2)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(values, 
+    labels = labels, 
+    col = c(strong_red, no_grey, strong_blue), 
+    cex = fontSizeM/12)
+dev.off()
+```
+
+```{r}
+# Define the data
+categories <- c("Up", "No", "Down")
+values <- c(79, 2010, 3520)
+
+# Calculate percentages
+percentages <- round((values / sum(values)) * 100, 2)
+
+# Combine values and percentages for labels
+labels <- paste(categories, "\n", values, "\n(", percentages, "%)", sep = "")
+
+fileName <- here(figDir, "piechart_regulatory")
+width <- panelSize(2)*mmToInch
+height <- panelSize(2)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(values, 
+    labels = labels, 
+    col = c(strong_red, no_grey, strong_blue), 
+    cex = fontSizeM/12)
+dev.off()
+```
+
+```{r}
+# Define the data
+categories <- c("Up", "No", "Down")
+values <- c(350, 59359, 6772)
+
+# Calculate percentages
+percentages <- round((values / sum(values)) * 100, 2)
+
+# Combine values and percentages for labels
+labels <- paste(categories, "\n", values, "\n(", percentages, "%)", sep = "")
+
+fileName <- here(figDir, "piechart_unionLoops_A485")
+width <- panelSize(2)*mmToInch
+height <- panelSize(2)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(values, 
+    labels = labels, 
+    col = c(strong_red, no_grey, strong_blue), 
+    cex = fontSizeM/12)
+dev.off()
+```
+
+```{r}
+# Define the data
+categories <- c("Sensitive", "Not sensitive")
+values <- c(653, 2110)
+
+# Calculate percentages
+percentages <- round((values / sum(values)) * 100, 2)
+
+# Combine values and percentages for labels
+labels <- paste(categories, "\n", values, "\n(", percentages, "%)", sep = "")
+
+fileName <- here(figDir, "piechart_sensitive_up")
+width <- panelSize(2)*mmToInch
+height <- panelSize(2)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(values, 
+    labels = labels, 
+    col = c(strong_red, no_grey, strong_blue), 
+    cex = fontSizeM/12)
+dev.off()
+
+# Define the data
+categories <- c("Sensitive", "Not sensitive")
+values <- c(904, 2750-904)
+
+# Calculate percentages
+percentages <- round((values / sum(values)) * 100, 2)
+
+# Combine values and percentages for labels
+labels <- paste(categories, "\n", values, "\n(", percentages, "%)", sep = "")
+
+fileName <- here(figDir, "piechart_sensitive_down")
+width <- panelSize(2)*mmToInch
+height <- panelSize(2)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(values, 
+    labels = labels, 
+    col = c(strong_red, no_grey, strong_blue), 
+    cex = fontSizeM/12)
+dev.off()
+```
+
+
+# RNA-seq
+### Async.A485
+```{r}
+expName <- "Async.A485"
+dds <- readRDS(here(rdsDir, paste0("dds_", expName, "_group.rds")))
+alpha <- 0.05
+foldchange <- 0.5
+log2FC_cutoff <- 10
+width <- panelSize(2)*mmToInch
+height <- panelSize(2)*mmToInch
+
+geneList <- c("Klf4", "Otx2", "Esrrb", "Nanog", "Spry4", "Dusp4", "Zic2", "Fosl2", "Jun", "Myc", "Tbx3", "Phlda1")
+
+#####
+c1 <- "Async.2i.A485"
+c2 <- "Async.2i.DMSO"
+output_prefix <- paste0(expName, "_", c1, "_vs_", c2)
+note <- ""
+create_volcanoMA(rdsDir, figDir,
+                 dds, output_prefix, note,
+                 alpha, foldchange, log2FC_cutoff, geneList,
+                 width, height, maxOverlap_volcano = 10, maxOverlap_MA = 20)
+#####
+c1 <- "Async.Epi.A485"
+c2 <- "Async.Epi.DMSO"
+output_prefix <- paste0(expName, "_", c1, "_vs_", c2)
+note <- ""
+create_volcanoMA(rdsDir, figDir,
+                 dds, output_prefix, note,
+                 alpha, foldchange, log2FC_cutoff, geneList,
+                 width, height, maxOverlap_volcano = 10, maxOverlap_MA = 20)
+#####
+c1 <- "Async.Epi.DMSO"
+c2 <- "Async.2i.DMSO"
+output_prefix <- paste0(expName, "_", c1, "_vs_", c2)
+note <- ""
+log2FC_cutoff <- 7
+create_volcanoMA(rdsDir, figDir,
+                 dds, output_prefix, note,
+                 alpha, foldchange, log2FC_cutoff, geneList,
+                 width, height, maxOverlap_volcano = 10, maxOverlap_MA = 20)
+
+
+```
+### G1.dTAG
+```{r}
+expName <- "G1.dTAG"
+dds <- readRDS(here(rdsDir, paste0("dds_G1.dTAG_batch-group.rds")))
+alpha <- 0.05
+foldchange <- 0.5
+log2FC_cutoff <- 2
+width <- panelSize(1.7)*mmToInch
+height <- panelSize(1.8)*mmToInch
+
+geneList <- c("Klf4", "Otx2", "Esrrb", "Nanog", "Spry4", "Dusp4", "Zic2", "Fosl2", "Jun", "Myc", "Tbx3", "Phlda1")
+
+#####
+c1 <- "G1.2i.dTAG"
+c2 <- "G1.2i.DMSO"
+output_prefix <- paste0(expName, "_", c1, "_vs_", c2)
+note <- ""
+create_volcanoMA(rdsDir, figDir,
+                 dds, output_prefix, note,
+                 alpha, foldchange, log2FC_cutoff, geneList,
+                 width, height, maxOverlap_volcano = 10, maxOverlap_MA = 20)
+```
+
+### G1.A485
+```{r}
+expName <- "G1.A485.selected2"
+dds <- readRDS(here(rdsDir, paste0("dds_G1.A485.selected2_batch-group.rds")))
+alpha <- 0.05
+foldchange <- 0.5
+log2FC_cutoff <- 8
+width <- panelSize(1.7)*mmToInch
+height <- panelSize(1.8)*mmToInch
+
+geneList <- c("Klf4", "Otx2", "Esrrb", "Nanog", "Spry4", "Dusp4", "Zic2", "Fosl2", "Jun", "Myc", "Tbx3", "Phlda1")
+
+#####
+c1 <- "G1.2i.A485"
+c2 <- "G1.2i.DMSO"
+output_prefix <- paste0(expName, "_", c1, "_vs_", c2)
+note <- ""
+create_volcanoMA(rdsDir, figDir,
+                 dds, output_prefix, note,
+                 alpha, foldchange, log2FC_cutoff, geneList,
+                 width, height, maxOverlap_volcano = 10, maxOverlap_MA = 20)
+```
+
+
+### G1.EpiLC vs ESC
+```{r}
+expName <- "G1.dTAG"
+dds <- readRDS(here(rdsDir, paste0("dds_G1.dTAG_batch-group.rds")))
+alpha <- 0.05
+foldchange <- 0.5
+log2FC_cutoff <- 5
+width <- panelSize(1.7)*mmToInch
+height <- panelSize(1.8)*mmToInch
+
+geneList <- c("Spry4", "Dusp6", "Egr1", "Smad7", "Myc", "Etv4", "Epha2", "Nab2", "Egr3", "Socs3", "Amotl2", "Sall3")
+
+#####
+c1 <- "G1.Epi.DMSO"
+c2 <- "G1.2i.DMSO"
+output_prefix <- paste0(expName, "_", c1, "_vs_", c2)
+note <- ""
+create_volcanoMA(rdsDir, figDir,
+                 dds, output_prefix, note,
+                 alpha, foldchange, log2FC_cutoff, geneList,
+                 width, height, maxOverlap_volcano = 10, maxOverlap_MA = 20)
+```
+### G1.EpiLC dTAG
+```{r}
+expName <- "G1.dTAG"
+dds <- readRDS(here(rdsDir, paste0("dds_G1.dTAG_batch-group.rds")))
+alpha <- 0.05
+foldchange <- 0.5
+log2FC_cutoff <- 2
+width <- panelSize(1.7)*mmToInch
+height <- panelSize(1.8)*mmToInch
+
+geneList <- c("Fam43a", "Phlda1", "Trib1", "Txnip", "Myc", "Cited2", "Xbp1", "Pde4d", "Epha4", "Dusp5", "Spry4", "Id4", "Apold1", "Inhbb", "Apln", "Dclk2")
+
+#####
+c1 <- "G1.Epi.dTAG"
+c2 <- "G1.Epi.DMSO"
+output_prefix <- paste0(expName, "_", c1, "_vs_", c2)
+note <- ""
+create_volcanoMA(rdsDir, figDir,
+                 dds, output_prefix, note,
+                 alpha, foldchange, log2FC_cutoff, geneList,
+                 width, height, maxOverlap_volcano = 10, maxOverlap_MA = 20)
+```
+
+### Comparing percentage of EpiLC genes specific genes by dTAG
+```{r}
+
+fc_cutoff <- 1
+alpha <- 0.05
+diff <- fread(here("data", "diff_G1.dTAG_G1.Epi.DMSO_vs_G1.2i.DMSO.tsv"))
+geneList.Epiup <- (diff %>% dplyr::filter(shrinked_log2FC > fc_cutoff, padj < alpha))$ensembl_gene_id
+
+
+diff <- fread(here("data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv"))
+geneList.EpidTAGdown <- (diff %>% dplyr::filter(shrinked_log2FC < 0, padj < alpha))$ensembl_gene_id
+
+sum(geneList.Epiup %in% geneList.EpidTAGdown)
+
+diff_G1.dTAG_G1.Epi.DMSO_vs_G1.2i.DMSO.tsv
+```
+
+
+
+# PRO-seq
+## PCA
+```{r}
+
+
+create_PCA_DESeq2_pub <- function(dds, colData, varThreshold = 0.25, title, label = "group", deseq2BatchCorrect = FALSE, width = 6, height = 4){
+  # PURPOSE: data used here is `rld` transformed DESeq2 normalized reads
+  # INPUT:
+  #   dds: rld transformed DESeq2 normalized reads
+  #   colData: colData from DESeq2
+  #   varThreshold: percentage of top variable genes to use for PCA
+  
+  rld <- rlog(dds, blind = FALSE) # log transform option 2 with variance shrinkage
+  data <- assay(rld)
+  
+  if(deseq2BatchCorrect){
+    # APPLY BATCH CORRECTION FROM DESIGN
+    data <- assay(rld)
+    mm <- model.matrix(~group, colData(rld))
+    data <- limma::removeBatchEffect(data, batch = rld$batch, design = mm)
+    assay(rld) <- data
+  }
+  variances <- rowVars(data)
+  threshold <- quantile(variances, 1-varThreshold) 
+  selected_genes <- variances > threshold
+  data_selected <- data[selected_genes, ]
+  
+  PCA_abundance_table <- prcomp(t(data_selected), scale. = FALSE)
+  std_devs <- PCA_abundance_table$sdev
+  variances <- std_devs^2
+  proportion_variance <- variances / sum(variances)
+  cumulative_variance <- cumsum(proportion_variance)
+  pca_contributions <- data.frame(
+    PC = paste0("PC", 1:length(proportion_variance)),
+    Variance = variances,
+    Proportion_Variance = proportion_variance,
+    Cumulative_Variance = cumulative_variance
+  )
+  
+  PCA_res <- as.data.frame(PCA_abundance_table$x) %>% rownames_to_column(var = "Sample")
+  colData <- as.data.frame(colData) %>% rownames_to_column(var = "Sample")
+  merged_data <- left_join(PCA_res, colData, by = "Sample")
+  
+  p <- ggplot(data = merged_data, aes(x = PC1, y = PC2, color = cellCycle)) +
+    geom_point(aes(shape = treatment), size = 2) +
+    scale_color_npg() +
+    geom_text_repel(aes(label = group),
+                    size = fontSizeS*ptToMM) +
+    labs(
+         x = paste0("PC1: ", round(pca_contributions$Proportion_Variance[1]*100, 1), "% variance"),
+         y = paste0("PC2: ", round(pca_contributions$Proportion_Variance[2]*100, 1), "% variace")) +
+    theme_pubr() +
+    theme(
+      legend.position = "right",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeM,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeM,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      legend.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      legend.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent")
+    )
+  fileName <- paste0("PCA_", title)
+  
+  print(p)
+  
+  dir.create(here("figure", "PCA"), showWarnings = FALSE)
+  svglite(here("figure", "PCA", paste0(fileName, ".svg")), width = width, height = height)
+  print(p)
+  dev.off()
+  
+  png(here("figure", "PCA", paste0(fileName, ".png")), width = width, height = height, units = "in", res = 600)
+  print(p)
+  dev.off()
+}
+```
+
+```{r}
+dds <- readRDS(here(rdsDir, "dds_PRO_G1G2.dTAG_group.rds"))
+colData <- colData(dds)
+
+expName <- "PRO-seq"
+# Combining samples from Async.A485 experiment
+
+# Run DESeq2
+dds <- readRDS(here(rdsDir, "dds_PRO_G1G2.dTAG_group.rds"))
+width <- panelSize(2.2)*mmToInch
+height <- panelSize(1.3)*mmToInch
+create_PCA_DESeq2_pub(dds, colData, varThreshold = 0.25, title = expName, 
+                      deseq2BatchCorrect = FALSE, width = width, height = height)
+
+```
+
+```{r}
+  sampleID <- factor(unlist(lapply(colnames(data.tb), function(text){
+    return((unlist(strsplit(text, split = "_"))[1]))
+  })))
+  experiment <- factor(unlist(lapply(colnames(data.tb), function(text){
+    return((unlist(strsplit(text, split = "_"))[2]))
+  })))
+  cellCycle <- factor(unlist(lapply(colnames(data.tb), function(text){
+    return(unlist(strsplit((unlist(strsplit(text, split = "_"))[3]), split = "\\."))[1])
+  })))
+  media <- factor(unlist(lapply(colnames(data.tb), function(text){
+    return(unlist(strsplit((unlist(strsplit(text, split = "_"))[3]), split = "\\."))[2])
+  })))
+  treatment <- factor(unlist(lapply(colnames(data.tb), function(text){
+    return(unlist(strsplit((unlist(strsplit(text, split = "_"))[3]), split = "\\."))[3])
+  })))
+  rep <- factor(unlist(lapply(colnames(data.tb), function(text){
+    return((unlist(strsplit(text, split = "_"))[4]))
+  })))
+  # batch <- factor(unlist(lapply(colnames(data.tb), function(text){
+  #   return((unlist(strsplit(text, split = "_"))[5]))
+  # })))
+  
+  group <- factor(paste(cellCycle, media, treatment, sep = "."))
+  label <- factor(paste(group, rep, sep = "."))
+  colData <- data.frame(
+    row.names = colnames(data.tb),
+    "experiment" = experiment,
+    "cellCycle" = cellCycle,
+    "media" = media,
+    "treatment" = treatment,
+    "rep" = rep,
+    "batch" = experiment,
+    "group" = group,
+    "label" = label
+  )
+  
+}
+
+
+expName <- "EpiRecovery"
+sample.tb <- fread(here("data", paste0("readCount.filtered.", expName, ".tsv"))) %>%
+  dplyr::rename(S13_R055_5h.2i.DMSO_rep1 = S13_R055_Async.2i.DMSO_rep1,
+                S14_R055_5h.2i.DMSO_rep2 = S14_R055_Async.2i.DMSO_rep2,
+                S15_R055_5h.Epi.DMSO_rep1 = S15_R055_Async.Epi.DMSO_rep1,
+                S16_R055_5h.Epi.DMSO_rep2 = S16_R055_Async.Epi.DMSO_rep2)
+
+####################################################################################################################
+expName <- "EpiRecoveryDiffComb"
+# Combining samples from Async.A485 experiment
+pick <- c(seq(4, 9), seq(16, 19))
+data.tb <- data.frame(sample.tb %>% dplyr::select(all_of(pick)))
+rownames(data.tb) = sample.tb$ensembl
+colData <- create_colData(data.tb)
+design <- ~ group + batch
+
+# Run DESeq2
+dds <- readRDS(here(rdsDir, "dds_PRO_G1G2.dTAG_group.rds"))
+create_PCA_DESeq2(dds, colData, varThreshold = 0.25, title = expName, 
+                  deseq2BatchCorrect = TRUE, width = 6, height = 4, label = "label")
+# create_tSNE_DESeq2(dds, colData, varThreshold = 0.1, perplexity = 1, title = expName, width = 6, height = 4, label = "label")
+width <- panelSize(2.5)*mmToInch
+height <- panelSize(1.8)*mmToInch
+create_PCA_DESeq2_pub(dds, colData, varThreshold = 0.25, title = expName, 
+                      deseq2BatchCorrect = TRUE, width = width, height = height)
+```
+
+## Volcano
+```{r}
+dds <- readRDS(here(rdsDir, "dds_PRO_G1G2.dTAG_group.rds"))
+
+alpha <- 0.05
+foldchange <- 0.5
+log2FC_cutoff <- 2
+width <- panelSize(1.5)*mmToInch
+height <- panelSize(1.6)*mmToInch
+
+c1 <- "G1.dTAG"
+c2 <- "G1.DMSO"
+output_prefix <- paste0("PRO_", c1, "_vs_", c2)
+note <- ""
+geneList <- c()
+
+create_volcanoMA(rdsDir, figDir,
+                 dds, output_prefix, note,
+                 alpha, foldchange, log2FC_cutoff, geneList,
+                 width, height, maxOverlap_volcano = 10, maxOverlap_MA = 20)
+
+c1 <- "G2.dTAG"
+c2 <- "G2.DMSO"
+output_prefix <- paste0("PRO_", c1, "_vs_", c2)
+note <- ""
+geneList <- c()
+
+create_volcanoMA(rdsDir, figDir,
+                 dds, output_prefix, note,
+                 alpha, foldchange, log2FC_cutoff, geneList,
+                 width, height, maxOverlap_volcano = 10, maxOverlap_MA = 20)
+
+
+```
+## Correlation
+```{r}
+get_density <- function(x, y, ...) {
+  dens <- MASS::kde2d(x, y, ...)
+  ix <- findInterval(x, dens$x)
+  iy <- findInterval(y, dens$y)
+  ii <- cbind(ix, iy)
+  return(dens$z[ii])
+}
+
+diff.G2 <- fread(here("data", "diff_G1G2.dTAG_G2.dTAG_vs_G2.DMSO.tsv"))
+diff.G1 <- fread(here("data", "diff_G1G2.dTAG_G1.dTAG_vs_G1.DMSO.tsv"))
+ensembl_geneName <- diff.G2 %>% dplyr::select(ensembl_gene_id, external_gene_name)
+temp1 <- diff.G1 %>% dplyr::select(ensembl_gene_id, shrinked_log2FC)
+temp2 <- diff.G2 %>% dplyr::select(ensembl_gene_id, shrinked_log2FC)
+
+temp <- full_join(temp1, temp2, by = c("ensembl_gene_id" = "ensembl_gene_id"))
+colnames(temp) <- c("ensembl_gene_id", "shr_log2FC_G1", "shr_log2FC_G2")
+temp <- temp %>% dplyr::left_join(ensembl_geneName, by = c("ensembl_gene_id" = "ensembl_gene_id"))
+
+xylim <- 1
+fclim <- 0.5
+temp <- temp %>% dplyr::mutate(shr_log2FC_G1_lim = ifelse(shr_log2FC_G1 > xylim, xylim,
+                                                          ifelse(shr_log2FC_G1 < -xylim, -xylim, shr_log2FC_G1)),
+                               shr_log2FC_G2_lim = ifelse(shr_log2FC_G2 > xylim, xylim,
+                                                          ifelse(shr_log2FC_G2 < -xylim, -xylim, shr_log2FC_G2)),
+                               xFlag = (abs(shr_log2FC_G1) > xylim),
+                               yFlag = (abs(shr_log2FC_G2) > xylim),
+                               flag = xFlag | yFlag,
+                                xFlag2 = (abs(shr_log2FC_G1) > fclim),
+                               yFlag2 = (abs(shr_log2FC_G2) > fclim),
+                               flag2 = xFlag2 | yFlag2,
+                               showLabel = ifelse(flag2, external_gene_name, NA))
+
+temp$density <- get_density(temp$shr_log2FC_G1_lim, temp$shr_log2FC_G2_lim, n = 100)
+temp <- temp %>% dplyr::arrange(density)
+corr <- cor(temp$shr_log2FC_G1, temp$shr_log2FC_G2)
+
+
+p <- ggplot(temp, aes(x = shr_log2FC_G1_lim  , y = shr_log2FC_G2_lim, label = showLabel, color = density)) +
+  geom_point(aes(shape = flag), alpha = 0.5, size = 1, stroke = 0) + theme_classic() + coord_fixed() + 
+  geom_text_repel(size = fontSizeS*ptToMM,
+                  hjust = 0,
+                  color = "black",
+                  force = 0.1,
+                  force_pull = 5,
+                  min.segment.length = 0,
+                  segment.color = 'black',
+                  segment.size = lineMedium*mmToLineUnit,
+                  family = "Helvetica") +
+  scale_color_viridis() +
+  geom_hline(yintercept = 0,
+             color = "black",
+             size = lineThick*mmToLineUnit,
+             lineend = "square") + 
+  geom_vline(xintercept = 0,
+             color = "black",
+             size = lineThick*mmToLineUnit,
+             lineend = "square") + 
+  geom_abline(slope = 1, intercept = 0,
+             color = "black",
+             size = lineThick*mmToLineUnit,
+             lineend = "square") +
+  geom_smooth(method = "lm", size = lineThick*mmToLineUnit, lineend = "square") +
+  ggtitle(paste0("corr: ", round(corr, 2))) +
+  geom_hline(yintercept = c(-fclim, fclim), linetype = "dashed",
+             color = "black",
+             size = lineThick*mmToLineUnit,
+             lineend = "square") +
+  geom_vline(xintercept = c(-fclim, fclim), linetype = "dashed",
+             color = "black",
+             size = lineThick*mmToLineUnit,
+             lineend = "square") +
+  theme(      legend.position = "none",
+    plot.title = element_text(
+      hjust = 0.5,
+      size = fontSizeS,
+      family = fontType
+    ),
+    axis.title = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) +
+  xlab("log2(shrinked FC)\nG1.dTAG vs G1.DMSO") +
+  ylab("log2(shrinked FC)\nG2.dTAG vs G2.DMSO")
+
+
+fileName <- here(figDir, "correlation_G1_vs_G2")
+width <- panelSize(1.5)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+png(paste0(fileName, ".png"), width = width, height =height, res = 600, unit = "in")
+print(p)
+dev.off()
+
+```
+
+
+
+
+# 4C
+## ESC vs EpiLC
+Track layout
+1. EpiLC vs ESC
+2. Differential signal
+3. H3K27ac peaks in ESC
+4. H3K27ac peaks in EpiLC timecourse
+### Myc
+```{r}
+
+# Parameters
+vp.chr <- "chr15"
+vp.pos <- 61985406
+VP <- "Myc"
+binSize <- 10e3
+shiftSize <- binSize/20
+wSize <- 21
+
+# Visualization parameter
+range.plus <- 400e3
+range.minus <- 150e3
+yrange <- 700
+yrange.min <- -150
+yrange.max <- 300
+ymaxEpi <- 4
+
+
+make4Cfigure_pub_tracks_epi(vp.pos, VP, binSize, shiftSize, wSize,
+                               range.plus, range.minus, yrange, yrange.min, yrange.max,
+                               genome)
+name1 <- "ESC-G1DMSO"
+name2 <- "ESC-G1dTAG"
+name3 <- "Epi-G1DMSO"
+name4 <- "Epi-G1dTAG"
+yrange2 <- 0.15
+v4c1 <- "v4c_G1.DMSO.Merged_5kb.bw"
+v4c2 <- "v4c_G1.dTAG.Merged_5kb.bw"
+note <- "5kb"
+make4Cfigure_pub_type2_epi_2vs1_v4C(vp.chr, vp.pos, VP, binSize, shiftSize, wSize,
+                                    range.plus, range.minus, 
+                                    yrange, yrange2,
+                                    name1, name2, name3, name4, note,
+                                    strong_orange, strong_purple, 
+                                    v4c1, v4c2,
+                                    width = 2.7, height = 0.75*4)
+yrange2 <- 0.3
+v4c1 <- "v4c_G1.DMSO.Merged_10kb.bw"
+v4c2 <- "v4c_G1.dTAG.Merged_10kb.bw"
+note <- "10kb"
+make4Cfigure_pub_type2_epi_2vs1_v4C(vp.chr, vp.pos, VP, binSize, shiftSize, wSize,
+                                    range.plus, range.minus, 
+                                    yrange, yrange2,
+                                    name1, name2, name3, name4, note,
+                                    strong_orange, strong_purple, 
+                                    v4c1, v4c2,
+                                    width = 2.7, height = 0.75*4)
+
+
+# make4Cfigure_type1_4c_withRep(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome)
+# make4Cfigure_type1_track(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, ymaxEpi)
+# name1 <- "ESC-G1DMSO"
+# name2 <- "ESC-G1dTAG"
+# make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "ESC_dTAGvsDMSO", strong_orange)
+# name1 <- "Epi-G1DMSO"
+# name2 <- "Epi-G1dTAG"
+# make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "EPI_dTAGvsDMSO", strong_orange)
+# name1 <- "ESC-G1DMSO"
+# name2 <- "ESC-G1A485"
+# make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "ESC_A485vsDMSO", strong_green)
+# name1 <- "Epi-G1DMSO"
+# name2 <- "Epi-G1A485"
+# make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "EPI_A485vsDMSO", strong_green)
+```
+
+### Phlda1
+```{r}
+# Parameters
+vp.pos <- 111506289
+VP <- "Phlda1"
+binSize <- 10e3
+shiftSize <- binSize/20
+wSize <- 21
+
+# Visualization parameter
+range.plus <- 600e3
+range.minus <- 300e3
+yrange <- 1000
+yrange.min <- -300
+yrange.max <- 300
+ymaxEpi <- 4
+
+# make4Cfigure_type1_4c_withRep(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome)
+# make4Cfigure_type1_track(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, ymaxEpi)
+name1 <- "ESC-G1DMSO"
+name2 <- "ESC-G1dTAG"
+make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+                               range.plus, range.minus, yrange, yrange.min, yrange.max,
+                               genome, name1, name2, "ESC_dTAGvsDMSO", strong_orange)
+name1 <- "Epi-G1DMSO"
+name2 <- "Epi-G1dTAG"
+make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+                               range.plus, range.minus, yrange, yrange.min, yrange.max,
+                               genome, name1, name2, "EPI_dTAGvsDMSO", strong_orange)
+name1 <- "ESC-G1DMSO"
+name2 <- "ESC-G1A485"
+make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+                               range.plus, range.minus, yrange, yrange.min, yrange.max,
+                               genome, name1, name2, "ESC_A485vsDMSO", strong_green)
+name1 <- "Epi-G1DMSO"
+name2 <- "Epi-G1A485"
+make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+                               range.plus, range.minus, yrange, yrange.min, yrange.max,
+                               genome, name1, name2, "EPI_A485vsDMSO", strong_green)
+```
+
+### Klf4
+```{r}
+# Parameters
+vp.chr <- "chr4"
+vp.pos <- 55532445
+VP <- "Klf4"
+binSize <- 5e3
+shiftSize <- binSize/20
+wSize <- 11
+
+# Visualization parameter
+range.plus <- 100e3
+range.minus <- 200e3
+yrange <- 1500
+yrange.min <- -600
+yrange.max <- 800
+ymaxEpi <- 7
+
+
+make4Cfigure_pub_tracks_esc(vp.pos, VP, binSize, shiftSize, wSize,
+                               range.plus, range.minus, yrange, yrange.min, yrange.max,
+                               genome)
+
+
+# make4Cfigure_type1_4c_withRep(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome)
+# make4Cfigure_type1_track(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, ymaxEpi)
+name1 <- "ESC-G1DMSO"
+name2 <- "ESC-G1dTAG"
+yrange2 <- 0.1
+v4c1 <- "v4c_G1.DMSO.Merged_5kb.bw"
+v4c2 <- "v4c_G1.dTAG.Merged_5kb.bw"
+note <- "5kb"
+make4Cfigure_pub_type2_2vs1_v4C(vp.chr, vp.pos, VP, binSize, shiftSize, wSize,
+                                    range.plus, range.minus, 
+                                    yrange, yrange2,
+                                    name1, name2, note,
+                                    strong_yellow, 
+                                    v4c1, v4c2,
+                                    width = 2.7, height = 1.5)
+yrange2 <- 0.2
+v4c1 <- "v4c_G1.DMSO.Merged_10kb.bw"
+v4c2 <- "v4c_G1.dTAG.Merged_10kb.bw"
+note <- "10kb"
+make4Cfigure_pub_type2_2vs1_v4C(vp.chr, vp.pos, VP, binSize, shiftSize, wSize,
+                                    range.plus, range.minus, 
+                                    yrange, yrange2,
+                                    name1, name2, note,
+                                    strong_orange, 
+                                    v4c1, v4c2,
+                                    width = 2.7, height = 1.5)
+
+
+# make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "ESC_dTAGvsDMSO", strong_orange)
+# name1 <- "Epi-G1DMSO"
+# name2 <- "Epi-G1dTAG"
+# make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "EPI_dTAGvsDMSO", strong_orange)
+# name1 <- "ESC-G1DMSO"
+# name2 <- "ESC-G1A485"
+# make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "ESC_A485vsDMSO", strong_green)
+# name1 <- "Epi-G1DMSO"
+# name2 <- "Epi-G1A485"
+# make4Cfigure_type2_2vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "EPI_A485vsDMSO", strong_green)
+```
+
+### Jun
+```{r}
+# Parameters
+vp.pos <- 95052221
+VP <- "Jun"
+binSize <- 5e3
+shiftSize <- binSize/20
+wSize <- 11
+
+# Visualization parameter
+range.plus <- 300e3
+range.minus <- 200e3
+yrange <- 1000
+yrange.min <- -400
+yrange.max <- 300
+ymaxEpi <- 4
+
+# make4Cfigure_type1_4c_noRep(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome)
+make4Cfigure_type1_track(vp.pos, VP, binSize, shiftSize, wSize,
+                               range.plus, range.minus, yrange, yrange.min, yrange.max,
+                               genome, ymaxEpi)
+# name1 <- "ESC-G1DMSO"
+# name2 <- "ESC-G1dTAG"
+# make4Cfigure_type2_1vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "ESC_dTAGvsDMSO", strong_orange)
+# name1 <- "Epi-G1DMSO"
+# name2 <- "Epi-G1dTAG"
+# make4Cfigure_type2_1vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "EPI_dTAGvsDMSO", strong_orange)
+```
+### Tbx3
+```{r}
+# Parameters
+vp.chr <- "chr5"
+vp.pos <- 119670924
+VP <- "Tbx3"
+binSize <- 10e3
+shiftSize <- binSize/20
+wSize <- 21
+
+# Visualization parameter
+range.plus <- 300e3
+range.minus <- 500e3
+yrange <- 1500
+yrange2 <- 1.5
+yrange.min <- -500
+yrange.max <- 600
+ymaxEpi <- 5
+
+make4Cfigure_pub_tracks_esc(vp.pos, VP, binSize, shiftSize, wSize,
+                               range.plus, range.minus, yrange, yrange.min, yrange.max,
+                               genome)
+name1 <- "ESC-G1DMSO"
+name2 <- "ESC-G1dTAG"
+yrange2 <- 0.1
+v4c1 <- "v4c_G1.DMSO.Merged_5kb.bw"
+v4c2 <- "v4c_G1.dTAG.Merged_5kb.bw"
+note <- "5kb"
+make4Cfigure_pub_type2_1vs1_v4C(vp.chr, vp.pos, VP, binSize, shiftSize, wSize,
+                                    range.plus, range.minus, 
+                                    yrange, yrange2,
+                                    name1, name2, note,
+                                    strong_orange, 
+                                    v4c1, v4c2,
+                                    width = 2.7, height = 1.5)
+yrange2 <- 0.4
+v4c1 <- "v4c_G1.DMSO.Merged_10kb.bw"
+v4c2 <- "v4c_G1.dTAG.Merged_10kb.bw"
+note <- "10kb"
+make4Cfigure_pub_type2_1vs1_v4C(vp.chr, vp.pos, VP, binSize, shiftSize, wSize,
+                                    range.plus, range.minus, 
+                                    yrange, yrange2,
+                                    name1, name2, note,
+                                    strong_orange, 
+                                    v4c1, v4c2,
+                                    width = 2.7, height = 1.5)
+
+# make4Cfigure_type1_4c_noRep(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome)
+# make4Cfigure_type1_track(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, ymaxEpi)
+# name1 <- "ESC-G1DMSO"
+# name2 <- "ESC-G1dTAG"
+# make4Cfigure_type2_1vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "ESC_dTAGvsDMSO", strong_orange)
+# name1 <- "Epi-G1DMSO"
+# name2 <- "Epi-G1dTAG"
+# make4Cfigure_type2_1vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "EPI_dTAGvsDMSO", strong_orange)
+```
+### Fosl2
+```{r}
+# Parameters
+vp.chr <- "chr5"
+vp.pos <- 32136544
+VP <- "Fosl2"
+binSize <- 10e3
+shiftSize <- binSize/20
+wSize <- 21
+
+# Visualization parameter
+range.plus <- 300e3
+range.minus <- 700e3
+yrange <- 1000
+yrange.min <- -500
+yrange.max <- 500
+ymaxEpi <- 4
+
+
+make4Cfigure_pub_tracks_epi(vp.pos, VP, binSize, shiftSize, wSize,
+                               range.plus, range.minus, yrange, yrange.min, yrange.max,
+                               genome, genomePanelSize = 3)
+name1 <- "ESC-G1DMSO"
+name2 <- "ESC-G1dTAG"
+name3 <- "Epi-G1DMSO"
+name4 <- "Epi-G1dTAG"
+yrange2 <- 0.15
+v4c1 <- "v4c_G1.DMSO.Merged_5kb.bw"
+v4c2 <- "v4c_G1.dTAG.Merged_5kb.bw"
+note <- "5kb"
+make4Cfigure_pub_type2_epi_1vs1_v4C(vp.chr, vp.pos, VP, binSize, shiftSize, wSize,
+                                    range.plus, range.minus, 
+                                    yrange, yrange2,
+                                    name1, name2, name3, name4, note,
+                                    strong_orange, strong_purple, 
+                                    v4c1, v4c2,
+                                    width = 2.7, height = 0.75*4)
+yrange2 <- 0.3
+v4c1 <- "v4c_G1.DMSO.Merged_10kb.bw"
+v4c2 <- "v4c_G1.dTAG.Merged_10kb.bw"
+note <- "10kb"
+make4Cfigure_pub_type2_epi_1vs1_v4C(vp.chr, vp.pos, VP, binSize, shiftSize, wSize,
+                                    range.plus, range.minus, 
+                                    yrange, yrange2,
+                                    name1, name2, name3, name4, note,
+                                    strong_orange, strong_purple, 
+                                    v4c1, v4c2,
+                                    width = 2.7, height = 0.75*4)
+
+
+
+# make4Cfigure_type1_4c_noRep(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome)
+# make4Cfigure_type1_track(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, ymaxEpi, genomePanelSize = 3)
+# name1 <- "ESC-G1DMSO"
+# name2 <- "ESC-G1dTAG"
+# make4Cfigure_type2_1vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "ESC_dTAGvsDMSO", strong_orange)
+# name1 <- "Epi-G1DMSO"
+# name2 <- "Epi-G1dTAG"
+# make4Cfigure_type2_1vs1(vp.pos, VP, binSize, shiftSize, wSize,
+#                                range.plus, range.minus, yrange, yrange.min, yrange.max,
+#                                genome, name1, name2, "EPI_dTAGvsDMSO", strong_orange)
+```
+
+## Making bigwig with sliding bin normalization
+```{r}
+
+
+makeNorm4CBigwig_rep <- function(VP, binSize, shiftSize){
+  
+  reads.1 <- readRDS(here(rdsDir, paste0(VP, "_", name, "_Exp1-Rep1.rds")))$reads
+  reads.2 <- readRDS(here(rdsDir, paste0(VP, "_", name, "_Exp2-Rep1.rds")))$reads
+  
+  # Import chr info
+  seqinfo_from_db <- getChromInfoFromUCSC("mm10")
+  seqinfo_from_db <- seqinfo_from_db[grep("^chr[0-9XY]+$", seqinfo_from_db$chrom), ]
+  seqinfo_object <- Seqinfo(
+    seqnames = seqinfo_from_db$chrom,
+    seqlengths = seqinfo_from_db$size,
+    isCircular =seqinfo_from_db$circular,
+    genome = "mm10"
+  )
+  
+  # Make slinding norm
+  bin.D1 <- as.data.frame(slideBinNormReads(reads.1, binSize, shiftSize))
+  temp1 <- bin.D1 %>% dplyr::mutate(
+    pos = start + binSize/2-1,
+    bw_start = pos - shiftSize/2+1,
+    bw_end = pos + shiftSize/2
+  ) %>%
+    dplyr::select(seqnames, bw_start, bw_end, strand, reads)
+  colnames(temp1) <- c("seqnames", "start", "end", "strand", "score")
+  
+  bin.Gr <- makeGRangesFromDataFrame(temp1, keep.extra.columns = TRUE)
+  seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
+  seqinfo(bin.Gr) <- seqinfo_object
+  export(bin.Gr, paste0(VP, "_", name, "_rep1.bw"), format = "BigWig")
+  
+  bin.D2 <- as.data.frame(slideBinNormReads(reads.2, binSize, shiftSize))
+  temp2 <- bin.D2 %>% dplyr::mutate(
+    pos = start + binSize/2-1,
+    bw_start = pos - shiftSize/2+1,
+    bw_end = pos + shiftSize/2
+  ) %>%
+    dplyr::select(seqnames, bw_start, bw_end, strand, reads)
+  colnames(temp2) <- c("seqnames", "start", "end", "strand", "score")
+  
+  bin.Gr <- makeGRangesFromDataFrame(temp2, keep.extra.columns = TRUE)
+  seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
+  seqinfo(bin.Gr) <- seqinfo_object
+  export(bin.Gr, paste0(VP, "_", name, "_rep2.bw"), format = "BigWig")
+  
+  
+  temp <- full_join(temp1, temp2, by = c("seqnames", "start", "end", "strand")) %>%
+    dplyr::mutate(score = (score.x + score.y)/2) %>%
+    dplyr::select(seqnames, start, end, strand, score)
+  
+  bin.Gr <- makeGRangesFromDataFrame(temp, keep.extra.columns = TRUE)
+  seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
+  seqinfo(bin.Gr) <- seqinfo_object
+  export(bin.Gr, paste0(VP, "_", name, "_avg.bw"), format = "BigWig")
+  
+}
+
+
+makeNorm4CBigwig <- function(VP, binSize, shiftSize){
+  
+  reads.1 <- readRDS(here(rdsDir, paste0(VP, "_", name, "_Exp1-Rep1.rds")))$reads
+  
+  # Import chr info
+  seqinfo_from_db <- getChromInfoFromUCSC("mm10")
+  seqinfo_from_db <- seqinfo_from_db[grep("^chr[0-9XY]+$", seqinfo_from_db$chrom), ]
+  seqinfo_object <- Seqinfo(
+    seqnames = seqinfo_from_db$chrom,
+    seqlengths = seqinfo_from_db$size,
+    isCircular =seqinfo_from_db$circular,
+    genome = "mm10"
+  )
+  
+  # Make slinding norm
+  bin.D1 <- as.data.frame(slideBinNormReads(reads.1, binSize, shiftSize))
+  temp1 <- bin.D1 %>% dplyr::mutate(
+    pos = start + binSize/2-1,
+    bw_start = pos - shiftSize/2+1,
+    bw_end = pos + shiftSize/2
+  ) %>%
+    dplyr::select(seqnames, bw_start, bw_end, strand, reads)
+  colnames(temp1) <- c("seqnames", "start", "end", "strand", "score")
+  
+  bin.Gr <- makeGRangesFromDataFrame(temp1, keep.extra.columns = TRUE)
+  seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
+  seqinfo(bin.Gr) <- seqinfo_object
+  export(bin.Gr, paste0(VP, "_", name, "_rep1.bw"), format = "BigWig")
+  
+   
+}
+
+
+
+binSize <- 5e3
+shiftSize <- binSize/20
+
+VP <- "Klf4"
+name <- "ESC-G1DMSO"
+makeNorm4CBigwig_rep(VP, binSize, shiftSize)
+name <- "ESC-G1dTAG"
+makeNorm4CBigwig(VP, binSize, shiftSize)
+
+binSize <- 10e3
+shiftSize <- binSize/20
+VP <- "Tbx3"
+name <- "ESC-G1DMSO"
+makeNorm4CBigwig(VP, binSize, shiftSize)
+name <- "ESC-G1dTAG"
+makeNorm4CBigwig(VP, binSize, shiftSize)
+
+VP <- "Myc"
+name <- "ESC-G1DMSO"
+makeNorm4CBigwig_rep(VP, binSize, shiftSize)
+name <- "ESC-G1dTAG"
+makeNorm4CBigwig(VP, binSize, shiftSize)
+name <- "Epi-G1DMSO"
+makeNorm4CBigwig_rep(VP, binSize, shiftSize)
+name <- "Epi-G1dTAG"
+makeNorm4CBigwig(VP, binSize, shiftSize)
+
+VP <- "Fosl2"
+name <- "ESC-G1DMSO"
+makeNorm4CBigwig(VP, binSize, shiftSize)
+name <- "ESC-G1dTAG"
+makeNorm4CBigwig(VP, binSize, shiftSize)
+name <- "Epi-G1DMSO"
+makeNorm4CBigwig(VP, binSize, shiftSize)
+name <- "Epi-G1dTAG"
+makeNorm4CBigwig(VP, binSize, shiftSize)
+```
+
+

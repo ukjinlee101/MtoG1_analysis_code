@@ -1,0 +1,34 @@
+---
+title: "R Notebook"
+---
+
+```{r}
+library(here)
+library(GenomicFeatures)
+library(data.table)
+library(BRGenomics)
+library(tidyverse)
+library(biomaRt)
+
+txdb <- makeTxDbFromGFF(here("../reference", "mm10", "gencode.vM25.annotation.sorted.gtf"))
+gr.allGenes <- sort(tidyChromosomes(genes(txdb)))
+
+temp <- as_tibble(gr.allGenes) %>% 
+  dplyr::mutate(gene_id = sub("\\.\\d+$", "", gene_id)) %>%
+  dplyr::select(-width)
+
+ensembl.v102 = useMart(host = "https://nov2020.archive.ensembl.org",
+                biomart = "ENSEMBL_MART_ENSEMBL", 
+                dataset = "mmusculus_gene_ensembl")
+
+gene_id_to_name = getBM(
+  mart = ensembl.v102,
+  values = temp$gene_id,
+  filters = "ensembl_gene_id",
+  attributes = c("ensembl_gene_id", "external_gene_name")
+)
+
+data <- left_join(temp, gene_id_to_name, by = c("gene_id" = "ensembl_gene_id"))
+
+fwrite(data, here("../reference", "mm10", "gencode.vM25.mm10.GRCm38.p6_gene_sorted.bed"), sep = "\t", col.names = FALSE)
+```

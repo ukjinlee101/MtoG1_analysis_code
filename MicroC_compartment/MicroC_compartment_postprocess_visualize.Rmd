@@ -208,7 +208,7 @@ compartmentAnalysis = function(hic, contacts, expName, compAdj, H3K27ac.bw, acti
 ```{r}
 options(scipen=999)
 
-refDir <- here("reference")
+refDir <- here("../reference")
 outDir <- here("..", "data", "cscore")
 rdsDir <- here("..", "data", "rds")
 coolDir <- here("..", "data", "cool_norm_pooled")
@@ -217,7 +217,49 @@ dir.create(figDir, showWarnings = FALSE, recursive = TRUE)
 
 centromere <- fread(here(refDir, "mm10", "mm10.centromere.txt"))
 ```
+## FIGURE PARAMETERS
+```{r}
+library(colorspace)
 
+fontType <- "Helvetica"
+
+fontSizeL <- 10 # pt
+fontSizeM <- 8
+fontSizeS <- 6
+
+lineThick <- 0.75 # pt
+lineMedium <- 0.5
+lineThin <- 0.25
+
+panelUnit <- 30 # mm
+panelMargin <- 1.5
+
+mmToInch <- 0.03937007874
+mmToLineUnit <- 1/2.13
+mmToLinePlotgarden <- 1/0.75
+ptToMM <- 1/2.845
+
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+weak_red <- lighten(strong_red, amount = 0.4)   # FF7D81
+weak_blue <- lighten(strong_blue, amount = 0.4) # 8A91DD
+no_grey <- "#A8A8A8"
+
+strong_grey <- "#777777"
+strong_teel <- "#0892A5"
+strong_green <- "#23CE6B" # A485
+strong_darkgreen <- "#054A29"
+strong_yellow <- "#FFBA49"
+strong_orange <- "#F18F01" # dTAG 
+strong_lightpurple <- "#BD93D8"
+strong_purple <- "#9E33CB" # Epi
+
+panelSize <- function(num, unit = panelUnit, margin = panelMargin){
+  return(num*unit - 2*margin)
+}
+
+```
 # Correcting bedgraph based on active mark (10 kb)
 ```{r}
 # Import parameters
@@ -264,6 +306,7 @@ for( sample in c("G1DMSO_pooled_10kb", "G1dTAG_pooled_10kb", "G1A485_pooled_10kb
   output_file <- here(outDir, paste0(sample, "_cscore_final.bedgraph"))
   writeLines("track type=bedGraph visibility=full color=200,100,0 altColor=0,100,200 priority=20", output_file)
   fwrite(seed.tb, output_file, sep = '\t', col.names = FALSE, append = TRUE)
+  print(paste0(sample, " done"))
 }
 ```
 
@@ -385,15 +428,15 @@ drawSaddlePlot <- function(contact1, contact2, cond1, cond2, expName, binSize = 
     
     cornerScores$corner <- rep(c('AA','AB/BA','AB/BA','BB'), 
                                length(unique(cornerScores$exp)))
-    oelim <- 1.5
+    oelim <- 0.5
     
     metaAB <- ggplot(saddle.plot$data %>% dplyr::filter(panel == "Individual"),
                      aes(x = q1, y = q2)) +
-      geom_tile(aes(fill = pmax(pmin(log2(obsexp), oelim), -oelim))) +
+      geom_tile(aes(fill = pmax(pmin(log10(obsexp), oelim), -oelim))) +
       facet_grid(~exp) +
       coord_fixed() +
       scico::scale_fill_scico(palette = "vik", limits = c(-oelim, oelim)) +
-      labs(fill = "log2(O/E)") + xlab(NULL) + ylab(NULL) + theme_classic()
+      labs(fill = "log10(O/E)") + xlab(NULL) + ylab(NULL) + theme_classic()
     
     # For labeling the corner scores, place scores along the unit circle
     angle <- ifelse((cornerScores$q1-0.5)<0,
@@ -420,10 +463,10 @@ drawSaddlePlot <- function(contact1, contact2, cond1, cond2, expName, binSize = 
     
     metaAB_Diff = ggplot(diffSaddle[[2]], aes(x=q1,y=q2)) +
       geom_tile(aes(fill=
-                      pmax(pmin(log2(diffSaddle[[2]]$obsexp/diffSaddle[[1]]$obsexp), diffoelim), -diffoelim))) +
+                      pmax(pmin(log10(diffSaddle[[2]]$obsexp/diffSaddle[[1]]$obsexp), diffoelim), -diffoelim))) +
       coord_fixed() +  facet_grid(~exp) +
       scico::scale_fill_scico(palette = "cork", limits = c(-diffoelim, diffoelim)) +
-      labs(fill='diff_log2(O/E)') +  xlab(NULL) + ylab(NULL)+theme_classic()
+      labs(fill='diff_log10(O/E)') +  xlab(NULL) + ylab(NULL)+theme_classic()
     
     print("---differential saddle plot calculation done")
     
@@ -448,17 +491,15 @@ activeMark <- rtracklayer::import(here(refDir, "ChIP", "H3K27ac_ESC_Rep3_GSM2438
 activeBG <- as_tibble(activeMark) %>% dplyr::select(seqnames, start, end, score)
 cscoreDir <- here("..", "data", "cscore")
 
-# drawSaddlePlot(contacts.G1DMSO, contacts.G1dTAG, "G1DMSO_pooled", "G1dTAG_pooled",
-#                "G1DMSO_G1dTAG")
-# drawSaddlePlot(contacts.G1DMSO, contacts.G1A485, "G1DMSO_pooled", "G1A485_pooled",
-#                "G1DMSO_G1A485")
-# drawSaddlePlot(contacts.AsyncUT, contacts.AsyncAID, "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
-#                "AsyncUT_Async_AID")
-# 
-# 
-# drawSaddlePlot(contacts.EpiG1DMSO, contacts.EpiG1dTAG, "EpiG1DMSO_pooled", "EpiG1dTAG_pooled",
-#                "EpiG1DMSO_EpiG1dTAG")
+drawSaddlePlot(contacts.G1DMSO, contacts.G1dTAG, "G1DMSO_pooled", "G1dTAG_pooled",
+               "G1DMSO_G1dTAG")
 
+drawSaddlePlot(contacts.AsyncUT, contacts.AsyncAID, "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
+               "AsyncUT_Async_AID")
+drawSaddlePlot(contacts.G1DMSO, contacts.G1A485, "G1DMSO_pooled", "G1A485_pooled",
+               "G1DMSO_G1A485")
+drawSaddlePlot(contacts.EpiG1DMSO, contacts.EpiG1dTAG, "EpiG1DMSO_pooled", "EpiG1dTAG_pooled",
+               "EpiG1DMSO_EpiG1dTAG")
 drawSaddlePlot(contacts.G1DMSO, contacts.EpiG1DMSO, "G1DMSO_pooled", "EpiG1DMSO_pooled",
                "G1DMSO_EpiG1DMSO")
 ```
@@ -493,8 +534,20 @@ metaBin <- 50
 compScorePerc <- 0.1
 binSize <- 100000
 
-expName <- "G1DMSO_G1dTAG"
 
+getPvalWilcox <- function(data, cond1, cond2){
+  distance1 <- (data %>% dplyr::filter(exp ==cond1) )$compScore
+  distance2 <- (data %>% dplyr::filter(exp ==cond2) )$compScore
+  wil <- wilcox.test(distance1, distance2)
+  return(wil$p.value)
+}
+convPvalue <- function(pvalue){
+  out <- ifelse(pvalue < 0.0001, "****",
+                ifelse(pvalue < 0.001, "***",
+                       ifelse(pvalue < 0.01, "**",
+                              ifelse(pvalue < 0.05, "*", "ns"))))
+  return(out)
+}
 drawCompScore <- function(cond1, cond2, expName){
   outDir = here(figDir, 
                 paste0(c(expName, "binSize", as.integer(binSize), "compScorePerc", compScorePerc),
@@ -509,29 +562,61 @@ drawCompScore <- function(cond1, cond2, expName){
   
   data <- temp.tb
   data$exp <- factor(data$exp, levels = c(cond1, cond2))
+  pval <- getPvalWilcox(data, cond1, cond2)
+  
   plot <- ggplot(data, aes(x = exp, y = compScore)) +
-    geom_boxplot(width =0.6, outlier.shape = NA, color = "black", fill = c("grey", "pink")) +
-    geom_beeswarm(alpha = 1, fill = "grey", cex = 3) +
-    theme_classic() +
+    geom_boxplot(width = 0.6, outlier.shape = NA, color = "black", fill = c(strong_grey, strong_orange),
+                 linewidth = lineMedium * mmToLineUnit) +
+    geom_beeswarm(color = "black", shape = 16, size = 0.5) +
     ggtitle("Compartment Score") +
     ylab("Compartment Strength\n(AA+BB)/(AB+BA)") +
-    ylim(0, 10)
+    ylim(2, 8) +theme_classic() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+    ) +  annotate("text", x = 1, y = 5, label = paste0("", convPvalue(pval)), 
+                  color = "black", hjust = 0, size = 2)
   
   fileName = here(outDir, paste0("compScore_summary"))
-  width= 1.5
-  height = 3
+  width <- panelSize(0.85)*mmToInch
+  height <- panelSize(1.3)*mmToInch
   svglite(paste0(fileName, ".svg"), width = width, height =height)
   print(plot)
   dev.off()
 }
 
-# 
-# drawCompScore("G1DMSO_pooled", "G1dTAG_pooled",
-#                "G1DMSO_G1dTAG")
-# drawCompScore("G1DMSO_pooled", "G1A485_pooled",
-#                "G1DMSO_G1A485")
-# drawCompScore("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
-#                "AsyncUT_Async_AID")
+
+drawCompScore("G1DMSO_pooled", "G1dTAG_pooled",
+               "G1DMSO_G1dTAG")
+drawCompScore("G1DMSO_pooled", "G1A485_pooled",
+               "G1DMSO_G1A485")
+drawCompScore("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
+               "AsyncUT_Async_AID")
 
 drawCompScore("EpiG1DMSO_pooled", "EpiG1dTAG_pooled",
                "EpiG1DMSO_EpiG1dTAG")
@@ -542,10 +627,6 @@ drawCompScore("G1DMSO_pooled", "EpiG1DMSO_pooled",
 
 # Checking only AA, BB compartment
 ```{r}
-cond1 <- "G1DMSO_pooled"
-cond2 <- "G1dTAG_pooled"
-
-
 drawAABBDiff <- function(cond1, cond2, expName, ymin = -0.25, ymax = 0.5){
   outDir = here(figDir, 
                 paste0(c(expName, "binSize", as.integer(binSize), "compScorePerc", compScorePerc),
@@ -568,26 +649,55 @@ drawAABBDiff <- function(cond1, cond2, expName, ymin = -0.25, ymax = 0.5){
   
   
   p <- ggplot(diffScore.long, aes(x = compartment, y = diffScore)) +
-    theme_classic() +
-    geom_boxplot(outlier.shape = NA, color = "black", fill = c("grey", "grey", "grey"),  size = 0.75) +
-    geom_beeswarm(alpha = 0.5, fill = "grey", cex = 1) +
-    geom_hline(yintercept = 0, linewidth = 0.75) +
-    coord_cartesian(ylim = c(ymin, ymax))
+        geom_boxplot(width = 0.6, outlier.shape = NA, color = "black", fill = strong_grey,
+                 linewidth = lineMedium * mmToLineUnit) +
+    geom_beeswarm(color = "black", shape = 16, size = 0.5) +
+    geom_hline(yintercept = 0, linewidth = lineThick * mmToLineUnit, lineend = "square") +
+    coord_cartesian(ylim = c(ymin, ymax)) +theme_classic() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+    )
   
   fileName = here(outDir, paste0("compScore_AABBdiff"))
-  width= 1.5
-  height = 3
+  width <- panelSize(1)*mmToInch
+  height <- panelSize(1.3)*mmToInch
   svglite(paste0(fileName, ".svg"), width = width, height =height)
   print(p)
   dev.off() 
 }
-# 
-# drawAABBDiff("G1DMSO_pooled", "G1dTAG_pooled",
-#                "G1DMSO_G1dTAG")
-# drawAABBDiff("G1DMSO_pooled", "G1A485_pooled",
-#                "G1DMSO_G1A485", ymin = -0.5, ymax = 0.25)
-# drawAABBDiff("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
-#                "AsyncUT_Async_AID")
+
+drawAABBDiff("G1DMSO_pooled", "G1dTAG_pooled",
+               "G1DMSO_G1dTAG")
+drawAABBDiff("G1DMSO_pooled", "G1A485_pooled",
+               "G1DMSO_G1A485", ymin = -0.5, ymax = 0.25)
+drawAABBDiff("GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled",
+               "AsyncUT_Async_AID")
 
 drawAABBDiff("EpiG1DMSO_pooled", "EpiG1dTAG_pooled",
                "EpiG1DMSO_EpiG1dTAG")
