@@ -57,3 +57,15 @@ fithic -i ${OUTDIR}/interactions_${sample}_10kb.txt.gz \
     -r 10000 \
     -t ${OUTDIR}/bias_${sample}_10kb_0.1.txt.gz \
     -v
+
+
+# Merging and filtering interactions
+DATADIR="../../data/loop_fithic"
+fdr=0.05
+for sample in G1DMSO_pooled G1dTAG_pooled G1A485_pooled EpiG1DMSO_pooled EpiG1dTAG_pooled; do
+    echo "Processing sample: $sample"
+    OUTDIR="${DATADIR}/${sample}"
+    #zcat ${OUTDIR}/FitHiC.spline_pass1.res10000.significances.txt.gz | awk '{if(NR!=1){print $0}}'| awk -v q="$fdr" '{if($7<=q){print $0}}' | gzip > ${OUTDIR}/fithic_subset.gz
+    ./CombineNearbyInteraction.py -i ${OUTDIR}/fithic_subset.gz -H 0 -r 10000 -o ${OUTDIR}/filteredInteractions_${sample}_fdr${fdr}.gz
+    gzip -d ${OUTDIR}/filteredInteractions_${sample}_fdr${fdr}.gz
+done
