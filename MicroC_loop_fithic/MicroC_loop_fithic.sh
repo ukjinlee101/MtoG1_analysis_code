@@ -61,26 +61,28 @@ fithic -i ${OUTDIR}/interactions_${sample}_10kb.txt.gz \
 
 # Merging and filtering interactions (2 Mb size, fdr 0.05)
 DATADIR="../../data/loop_fithic"
-fdr=0.00005
+fdr=0.0001
 for sample in G1DMSO_pooled G1dTAG_pooled G1A485_pooled EpiG1DMSO_pooled EpiG1dTAG_pooled; do
-    echo "Processing sample: $sample"
-    OUTDIR="${DATADIR}/${sample}"
-    zcat ${OUTDIR}/FitHiC.spline_pass1.res10000.significances.txt.gz | awk '{if(NR!=1){print $0}}'| awk -v q="$fdr" '{if($7<=q){print $0}}' | gzip > ${OUTDIR}/fithic_subset.gz
-    ./CombineNearbyInteraction.py -i ${OUTDIR}/fithic_subset.gz -H 0 -r 10000 -o ${OUTDIR}/filteredInteractions_${sample}_fdr${fdr}.gz
-    gzip -d ${OUTDIR}/filteredInteractions_${sample}_fdr${fdr}.gz
+    for fdr in 0.0001 0.0005 0.001 0.005 0.01 0.05; do
+        echo "Processing sample: $sample $fdr"
+        OUTDIR="${DATADIR}/${sample}"
+        zcat ${OUTDIR}/FitHiC.spline_pass1.res10000.significances.txt.gz | awk '{if(NR!=1){print $0}}'| awk -v q="$fdr" '{if($7<=q){print $0}}' | gzip > ${OUTDIR}/fithic_subset.gz
+        ./CombineNearbyInteraction.py -i ${OUTDIR}/fithic_subset.gz -H 0 -r 10000 -o ${OUTDIR}/filteredInteractions_${sample}_fdr${fdr}.gz
+        gzip -d ${OUTDIR}/filteredInteractions_${sample}_fdr${fdr}.gz
 
-    input_file=${OUTDIR}/filteredInteractions_${sample}_fdr${fdr}
-    output_file=${OUTDIR}/filteredInteractions_${sample}_fdr${fdr}.bedpe
+        input_file=${OUTDIR}/filteredInteractions_${sample}_fdr${fdr}
+        output_file=${OUTDIR}/filteredInteractions_${sample}_fdr${fdr}.bedpe
 
-    awk 'NR>1 {
-        start1 = $2 - 5000
-        end1 = $2 + 5000
-        start2 = $4 - 5000
-        end2 = $4 + 5000
-        if ( ( ($4 - $2) < 0 ? -($4 - $2) : ($4 - $2) ) < 2000000 ) {
+        awk 'NR>1 {
+            start1 = $2 - 5000
+            end1 = $2 + 5000
+            start2 = $4 - 5000
+            end2 = $4 + 5000
+        if ( ( ($4 - $2) < 0 ? -($4 - $2) : ($4 - $2) ) > 10000 && 
+            ( ($4 - $2) < 0 ? -($4 - $2) : ($4 - $2) ) < 2000000 ) {
             print $1, start1, end1, $3, start2, end2, $5, $6, $7, $8, $9, $10, $11, $12, $13
         }
-    }' OFS="\t" "$input_file" > "$output_file"
-
+        }' OFS="\t" "$input_file" > "$output_file"
+    done
 done
 
