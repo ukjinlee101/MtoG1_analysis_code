@@ -1,0 +1,409 @@
+---
+title: "R Notebook"
+---
+# LOADING REQUIREMENTS
+## PACKAGES
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# LIST OF PACKAGES
+pkgs = c("tidyverse", "here", "svglite", "ggplot2", "ggrepel",
+         "stringr", "BiocManager", "RColorBrewer", "viridis", "magick",
+         "nlme", "factoextra", "devtools", "beepr", "remotes",
+         "cowplot", "data.table", "strawr", "utils",
+         "reshape2", "VennDiagram","gridExtra", "eulerr", "scales",
+         "gplots", "locfdr", "future", "ggbeeswarm", "glossary", "scico", "UpSetR")
+bio_pkgs = c("biomaRt", "DESeq2", "ComplexHeatmap", "apeglm", "vsn",
+             "rhdf5", "InteractionSet", "plotgardener", "HiCDCPlus",
+             "GenomicInteractions", "LOLA", "AnnotationHub",
+             "org.Mm.eg.db", "enrichplot", "DOSE", "clusterProfiler",
+             "HiCExperiment", "HiCool", "HiContacts", "HiContactsData", "fourDNData", "DNAZooData",
+             "MotifDb", "Biostrings", "rtracklayer", "InteractionSet",
+             "BSgenome.Mmusculus.UCSC.mm10")
+
+# INSTALL PACKAGES
+# install.packages(pkgs)
+# BiocManager::install(bio_pkgs)
+
+# INSTALL HiC related packages
+# remotes::install_github("robinweide/GENOVA")
+# remotes::install_github("psyteachr/introdataviz")
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+require(GENOVA)
+require(introdataviz)
+require(igraph)
+
+# CLEANING
+rm(pkgs, bio_pkgs)
+options(scipen=999)
+
+
+# Fixed HiCDC+
+curDir <- "/Volumes/UKJIN_SSD"
+# curDir <- "/athena/apostoloulab/scratch/ukl4001"
+
+source(here(curDir, "/MtoG1_analysis_code/script/hicdc2hic_custom.R"))
+
+```
+
+## COLOR PALETTE
+```{r}
+palette_1 = list(red = "#E9002D",
+                 amber = "#FFAA00",
+                 green = "#00B000")
+palette_2 = list(red = "#FF1F5B",
+                 green = "#00CD6C",
+                 blue = "#009ADE",
+                 purple = "#AF58BA",
+                 yellow = "#FFC61E",
+                 orange = "#F28522",
+                 grey = "#A0B1BA",
+                 brown = "#A6761D")
+palette_3 = list(grey1 = "#a0b1ba",
+                 grey2 = "#c5d0d5",
+                 grey3 = "#eceff1")
+
+colorListLoop <-  c(palette_3[["grey3"]], palette_3[["grey2"]], palette_3[["grey1"]],
+                     "#C5E1EF", "#6CB0D6", "#226E9C",
+                     "#06592A", 
+                     "#FED976", "#FD8D3C", "#E31A1C")
+colorListPromoter <- c(palette_3[["grey3"]],"#E88587", "#E31A1C")
+colorListEnhancer <- c(palette_3[["grey3"]],"#87AFC7", "#226E9C")
+colorListStructure <- c(palette_3[["grey3"]], palette_3[["grey2"]], palette_3[["grey1"]])
+```
+
+## DIR LIST
+```{r}
+hicDir <- here(curDir, "data/hic_pooled")
+loopDir <- here(curDir, "data/loop_fithic")
+figDir <- here(curDir, "figure/loop_fithic")
+rdsDir <- here(curDir, "data/rds")
+refDir <- here(curDir, "reference")
+
+dir.create(loopDir, showWarnings = FALSE)
+dir.create(figDir, showWarnings = FALSE)
+dir.create(rdsDir, showWarnings = FALSE)
+
+```
+
+## FIGURE PARAMETERS
+```{r}
+library(colorspace)
+
+fontType <- "Helvetica"
+
+fontSizeL <- 10 # pt
+fontSizeM <- 8
+fontSizeS <- 6
+
+lineThick <- 0.75 # pt
+lineMedium <- 0.5
+lineThin <- 0.25
+
+panelUnit <- 30 # mm
+panelMargin <- 1.5
+
+mmToInch <- 0.03937007874
+mmToLineUnit <- 1/2.13
+mmToLinePlotgarden <- 1/0.75
+ptToMM <- 1/2.845
+
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+weak_red <- lighten(strong_red, amount = 0.4)   # FF7D81
+weak_blue <- lighten(strong_blue, amount = 0.4) # 8A91DD
+no_grey <- "#A8A8A8"
+
+strong_teel <- "#0892A5"
+strong_green <- "#23CE6B" # A485
+strong_darkgreen <- "#054A29"
+strong_yellow <- "#FFBA49"
+strong_orange <- "#F18F01" # dTAG
+strong_lightpurple <- "#BD93D8"
+strong_purple <- "#9E33CB" # Epi
+
+panelSize <- function(num, unit = panelUnit, margin = panelMargin){
+  return(num*unit - 2*margin)
+}
+
+```
+
+# Merging loops across conditions
+```{r}
+res <- 10
+qcutoff <- 0.0005
+
+col <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+
+loop1 <- fread(here(loopDir, paste0("filteredInteractions_G1DMSO_pooled_fdr", qcutoff, ".bedpe"))) %>%
+  dplyr::select(seq(1, 6))
+colnames(loop1) <- col
+loop2 <- fread(here(loopDir, paste0("filteredInteractions_G1dTAG_pooled_fdr", qcutoff, ".bedpe"))) %>%
+  dplyr::select(seq(1, 6))
+colnames(loop2) <- col
+loop3 <- fread(here(loopDir, paste0("filteredInteractions_G1A485_pooled_fdr", qcutoff, ".bedpe"))) %>%
+  dplyr::select(seq(1, 6))
+colnames(loop3) <- col
+loop4 <- fread(here(loopDir, paste0("filteredInteractions_EpiG1DMSO_pooled_fdr", qcutoff, ".bedpe"))) %>%
+  dplyr::select(seq(1, 6))
+colnames(loop4) <- col
+loop5 <- fread(here(loopDir, paste0("filteredInteractions_EpiG1dTAG_pooled_fdr", qcutoff, ".bedpe"))) %>%
+  dplyr::select(seq(1, 6))
+colnames(loop5) <- col
+
+loop.merged <- bind_rows(loop1, loop2, loop3, loop4, loop5)
+
+loop.merged <- loop.merged %>% select(seq(1, 6)) %>% distinct() %>% dplyr::filter(start2 - start1 <= 2e6)
+
+fwrite(loop.merged, here(loopDir, paste0("fithic_union_", res*1000, "bp_qcutoff", qcutoff, ".bedpe")), 
+       sep = '\t', col.names = FALSE, row.names = FALSE)
+
+
+
+# Annotate whether the loop was called in each conditions
+loop1 <- loop1 %>% dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_"))
+loop2 <- loop2 %>% dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_"))
+loop3 <- loop3 %>% dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_"))
+loop4 <- loop4 %>% dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_"))
+loop5 <- loop5 %>% dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_"))
+
+
+loop.merged <- loop.merged %>% dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_")) %>%
+    dplyr::mutate(DMSOcalled = id %in% loop1$id,
+                  dTAGcalled = id %in% loop2$id,
+                  A485called = id %in% loop3$id,
+                  EpiDMSOcalled = id %in% loop4$id,
+                  EpidTAGcalled = id %in% loop5$id)
+
+raw_sets <- list(
+  DMSO    = which(loop.merged$DMSOcalled),
+  dTAG    = which(loop.merged$dTAGcalled),
+  A485    = which(loop.merged$A485called),
+  EpiDMSO = which(loop.merged$EpiDMSOcalled),
+  EpidTAG = which(loop.merged$EpidTAGcalled)
+)
+
+svglite(here(figDir, paste0("upset_", res, ".svg")), width = 6, height = 4)
+print(upset(
+  fromList(raw_sets),
+  nsets = 5,
+  order.by = "freq",
+  mb.ratio = c(0.6, 0.4),
+  point.size = 3,
+  line.size = 1,
+  main.bar.color = "steelblue",
+  matrix.color = "firebrick"
+))
+dev.off()
+
+
+```
+
+# Annotate
+## ChromHMM based annotation
+### Functions
+```{r}
+createLoopAnnotation <- function(bedpe.loop.anno, name, figDir){
+  temp = bedpe.loop.anno %>%
+    dplyr::mutate(sample = name)
+  
+  # num = nrow(temp)
+  # p7 = ggplot(temp, aes(x = sample, fill = Anno2)) +
+  #   geom_bar(color = "black") +
+  #   theme_bw() +
+  #   labs(title = paste0(num, " loops"),
+  #        x = "", y = "Counts") +
+  #   scale_y_continuous(labels = comma_format()) +
+  #   theme(plot.title = element_text(hjust = 0.5),
+  #         aspect.ratio = 5,
+  #         legend.position = "right",
+  #         legend.direction  = "vertical")
+  # +
+  # scale_fill_manual(values = colorList)
+  
+  pie_df <- temp %>%
+    as_tibble() %>%                          # if temp was a list, this will error early
+    group_by(Anno2) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    mutate(label = paste0(Anno2, " (", n, ")"))
+  
+  
+  p7 <- ggplot(pie_df, aes(x = "", y = n, fill = Anno2)) +
+    geom_col(color = "black", width = 1) +
+    coord_polar(theta = "y") +
+    geom_text(aes(label = label),
+              position = position_stack(vjust = 0.5),
+              size = 3) +
+    theme_void() +   theme(legend.position = "none")
+  
+  width = 3
+  height = 3
+  svglite(here(figDir,
+               paste0("loopClassify_", name, ".svg")),
+          width = width, height = height)
+  plot(p7)
+  invisible(dev.off())
+  png(here(figDir,
+           paste0("loopClassify_", name, ".png")),
+      width = width, height = height, res = 600, units = "in")
+  plot(p7)
+  invisible(dev.off())
+
+  
+  }
+
+```
+### Annotate anchors
+```{r}
+loop <- fread(here(loopDir, "fithic_union_10000bp_qcutoff0.0005.bedpe"))
+
+colnames(loop) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+anchor1.tb <- as_tibble(loop) %>% dplyr::select(chrom1, start1, end1)
+colnames(anchor1.tb) <- c("chr", "start", "end")
+anchor2.tb <- as_tibble(loop) %>% dplyr::select(chrom2, start2, end2)
+colnames(anchor2.tb) <- c("chr", "start", "end")
+anchor.tb <- bind_rows(anchor1.tb, anchor2.tb) %>% 
+  distinct()
+
+anchor <- makeGRangesFromDataFrame(data.frame(anchor.tb))
+chromHMM <- fread(here(refDir, "chromHMM_fullstack", "mm10_100_segments_segments_grouped_ChIP.bed"))
+colnames(chromHMM) <- c("chr", "start", "end", "state")
+chromHMM <- makeGRangesFromDataFrame(data.frame(chromHMM), keep.extra.columns = TRUE)
+
+hits <- findOverlaps(anchor, chromHMM, minoverlap = 2)
+ov <- as.data.frame(hits)
+collapsed <- ov %>%
+  group_by(queryHits) %>%
+  summarize(annot = paste(unique(mcols(chromHMM)$state[subjectHits]), collapse=";"))
+
+anchor.tb$annot <- NA_character_
+anchor.tb$annot[collapsed$queryHits] <- collapsed$annot
+
+anchor.tb <- anchor.tb %>% dplyr::mutate(annotSingle = case_when(
+  str_detect(annot, regex("SP",     ignore_case = TRUE)) ~ "SP",
+  str_detect(annot, regex("SE",     ignore_case = TRUE)) ~ "SE",
+  str_detect(annot, regex("S",     ignore_case = TRUE)) ~ "S",
+  str_detect(annot, regex("P",     ignore_case = TRUE)) ~ "P",
+  str_detect(annot, regex("E",     ignore_case = TRUE)) ~ "E",
+  TRUE ~ "X",
+))
+
+fwrite(anchor.tb, here(loopDir, "fithic_union_10000bp_anchor.bed"), sep = "\t", col.names = FALSE)
+
+# Visualize anchor classification
+colorList <- rev(c(colorListPromoter[3], colorListEnhancer[3], colorListPromoter[2], colorListEnhancer[2], colorListStructure[3], colorListStructure[1]))
+anchor.tb$annotSingle <- factor(anchor.tb$annotSingle, rev(c("P", "E", "SP", "SE", "S", "X")))
+temp <- anchor.tb %>% dplyr::mutate(name = "anchor")
+num <- nrow(temp)
+p <- ggplot(temp, aes(x = name, fill = annotSingle)) +
+  geom_bar(color = "black") +
+  theme_bw() +
+  labs(title = paste0(num, " anchors"),
+       x = "", y = "Counts") +
+  scale_y_continuous(labels = comma_format()) +
+  theme(plot.title = element_text(hjust = 0.5),
+        aspect.ratio = 5,
+        legend.position = "right",
+        legend.direction  = "vertical") +
+    scale_fill_manual(values = colorList)
+
+svglite(here(figDir, "anchorClassify_fithic_union_10000bp_chromHMMRAD21.svg"), width = 3, height = 5)
+print(p)
+dev.off()
+```
+
+### Annotate loops
+```{r}
+anchor.tb <- fread(here(loopDir, "fithic_union_10000bp_anchor.bed")) %>%
+  dplyr::mutate(anchor_id = paste(V1, V2, V3, sep = "_")) %>%
+  rename(annot = V5)
+
+# Merging with ChIP annotation
+consensus.loop.anno.tb <- fread(here(loopDir, "fithic_union_10000bp_qcutoff0.0005.bedpe"))
+colnames(consensus.loop.anno.tb) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+
+consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
+  dplyr::mutate(anchor_id_1 = paste(chrom1, start1, end1, sep = "_"),
+                anchor_id_2 = paste(chrom2, start2, end2, sep = "_"))
+
+
+consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
+  left_join(
+    anchor.tb %>% select(anchor_id, annot),
+    by = c("anchor_id_1" = "anchor_id")
+  ) %>%
+  rename(A1 = annot) %>%
+  left_join(
+    anchor.tb %>% select(anchor_id, annot),
+    by = c("anchor_id_2" = "anchor_id")
+  ) %>%
+  rename(A2 = annot) %>%
+  dplyr::mutate(A1_simple = recode(A1,
+                                   "SE" = "S",
+                                   "SP" = "S"),
+                A2_simple = recode(
+                  A2,
+                  "SE" = "S",
+                  "SP" = "S"
+                ))
+
+order_lvls <- c("P","E","SP","SE","S","X")
+rank_map   <- setNames(seq_along(order_lvls), order_lvls)
+consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
+  mutate(
+    r1 = rank_map[A1],           # map A1 → 1..6
+    r2 = rank_map[A2],           # map A2 → 1..6
+    first  = if_else(r1 <= r2, A1, A2),
+    second = if_else(r1 <= r2, A2, A1),
+    Anno  = paste(first, second, sep = "-")
+  ) %>%
+  select(-r1, -r2, -first, -second)
+
+
+order_lvls <- c("P","E","S","X")
+rank_map   <- setNames(seq_along(order_lvls), order_lvls)
+consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
+  mutate(
+    r1 = rank_map[A1_simple],           # map A1 → 1..6
+    r2 = rank_map[A2_simple],           # map A2 → 1..6
+    first  = if_else(r1 <= r2, A1_simple, A2_simple),
+    second = if_else(r1 <= r2, A2_simple, A1_simple),
+    Anno_simple  = paste(first, second, sep = "-")
+  ) %>%
+  select(-r1, -r2, -first, -second)
+
+
+name <- "fithic_union_10000bp"
+fwrite(consensus.loop.anno.tb, here(loopDir, paste0(name, "_annotated.tsv")), 
+       sep = "\t", col.names = TRUE)
+
+temp <- consensus.loop.anno.tb %>% rename(Anno2 = Anno_simple)
+temp$Anno2 <- factor(temp$Anno2, levels = rev(c("P-P", "P-E", "E-E",
+                                                "P-S", "E-S",
+                                                "P-X", "E-X", "S-X",
+                                                "X-X",
+                                                "S-S")))
+createLoopAnnotation(temp, paste0(name, "_annotated_simple"), figDir)
+
+
+temp <- consensus.loop.anno.tb %>% rename(Anno2 = Anno)
+temp$Anno2 <- factor(temp$Anno2, levels = rev(c("P-P", "P-E", "E-E",
+                                                "P-SP", "P-SE", "P-S", "E-SP", "E-SE", "E-S",
+                                                "P-X", "E-X", "SP-X", "SE-X", "S-X",
+                                                "X-X",
+                                                "SP-SP", "SP-SE", "SP-S", "SE-SE", "SE-S", "S-S")))
+
+createLoopAnnotation(temp, paste0(name, "_annotated_complex"), figDir)
+
+```
+```
+
+

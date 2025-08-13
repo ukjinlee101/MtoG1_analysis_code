@@ -223,7 +223,7 @@ svglite(paste0(fileName, ".svg"), width = width, height =height)
 print(p)
 dev.off()
 ```
-#### WB async DMSO relative
+### WB async DMSO relative
 ```{r}
 
 # Create the data frame
@@ -471,7 +471,7 @@ dev.off()
 
 ```
 
-# Release after dTAG, Stacked barplot
+## [FIG] Release after dTAG, Stacked barplot
 ```{r}
 # Data
 data <- data.frame(
@@ -580,162 +580,64 @@ dev.off()
 
 ```
 
-## Saddle plot - dTAG
+## [FIG] ChIP Venn diagram
 ```{r}
-library(ggbeeswarm)
+chipDir <- here("../reference", "ChIP")
+bed1 <- import(here(chipDir, "RAD21_ESC-DMSO_unionPeaks.bed"), format="BED")
+bed2 <- import(here(chipDir, "RAD21_ESC-dTAG_unionPeaks.bed"), format="BED")
 
-temp.tb <- fread(here("../figure/compartment_cscore/A485_vs_dTAG_vs_DMSO_binSize_100000_compScorePerc_0.1", "A485_vs_dTAG_vs_DMSO_100000_CornerScores.txt"))
+# compute overlaps and uniques
+ov1 <- overlapsAny(bed1, bed2)
+ov2 <- overlapsAny(bed2, bed1)
 
+# partition into three sets
+common <- bed1[ov1]             # all bed1 ranges that overlap bed2
+only1  <- bed1[!ov1]            # bed1 ranges with no overlap
+only2  <- bed2[!ov2]            # bed2 ranges with no overlap
 
-temp.tb <- temp.tb %>% dplyr::select(exp, score, corner, chr) %>%
-  distinct()
-
-# dTAG
-dTAG.tb <- temp.tb %>% dplyr::filter(exp %in% c("G1.DMSO", "G1.dTAG"))
-
-diffScore.dTAG <- dTAG.tb %>%
-  group_by(chr) %>%
-  summarize(score_diff_AA = score[exp == 'G1.dTAG' & corner == 'AA'] - score[exp == 'G1.DMSO' & corner == 'AA'],
-            score_diff_BB = score[exp == 'G1.dTAG' & corner == 'BB'] - score[exp == 'G1.DMSO' & corner == 'BB'],
-            score_diff_AB = score[exp == 'G1.dTAG' & corner == 'AB/BA'] - score[exp == 'G1.DMSO' & corner == 'AB/BA']) %>%
-  dplyr::filter(chr != "chrX")
-
-diffScore.dTAG.long <- diffScore.dTAG %>% pivot_longer(-chr, values_to = 'diffScore', names_to = 'compartment') %>%
-  mutate(compartment = recode(compartment, "score_diff_AA" = "AA", "score_diff_BB" = "BB",
-                      "score_diff_AB" = "AB"))
+# counts
+nOnly1  <- length(only1)
+nOnly2  <- length(only2)
+nCommon <- length(common)
 
 
-p <- ggplot(diffScore.dTAG.long, aes(x = compartment, y = diffScore)) +
-  theme_classic() + 
-  geom_boxplot(outlier.shape = NA, color = "black", fill = c("grey", "grey", "grey"),  size = lineMedium*mmToLineUnit) +
-  geom_beeswarm(size = 0.2, color = "black", alpha = 1) +
-  geom_hline(yintercept = 0, linewidth = lineThick*mmToLineUnit) +
-  coord_cartesian(ylim = c(-0.15, 0.4)) + theme_classic() +
-  theme(
-    axis.title = element_text(
-      size = fontSizeS,
-      family = fontType,
-      color = "#000000"
-    ),
-    axis.text = element_text(
-      size = fontSizeS,
-      family = fontType,
-      color = "#000000"
-    ),
-    axis.text.x = element_text(
-      angle = 45,      # Rotate x-axis labels 45 degrees
-      hjust = 1,       # Adjust horizontal justification
-      vjust = 1        # Adjust vertical justification
-    ),
-    axis.line = element_line(
-      color = "#000000",
-      size = lineThick*mmToLineUnit,
-      lineend = "square"
-    ),
-    axis.ticks = element_line(
-      color = "#000000",
-      size = lineThick*mmToLineUnit,
-      lineend = "square"
-    ),
-    panel.background = element_rect(fill = "transparent"),
-    legend.text = element_text(family = fontType, size = fontSizeS),
-    legend.title = element_text(family = fontType, size = fontSizeS)
-  ) +    
-  xlab("Compartment") +
-  ylab("Δ corner score")
+# build and plot Euler diagram
+fit <- euler(c(
+  "Rep1" = nOnly1,
+  "Rep2" = nOnly2,
+  "Rep1&Rep2"       = nCommon
+))
 
-
-fileName <- here(figDir, "compScore_AABBdiff_dTAG")
+p <- plot(
+  fit,
+  fills = list(alpha = 0.5),
+  labels = list(
+    font = 1,         # font face: 1=plain, 2=bold, 3=italic, 4=bold italic
+    cex = 1,        # label font size multiplier
+    family = fontType # font family name
+  ),
+  quantities = list(
+    cex = 1,        # quantity font size multiplier
+    font = 1,         # font face for numbers
+    family = fontType
+  ),
+  edges = list(
+    lwd = 2           # line width in points
+  ),
+  main = "ChIP-seq | RAD21 ESC-dTAG peaks",
+  main.pos = c(0.5, 1.05), # adjust title position
+  main.gp = gpar(
+    fontsize = fontSizeL,    # title font size in points
+    fontfamily = fontType,
+    fontface = "bold"
+  )
+)
+fileName <- here(figDir, "Venn_ChIP_RAD21_dTAG")
 width <- panelSize(1)*mmToInch
-height <- panelSize(1.5)*mmToInch
+height <- panelSize(1)*mmToInch
 svglite(paste0(fileName, ".svg"), width = width, height =height)
 print(p)
 dev.off()
-png(paste0(fileName, ".png"), width = width, height =height, res = 600, unit = "in")
-print(p)
-dev.off()
-
-
-
-
-```
-
-## Saddle plot - A485
-```{r}
-library(ggbeeswarm)
-
-temp.tb <- fread(here("../figure/compartment_cscore/A485_vs_dTAG_vs_DMSO_binSize_100000_compScorePerc_0.1", "A485_vs_dTAG_vs_DMSO_100000_CornerScores.txt"))
-
-
-temp.tb <- temp.tb %>% dplyr::select(exp, score, corner, chr) %>%
-  distinct()
-
-A485.tb <- temp.tb %>% dplyr::filter(exp %in% c("G1.DMSO", "G1.A485"))
-
-diffScore.A485 <- A485.tb %>%
-  group_by(chr) %>%
-  summarize(score_diff_AA = score[exp == 'G1.A485' & corner == 'AA'] - score[exp == 'G1.DMSO' & corner == 'AA'],
-            score_diff_BB = score[exp == 'G1.A485' & corner == 'BB'] - score[exp == 'G1.DMSO' & corner == 'BB'],
-            score_diff_AB = score[exp == 'G1.A485' & corner == 'AB/BA'] - score[exp == 'G1.DMSO' & corner == 'AB/BA']) %>%
-  dplyr::filter(chr != "chrX")
-
-diffScore.A485.long <- diffScore.A485 %>% pivot_longer(-chr, values_to = 'diffScore', names_to = 'compartment') %>%
-  mutate(compartment = recode(compartment, "score_diff_AA" = "AA", "score_diff_BB" = "BB",
-                      "score_diff_AB" = "AB"))
-
-
-p <- ggplot(diffScore.A485.long, aes(x = compartment, y = diffScore)) +
-  theme_classic() + 
-  geom_boxplot(outlier.shape = NA, color = "black", fill = c("grey", "grey", "grey"),  size = lineMedium*mmToLineUnit) +
-  geom_beeswarm(size = 0.2, color = "black", alpha = 1) +
-  geom_hline(yintercept = 0, linewidth = lineThick*mmToLineUnit) +
-  coord_cartesian(ylim = c(-0.4, 0.2)) + theme_classic() +
-  theme(
-    axis.title = element_text(
-      size = fontSizeS,
-      family = fontType,
-      color = "#000000"
-    ),
-    axis.text = element_text(
-      size = fontSizeS,
-      family = fontType,
-      color = "#000000"
-    ),
-    axis.text.x = element_text(
-      angle = 45,      # Rotate x-axis labels 45 degrees
-      hjust = 1,       # Adjust horizontal justification
-      vjust = 1        # Adjust vertical justification
-    ),
-    axis.line = element_line(
-      color = "#000000",
-      size = lineThick*mmToLineUnit,
-      lineend = "square"
-    ),
-    axis.ticks = element_line(
-      color = "#000000",
-      size = lineThick*mmToLineUnit,
-      lineend = "square"
-    ),
-    panel.background = element_rect(fill = "transparent"),
-    legend.text = element_text(family = fontType, size = fontSizeS),
-    legend.title = element_text(family = fontType, size = fontSizeS)
-  ) +    
-  xlab("Compartment") +
-  ylab("Δ corner score")
-
-
-fileName <- here(figDir, "compScore_AABBdiff_A485")
-width <- panelSize(1)*mmToInch
-height <- panelSize(1.5)*mmToInch
-svglite(paste0(fileName, ".svg"), width = width, height =height)
-print(p)
-dev.off()
-png(paste0(fileName, ".png"), width = width, height =height, res = 600, unit = "in")
-print(p)
-dev.off()
-
-
-
 
 ```
 
