@@ -752,16 +752,16 @@ createLoopAnnotation <- function(bedpe.loop.anno, name, figDir){
 
 ### Group ChromHMM + RAD21 peaks
 ```{r}
-refDir <- here("reference")
+refDir <- here("../reference")
 
 # 1) Read your full‐stack segments
 segments <- fread(
-  "/Volumes/UKJIN_SSD/MtoG1_analysis_code/reference/chromHMM_fullstack/mm10_100_segments_segments.bed",
+  "/Volumes/UKJIN_SSD/reference/chromHMM_fullstack/mm10_100_segments_segments.bed",
   col.names = c("chr","start","end","state")
 )
 
 # 2) Read the RAD21 peaks
-rad21 <- fread(here(refDir, "ChIP","RAD21_ESC-DMSO_unionPeaks.bed"),
+rad21 <- fread(here(refDir, "ChIP", "RAD21-HA", "RAD21_ESC-DMSO_unionPeaks.bed"),
   col.names = c("chr","start","end")
 )
 
@@ -804,7 +804,7 @@ outtemp <- segments %>%
 # 9) Write it out
 fwrite(
   outtemp,
-  "/Volumes/UKJIN_SSD/MtoG1_analysis_code/reference/chromHMM_fullstack/mm10_100_segments_segments_grouped_ChIP.bed",
+  "/Volumes/UKJIN_SSD/reference/chromHMM_fullstack/mm10_100_segments_segments_grouped_ChIP.bed",
   sep = "\t",
   col.names = FALSE
 )
@@ -957,7 +957,7 @@ createLoopAnnotation(temp, paste0(name, "_annotated_complex"), figDir)
 ## ChIP-based annotation
 ```{r}
 refDir <- here("../reference")
-peak.H3K4me3 <- importPeak(here(refDir, "ChIP","H3K4me3_ESC_unionPeaks.bed"))
+peak.H3K4me3 <- importPeak(here(refDir, "ChIP", "H3K4me3", "H3K4me3_ESC_unionPeaks.bed"))
 
 # Filtering H3K4me3 peaks near TSS
 flankSize <- 2500
@@ -969,7 +969,7 @@ gene.tb <- fread(here(refDir, "mm10", "gencode.vM25.mm10.GRCm38.p6_gene_sorted.b
 colnames(gene.tb) <- c("chr", "start", "end")
 TSSflank.gr <- makeGRangesFromDataFrame(gene.tb)
 temp <- peak.H3K4me3[unique(queryHits(findOverlaps(peak.H3K4me3, TSSflank.gr)))]
-fwrite(as_tibble(temp), here(refDir, "ChIP",
+fwrite(as_tibble(temp), here(refDir, "ChIP", "H3K4me3", 
                              paste0("H3K4me3_ESC_unionPeaks_", 
                                     flankSize/1000, "kbTSS.bed")), sep = "\t", col.names = FALSE)
 ```
@@ -977,10 +977,10 @@ fwrite(as_tibble(temp), here(refDir, "ChIP",
 ```{r}
 #### Importing ChIP-exo peaks
 refDir <- here("../reference")
-peak.H3K27ac <- importPeak(here(refDir, "ChIP", "H3K27ac_ESC_unionPeaks.bed"))
-peak.H3K4me3TSS <- importPeak(here(refDir, "ChIP","H3K4me3_ESC_unionPeaks_2.5kbTSS.bed"))
-peak.CTCF <- importPeak(here(refDir, "ChIP","CTCF_ESC_unionPeaks.bed"))
-peak.RAD21 <- importPeak(here(refDir, "ChIP","RAD21_ESC-DMSO_unionPeaks.bed"))
+peak.H3K27ac <- importPeak(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_unionPeaks.bed"))
+peak.H3K4me3TSS <- importPeak(here(refDir, "ChIP", "H3K4me3", "H3K4me3_ESC_unionPeaks_2.5kbTSS.bed"))
+peak.CTCF <- importPeak(here(refDir, "ChIP", "CTCF", "CTCF_ESC_unionPeaks.bed"))
+peak.RAD21 <- importPeak(here(refDir, "ChIP", "RAD21-HA", "RAD21_ESC-DMSO_unionPeaks.bed"))
 peak.Whyte.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Whyte_ESC_mm10.bed"))
 peak.Dylan.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Dylan_ESC.bed"))
 ```

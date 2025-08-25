@@ -80,7 +80,7 @@ colorListStructure <- c(palette_3[["grey3"]], palette_3[["grey2"]], palette_3[["
 ```{r}
 loopDir <- "/Volumes/UKJIN_SSD/data/loop_Hansen"
 figDir <- "/Volumes/UKJIN_SSD/figure/loop_Hansen"
-refDir <- here("reference")
+refDir <- here("../reference")
 
 dir.create(figDir, showWarnings = FALSE)
 ```

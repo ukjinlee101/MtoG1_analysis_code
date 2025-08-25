@@ -1,0 +1,1687 @@
+---
+title: "R Notebook"
+---
+
+# IMPORT SOURCE
+```{r Importing packages & resources, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE, results=FALSE}
+library(here)
+source(here("script", "analysis_functions.R"))
+```
+
+
+# FIGURE PARAMETERS
+```{r}
+library(colorspace)
+
+fontType <- "Helvetica"
+
+fontSizeL <- 10 # pt
+fontSizeM <- 8
+fontSizeS <- 6
+
+lineThick <- 0.75 # pt
+lineMedium <- 0.5
+lineThin <- 0.25
+
+panelUnit <- 30 # mm
+panelMargin <- 1.5
+
+mmToInch <- 0.03937007874
+mmToLineUnit <- 1/2.13
+mmToLinePlotgarden <- 1/0.75
+ptToMM <- 1/2.845
+
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+weak_red <- lighten(strong_red, amount = 0.4)   # FF7D81
+weak_blue <- lighten(strong_blue, amount = 0.4) # 8A91DD
+no_grey <- "#A8A8A8"
+
+strong_teel <- "#0892A5"
+strong_green <- "#23CE6B" # A485
+strong_darkgreen <- "#054A29"
+strong_yellow <- "#FFBA49"
+strong_orange <- "#F18F01" # dTAG
+strong_lightpurple <- "#BD93D8"
+strong_purple <- "#9E33CB" # Epi
+
+panelSize <- function(num, unit = panelUnit, margin = panelMargin){
+  return(num*unit - 2*margin)
+}
+
+genome <- "mm10"
+```
+
+# Preprocessing
+```{r}
+# PARAMETER
+dataDir <- here("..", "data", "RNA_NIPBL")
+figDir <- here("..", "figure", "RNA_NIPBL")
+```
+
+## Importing count matrix from Nora GEO
+```{r}
+# IMPORT RAW READCONTS
+rawCounts <- fread(here(dataDir, "GSE277236_2025_Hansen_Nora_RNAseq_raw-counts.txt")) %>%
+  dplyr::select(c("Geneid", "SYMBOL",
+                  "KHRNA22", "KHRNA23", "KHRNA50",
+                  "KHRNA25", "KHRNA26", "KHRNA51",
+                  "KHRNA40", "KHRNA41", "KHRNA42",
+                  "KHRNA43", "KHRNA44", "KHRNA45",
+                  "KHRNA46", "KHRNA47", "KHRNA48"))
+colnames(rawCounts) <-
+  c("ensembl", "gene", 
+    "DMSO-0h_rep1", "DMSO-0h_rep2", "DMSO-0h_rep4",
+    "dTAG-24h_rep1", "dTAG-24h_rep2",  "dTAG-24h_rep4",
+    "dTAG-48h_rep1", "dTAG-48h_rep2",  "dTAG-48h_rep4",
+    "DMSO-Exit_rep1", "DMSO-Exit_rep2", "DMSO-Exit_rep3",
+    "dTAG-Exit_rep1", "dTAG-Exit_rep2", "dTAG-Exit_rep3")
+
+# CONVERT IT TO UNIFORM FORMAT FOR PIPELINE
+sample.tb <- rawCounts %>%
+  dplyr::mutate(ensembl = str_replace(ensembl, "\\.[0-9]*$", ""))
+
+
+temp <- fread(here(dataDir, "dummy_featureCounts.txt")) %>%
+  dplyr::mutate(ensembl = str_replace(Geneid, "\\.[0-9]*$", ""),
+                length = Length) %>%
+  dplyr::select(ensembl, length)
+
+sample.tb <- sample.tb %>% dplyr::left_join(temp, by = c("ensembl")) %>%
+  dplyr::filter(!is.na(length)) %>%
+  dplyr::relocate(length, .after = gene)
+
+# SAVE
+expName <- "NIPBL"
+fwrite(sample.tb, here(dataDir, paste0("readCount.", expName, ".tsv")), sep = '\t')
+
+# RPM NORMALIZATION
+temp.tb = sample.tb %>% dplyr::select(-c(1, 2, 3))
+normFactor = 1000000 / colSums(temp.tb)
+sample.RPM.tb = as_tibble(sweep(temp.tb, 2, normFactor, "*"))
+temp = sample.tb %>% dplyr::select(c(1, 2))
+sample.RPM.tb = bind_cols(temp, sample.RPM.tb)
+
+fwrite(sample.RPM.tb, here(dataDir, paste0("readCount.RPM.", expName, ".tsv")), sep = '\t')
+
+# TPM NORMALIZATION
+temp.tb = sample.tb %>% dplyr::select(-c(1, 2, 3))
+
+## 1_LENGTH NORMALIZATION
+length.tb = sample.tb %>% dplyr::select(c(3)) %>%
+  dplyr::mutate(length = length / 1000)
+temp.tb = as_tibble(mapply("/", temp.tb, length.tb))
+
+## 2_DEPTH NORMALIZATION
+normFactor = 1000000 / colSums(temp.tb)
+sample.TPM.tb = as_tibble(sweep(temp.tb, 2, normFactor, "*"))
+temp = sample.tb %>% dplyr::select(c(1, 2))
+sample.TPM.tb = bind_cols(temp, sample.TPM.tb)
+
+fwrite(sample.TPM.tb, here(dataDir, paste0("readCount.TPM.", expName, ".tsv")), sep = '\t')
+
+```
+
+## Filtering low RPM
+```{r}
+rnaseq_filterLowRPM("NIPBL", RPMCutoff = 1, sampleNumCutoff = 2, ncol = 3,
+                    parentDir = figDir,
+                    dataDir = dataDir)
+
+```
+## Coldata
+```{r}
+# Custom function to make colData
+create_colData <- function(data.tb){
+  # Setting up sample variables
+  treatment <- factor(unlist(lapply(colnames(data.tb), function(text){
+    return(
+      unlist(strsplit(
+        unlist(strsplit(text, split = "_"))[1], split = "\\."))[1])
+  })))
+  timepoint <- factor(unlist(lapply(colnames(data.tb), function(text){
+    return(
+      unlist(strsplit(
+        unlist(strsplit(text, split = "_"))[1], split = "\\."))[2])
+  })))
+  rep <- factor(unlist(lapply(colnames(data.tb), function(text){
+    return((unlist(strsplit(text, split = "_"))[2]))
+  })))
+  
+  group <- factor(paste(treatment, timepoint, sep = "."))
+  label <- factor(paste(treatment, timepoint, rep, sep = "."))
+  colData <- data.frame(
+    row.names = colnames(data.tb),
+    "treatment" = treatment,
+    "timepoint" = timepoint,
+    "rep" = rep,
+    "group" = group,
+    "label" = label
+  )
+  return(colData)
+}
+```
+
+## PCA
+```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE, results=TRUE, fig.width=6, fig.height=4}
+expName <- "NIPBL"
+sample.tb <- fread(here(dataDir, paste0("readCount.filtered.", expName, ".tsv")))
+################################################################################
+pick <- seq(4, ncol(sample.tb))
+data.tb <- data.frame(sample.tb %>% dplyr::select(all_of(pick)))
+rownames(data.tb) = sample.tb$ensembl
+colData <- create_colData(data.tb)
+
+# ADD BATCH INFORMATION
+
+design <- ~ group
+# Run DESeq2
+dds <- rnaseq_runDESeq(data.tb, expName, "group", colData, design, dataDir = dataDir)
+create_PCA_DESeq2(dds, colData, varThreshold = 1, title = expName, label = "group", width = 5, height = 4,
+                  figDir = figDir)
+create_PCA_DESeq2(dds, colData, varThreshold = 1, title = expName, label = "label", width = 5, height = 4,
+                  figDir = figDir)
+create_distHeatmap_DESeq2(dds, paste0(expName, ""), deseq2BatchCorrect = FALSE, width = 5, height = 4,
+                  figDir = figDir)
+```
+
+## Differential analysis
+### All sample
+```{r}
+expName <- "NIPBL"
+sample.tb <- fread(here(dataDir, paste0("readCount.filtered.", expName, ".tsv")))
+################################################################################
+pick <- seq(4, ncol(sample.tb))
+data.tb <- data.frame(sample.tb %>% dplyr::select(all_of(pick)))
+rownames(data.tb) = sample.tb$ensembl
+colData <- create_colData(data.tb)
+
+# ADD BATCH INFORMATION
+
+design <- ~ group
+
+# Run DESeq2
+expName <- "NIPBL"
+dds <- rnaseq_runDESeq(data.tb, expName, "group", colData, design, dataDir = dataDir)
+dds <- readRDS(file = here(dataDir, "r_data", paste0("dds_", expName, "_group.rds")))
+rnaseq_runDiff(dds, "dTAG.24h", "DMSO.0h",
+               alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5, 
+               width = 4*1, height = 3.5*1, dataDir = dataDir, figDir = figDir )
+rnaseq_runDiff(dds, "dTAG.48h", "DMSO.0h",
+               alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5, 
+               width = 4*1, height = 3.5*1, dataDir = dataDir, figDir = figDir )
+rnaseq_runDiff(dds, "dTAG.Exit", "DMSO.Exit",
+               alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5, 
+               width = 4*1, height = 3.5*1, dataDir = dataDir, figDir = figDir )
+rnaseq_runDiff(dds, "DMSO.Exit", "DMSO.0h",
+               alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5, 
+               width = 4*1, height = 3.5*1, dataDir = dataDir, figDir = figDir )
+```
+
+### ESC Only
+```{r}
+expName <- "NIPBL"
+sample.tb <- fread(here(dataDir, paste0("readCount.filtered.", expName, ".tsv")))
+################################################################################
+pick <- seq(4, 12)
+data.tb <- data.frame(sample.tb %>% dplyr::select(all_of(pick)))
+rownames(data.tb) = sample.tb$ensembl
+colData <- create_colData(data.tb)
+
+# ADD BATCH INFORMATION
+
+design <- ~ group
+
+# Run DESeq2
+expName <- "NIPBL-ESC"
+dds <- rnaseq_runDESeq(data.tb, expName, "group", colData, design, dataDir = dataDir)
+dds <- readRDS(file = here(dataDir, "r_data", paste0("dds_", expName, "_group.rds")))
+rnaseq_runDiff(dds, "dTAG.24h", "DMSO.0h",
+               alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5, 
+               width = 4*1, height = 3.5*1, dataDir = dataDir, figDir = figDir )
+rnaseq_runDiff(dds, "dTAG.48h", "DMSO.0h",
+               alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5, 
+               width = 4*1, height = 3.5*1, dataDir = dataDir, figDir = figDir )
+
+```
+### Exit only
+```{r}
+expName <- "NIPBL"
+sample.tb <- fread(here(dataDir, paste0("readCount.filtered.", expName, ".tsv")))
+################################################################################
+pick <- seq(13, 18)
+data.tb <- data.frame(sample.tb %>% dplyr::select(all_of(pick)))
+rownames(data.tb) = sample.tb$ensembl
+colData <- create_colData(data.tb)
+
+# ADD BATCH INFORMATION
+
+design <- ~ group
+
+# Run DESeq2
+expName <- "NIPBL-Exit"
+dds <- rnaseq_runDESeq(data.tb, expName, "group", colData, design, dataDir = dataDir)
+dds <- readRDS(file = here(dataDir, "r_data", paste0("dds_", expName, "_group.rds")))
+rnaseq_runDiff(dds, "dTAG.Exit", "DMSO.Exit",
+               alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5, 
+               width = 4*1, height = 3.5*1, dataDir = dataDir, figDir = figDir )
+
+```
+#Analysis
+## Reproducing Figure 4c
+### RAD21
+```{r, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE, results=TRUE, fig.width=5, fig.height=5}
+################################################################################
+# IMPORTING GENE LIST OF INTERST
+extDir <- here("..", "RNA_231102_14065-14458-15127-H202SC24044572")
+alpha <- 0.05
+foldchange <- 0.5
+
+# Filtering for downregulated genes in G1-EpiLC
+geneList3 <- fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  filter(padj < alpha, shrinked_log2FC < 0)
+geneOfInterest <- c(geneList3$ensembl_gene_id)
+
+# Create a mapping of ensembl gene ID to external gene name for visualization
+geneIDNamePair <- bind_rows(fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.DMSO_vs_G1.2i.DMSO.tsv")),
+                            fread(here(extDir, "data", "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")),
+                            fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv"))) %>%
+  dplyr::select(ensembl_gene_id, external_gene_name) %>%
+  distinct()
+
+################################################################################
+# IMPORTING AND BATCH CORRECTING READS
+expName <- "G1.dTAG"
+dds <- readRDS(file = here(extDir, "r_data", paste0("dds_", expName, "_batch-group.rds")))
+norm_counts <- counts(dds, normalized=TRUE)
+
+## BATCH CORRECTION PART
+mm <- model.matrix(~ group, colData(dds))
+batch_corrected_counts <- limma::removeBatchEffect(
+  norm_counts, 
+  batch = dds$batch, 
+  design = mm
+)
+diff.tb <- as.data.frame(batch_corrected_counts) %>%
+  mutate(ensembl_gene_id = rownames(.)) %>%
+  left_join(geneIDNamePair, by = "ensembl_gene_id")
+
+## Import normalized counts & k means clustering for 2i.DMSO, Epi.DMSO, Epi.dTAG
+diff.filtered.tb <- diff.tb %>%
+  dplyr::filter(ensembl_gene_id %in% geneOfInterest)
+Z_selected <- diff.filtered.tb %>%
+  tibble::column_to_rownames("external_gene_name") %>%
+  dplyr::select(where(is.numeric)) %>%
+  t() %>%
+  scale %>%
+  t()
+diff.filtered.Z.tb <- as_tibble(Z_selected) %>% 
+  dplyr::mutate(ensembl_gene_id = diff.filtered.tb$ensembl_gene_id)
+
+################################################################################
+# Perform k-means clustering
+set.seed(1234)
+k_clusters <- kmeans(Z_selected, centers =3, nstart = 100)$cluster
+# Relabel k-means group
+cluster_map <- c("1" = "K3", "2" = "K1", "3" = "K2")
+row_cluster_factor <- factor(cluster_map[k_clusters], levels = c("K1", "K2", "K3"))
+
+# Genes to highlight in the plot
+geneNameToPlot <- c(
+  "Phlda1", "Myc", "Cited2", "Epha4", "Dusp4", "Dusp5", "Spry4", "Id4", "Jun",
+  "Zic2", "Fosl2", "Klf5", "Klf9", "Epha4", "Esrrb", "Klf4", "Tbx3"
+)
+
+# Find gene indices using match()
+geneIndices <- match(geneNameToPlot, rownames(Z_selected))
+
+################################################################################
+# Plotting
+maxZscore <- 2
+col_fun <- colorRamp2(c(-maxZscore, 0, maxZscore), c("#4852A0", "white", "#CB333A"))
+split = c(1, 1, 1, 2, 2, 2, 2, 3, 3, 4, 4)
+
+cluster_counts <- table(row_cluster_factor)
+row_titles <- paste0(names(cluster_counts), " (n = ", cluster_counts, ")")
+
+plot1 <- Heatmap(Z_selected,
+                 col = col_fun, border = TRUE,
+                 
+                 # Column settings
+                 show_column_names = FALSE,
+                 column_split = split,
+                 cluster_columns = FALSE,
+                 column_title = NULL,
+                 
+                 # Row settings
+                 show_row_names = TRUE, # TEMPORARY
+                 row_names_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                 row_split = row_cluster_factor,
+                 cluster_rows = TRUE,
+                 show_row_dend = FALSE,
+                 cluster_row_slices = FALSE,
+                 row_gap = unit(1.5, "mm"),
+                 row_title = row_titles,
+                 row_title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                 
+                 
+                 # Legend
+                 heatmap_legend_param = list(
+                   title = "Z-score",
+                   title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                   at = c(-2, -1, 0, 1, 2),
+                   labels = c("-2", "-1", "0", "1", "2"),
+                   labels_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                   legend_height = unit(15, "mm"),      # Set legend bar height to 10 mm
+                   grid_width = unit(1.5, "mm")           # Set legend bar width to 5 mm
+                 ),
+                 right_annotation = rowAnnotation(
+                   gene_labels = anno_mark(at = geneIndices, labels = geneNameToPlot, link_width = unit(3, "mm"),
+                                           labels_gp = gpar(fontsize = fontSizeS, fontfamily = fontType, col = "black", lwd = lineThin))
+                 )
+)
+
+fileName <- here(paste0("testing"))
+
+width <- panelSize(4)*mmToInch
+height <- panelSize(10)*mmToInch
+svglite(paste0(fileName, ".svg"),
+        width = width,
+        height = height)
+set.seed(1234)
+plot1
+dev.off()
+
+```
+### NIPBL
+```{r}
+################################################################################
+# PARAMETER
+dataDir <- here("..", "data", "RNA_NIPBL")
+figDir <- here("..", "figure", "RNA_NIPBL")
+
+################################################################################
+# IMPORTING READS
+expName <- "NIPBL"
+dds <- readRDS(file = here(dataDir, "r_data", paste0("dds_", expName, "_group.rds")))
+norm_counts <- counts(dds, normalized=TRUE)
+
+diff.tb <- as.data.frame(norm_counts) %>%
+  mutate(ensembl_gene_id = rownames(.)) %>%
+  left_join(geneIDNamePair, by = "ensembl_gene_id")
+
+## Import normalized counts & k means clustering for 2i.DMSO, Epi.DMSO, Epi.dTAG
+diff.filtered.tb <- diff.tb %>%
+  dplyr::filter(ensembl_gene_id %in% geneOfInterest)
+Z_selected.NIPBL <- diff.filtered.tb %>%
+  tibble::column_to_rownames("external_gene_name") %>%
+  dplyr::select(where(is.numeric)) %>%
+  t() %>%
+  scale %>%
+  t()
+diff.filtered.Z.NIPBL.tb <- as_tibble(Z_selected.NIPBL) %>% 
+  dplyr::mutate(ensembl_gene_id = diff.filtered.tb$ensembl_gene_id)
+
+################################################################################
+diff.filtered.Z.all.tb <- diff.filtered.Z.tb %>% full_join(diff.filtered.Z.NIPBL.tb, by = c("ensembl_gene_id")) %>%
+  mutate(across(everything(), ~replace_na(., 0)))
+
+Z_selected.NIPBL <- diff.filtered.Z.all.tb %>%
+  left_join(geneIDNamePair, by = "ensembl_gene_id") %>% 
+  tibble::column_to_rownames("external_gene_name") %>%
+  dplyr::select(seq(13, 27))
+
+################################################################################
+
+# Extract the order of row names for each slice
+row_order_list <- row_order(plot1)
+# If you want a single vector of all rownames in final order:
+rownames_in_order <- (lapply(row_order_list, function(idx) rownames(Z_selected)[idx]))
+
+# 1) Flatten desired order
+order_vec <- unlist(rownames_in_order, use.names = FALSE)
+
+
+# 3) Reorder rows. Missing genes become all-NA rows automatically.
+Z_selected_reordered <- Z_selected.NIPBL[order_vec, , drop = FALSE]
+
+# 4) If you need a numeric matrix for ComplexHeatmap
+Z_selected_reordered <- as.matrix(Z_selected_reordered)
+
+# 5) Build row-split factor to separate K1, K2, K3
+row_split_factor <- factor(
+  rep(c("K1", "K2", "K3"),
+      times = c(length(rownames_in_order$K1),
+                length(rownames_in_order$K2),
+                length(rownames_in_order$K3))),
+  levels = c("K1","K2","K3")
+)
+idx <- match(geneNameToPlot, rownames(Z_selected_reordered))
+at_idx   <- idx[!is.na(idx)]
+lab_keep <- geneNameToPlot[!is.na(idx)]
+
+split = c(1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5)
+
+plot2 <- Heatmap(Z_selected_reordered,
+                 col = col_fun, border = TRUE,
+                 
+                 # Column settings
+                 show_column_names = FALSE,
+                 column_split = split,
+                 cluster_columns = FALSE,
+                 column_title = NULL,
+                 
+                 # Row settings
+                 show_row_names = TRUE, # TEMPORARY
+                 row_names_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                 row_split = row_split_factor,
+                 cluster_rows = TRUE,
+                 show_row_dend = FALSE,
+                 cluster_row_slices = FALSE,
+                 row_gap = unit(1.5, "mm"),
+                 row_title = row_titles,
+                 row_title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                 
+                 
+                 # Legend
+                 heatmap_legend_param = list(
+                   title = "Z-score",
+                   title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                   at = c(-2, -1, 0, 1, 2),
+                   labels = c("-2", "-1", "0", "1", "2"),
+                   labels_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                   legend_height = unit(15, "mm"),      # Set legend bar height to 10 mm
+                   grid_width = unit(1.5, "mm")           # Set legend bar width to 5 mm
+                 ),
+                 right_annotation = rowAnnotation(
+                   gene_labels = anno_mark(at = at_idx, labels = lab_keep, link_width = unit(3, "mm"),
+                                           labels_gp = gpar(fontsize = fontSizeS, fontfamily = fontType, col = "black", lwd = lineThin))
+                 )
+)
+
+################################################################################
+fileName <- here(paste0("testing2_sorted"))
+
+  width <- panelSize(4)*mmToInch
+height <- panelSize(10)*mmToInch
+svglite(paste0(fileName, ".svg"),
+        width = width,
+        height = height)
+set.seed(1234)
+plot2
+dev.off()
+```
+
+## Reproducing Figure 4h
+### RAD21
+```{r}
+################################################################################
+# IMPORTING GENE LIST OF INTERST
+extDir <- here("..", "RNA_241223_H202SC24124443_RAD21_EpiRecovery")
+alpha <- 0.05
+foldchange <- 0.5
+
+diff1 <- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_5h.Epi.DMSO_vs_5h.2i.DMSO.tsv"))
+diff2 <- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_24h.Epi.DMSO_vs_5h.2i.DMSO.tsv"))
+
+geneIDNamePair <- bind_rows(diff1, diff2) %>%
+  dplyr::select(ensembl_gene_id, external_gene_name) %>%
+  distinct()
+
+
+geneList1 <- (diff1 %>% 
+                dplyr::filter((padj < alpha) & (abs(shrinked_log2FC) > foldchange)))$ensembl_gene_id
+geneList2 <- (diff2 %>% 
+                dplyr::filter((padj < alpha) & (abs(shrinked_log2FC) > foldchange)))$ensembl_gene_id
+
+################################################################################
+# IMPORTING AND BATCH CORRECTING READS
+expName <- "EpiRecoveryDiffCombTrtNo8h"
+dds <- readRDS(file = here(extDir, "r_data", paste0("dds_", expName, "_group.rds")))
+norm_counts <- counts(dds, normalized=TRUE)
+
+# Batch correct
+mm <- model.matrix(~ group, colData(dds))
+batch_corrected_counts <- limma::removeBatchEffect(
+  norm_counts, 
+  batch = dds$batch, 
+  design = mm
+)
+
+diff.tb <- as.data.frame(batch_corrected_counts) %>%
+  mutate(ensembl_gene_id = rownames(.)) %>%
+  left_join(geneIDNamePair, by = "ensembl_gene_id") %>%
+  dplyr::select(9, 10,
+                11, 12, 1, 2,
+                3, 4,
+                13, 14)
+diff.filtered.tb <- diff.tb %>%
+  dplyr::filter(ensembl_gene_id %in% c(geneList1, geneList2))
+Z_selected <- diff.filtered.tb %>%
+  mutate(external_gene_name = make.unique(external_gene_name)) %>%
+  tibble::column_to_rownames("external_gene_name") %>%
+  dplyr::select(where(is.numeric)) %>%
+  t() %>%
+  scale %>%
+  t()
+
+diff.filtered.Z.tb <- as_tibble(Z_selected) %>% 
+  dplyr::mutate(ensembl_gene_id = diff.filtered.tb$ensembl_gene_id)
+
+################################################################################
+# Perform k-means clustering
+set.seed(1234)
+k_clusters <- kmeans(Z_selected, centers = 4, nstart = 100, iter.max = 500000)$cluster
+
+# COMBINING CLUSTERS
+cluster_map <- c("1" = "K1", "2" = "K2", "3" = "K2", "4" = "K1")
+row_cluster_factor <- factor(cluster_map[k_clusters], levels = c("K1", "K2"))
+
+################################################################################
+# Plotting
+maxZscore <- 2
+col_fun <- colorRamp2(c(-maxZscore, 0, maxZscore), c("#4852A0", "white", "#CB333A"))
+split <- c(1, 1, 2, 2, 2, 2, 3, 3)
+
+cluster_counts <- table(row_cluster_factor)
+row_titles <- paste0(names(cluster_counts), " (n = ", cluster_counts, ")")
+
+
+plot1 <- Heatmap(Z_selected, use_raster = TRUE,
+                 col = col_fun, border = TRUE,
+                 
+                 # Column settings
+                 show_column_names = FALSE,
+                 column_split = split,
+                 cluster_columns = FALSE,
+                 column_title = NULL,
+                 
+                 # Row settings
+                 show_row_names = FALSE, # TEMPORARY
+                 row_names_gp = gpar(fontsize = fontSizeS/30, fontfamily = fontType),
+                 row_split = row_cluster_factor,
+                 cluster_rows = TRUE,
+                 show_row_dend = FALSE,
+                 cluster_row_slices = FALSE,
+                 row_gap = unit(1.5, "mm"),
+                 row_title = row_titles,
+                 row_title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                 
+                 
+                 # Legend
+                 heatmap_legend_param = list(
+                   title = "Z-score",
+                   title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                   at = c(-2, -1, 0, 1, 2),
+                   labels = c("-2", "-1", "0", "1", "2"),
+                   labels_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                   legend_height = unit(15, "mm"),      # Set legend bar height to 10 mm
+                   grid_width = unit(1.5, "mm")           # Set legend bar width to 5 mm
+                 )
+)
+
+fileName <- here(paste0("testing"))
+
+width <- panelSize(2)*mmToInch
+height <- panelSize(3)*mmToInch
+svglite(paste0(fileName, ".svg"),
+        width = width,
+        height = height)
+set.seed(1234)
+plot1
+dev.off()
+
+
+
+
+```
+### NIPBL
+```{r}
+################################################################################
+# PARAMETER
+dataDir <- here("..", "data", "RNA_NIPBL")
+figDir <- here("..", "figure", "RNA_NIPBL")
+
+################################################################################
+# IMPORTING READS
+expName <- "NIPBL"
+dds <- readRDS(file = here(dataDir, "r_data", paste0("dds_", expName, "_group.rds")))
+norm_counts <- counts(dds, normalized=TRUE)
+
+diff.tb <- as.data.frame(norm_counts) %>%
+  mutate(ensembl_gene_id = rownames(.)) %>%
+  left_join(geneIDNamePair, by = "ensembl_gene_id")
+
+## Import normalized counts & k means clustering G
+diff.filtered.tb <- diff.tb %>%
+  dplyr::filter(ensembl_gene_id %in% c(geneList1, geneList2))
+Z_selected.NIPBL <- diff.filtered.tb %>%
+  tibble::column_to_rownames("external_gene_name") %>%
+  dplyr::select(c(1, 2, 3, 10, 11, 12)) %>%
+  t() %>%
+  scale %>%
+  t()
+diff.filtered.Z.NIPBL.tb <- as_tibble(Z_selected.NIPBL) %>% 
+  dplyr::mutate(ensembl_gene_id = diff.filtered.tb$ensembl_gene_id)
+
+################################################################################
+diff.filtered.Z.all.tb <- diff.filtered.Z.tb %>% full_join(diff.filtered.Z.NIPBL.tb, by = c("ensembl_gene_id")) %>%
+  mutate(across(everything(), ~replace_na(., 0)))
+
+Z_selected.NIPBL <- diff.filtered.Z.all.tb %>%
+  left_join(geneIDNamePair, by = "ensembl_gene_id") %>% 
+  tibble::column_to_rownames("external_gene_name") %>%
+  dplyr::select(seq(10, 15))
+
+################################################################################
+
+# Extract the order of row names for each slice
+row_order_list <- row_order(plot1)
+# If you want a single vector of all rownames in final order:
+rownames_in_order <- (lapply(row_order_list, function(idx) rownames(Z_selected)[idx]))
+
+# 1) Flatten desired order
+order_vec <- unlist(rownames_in_order, use.names = FALSE)
+
+
+# 3) Reorder rows. Missing genes become all-NA rows automatically.
+Z_selected_reordered <- Z_selected.NIPBL[order_vec, , drop = FALSE]
+
+# 4) If you need a numeric matrix for ComplexHeatmap
+Z_selected_reordered <- as.matrix(Z_selected_reordered)
+
+# 5) Build row-split factor to separate K1, K2, K3
+row_split_factor <- factor(
+  rep(c("K1", "K2"),
+      times = c(length(rownames_in_order$K1),
+                length(rownames_in_order$K2))),
+  levels = c("K1","K2","K3")
+)
+idx <- match(geneNameToPlot, rownames(Z_selected_reordered))
+at_idx   <- idx[!is.na(idx)]
+lab_keep <- geneNameToPlot[!is.na(idx)]
+
+split = c(1, 1, 1, 2, 2, 2)
+maxZscore <- 2
+col_fun <- colorRamp2(c(-maxZscore, 0, maxZscore), c("#4852A0", "white", "#CB333A"))
+plot2 <- Heatmap(Z_selected_reordered, use_raster = TRUE,
+                 col = col_fun, border = TRUE,
+                 
+                 # Column settings
+                 show_column_names = FALSE,
+                 column_split = split,
+                 cluster_columns = FALSE,
+                 column_title = NULL,
+                 
+                 # Row settings
+                 show_row_names = FALSE, # TEMPORARY
+                 row_names_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                 row_split = row_split_factor,
+                 cluster_rows = TRUE,
+                 show_row_dend = FALSE,
+                 cluster_row_slices = FALSE,
+                 row_gap = unit(1.5, "mm"),
+                 row_title = row_titles,
+                 row_title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                 
+                 
+                 # Legend
+                 heatmap_legend_param = list(
+                   title = "Z-score",
+                   title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                   at = c(-2, -1, 0, 1, 2),
+                   labels = c("-2", "-1", "0", "1", "2"),
+                   labels_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                   legend_height = unit(15, "mm"),      # Set legend bar height to 10 mm
+                   grid_width = unit(1.5, "mm")           # Set legend bar width to 5 mm
+                 )
+)
+
+################################################################################
+fileName <- here(paste0("testing2_sorted"))
+
+  width <- panelSize(2)*mmToInch
+height <- panelSize(3)*mmToInch
+svglite(paste0(fileName, ".svg"),
+        width = width,
+        height = height)
+set.seed(1234)
+plot2
+dev.off()
+```
+## [FIG] Figure 4h with new set of genes
+### Filtering EpiLC UP/DOWN genes common in both data
+```{r}
+################################################################################
+# IMPORTING GENE LIST OF INTERST
+extDir <- here("..", "RNA_241223_H202SC24124443_RAD21_EpiRecovery")
+alpha <- 0.05
+foldchange <- 0.5
+
+diff1 <- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_5h.Epi.DMSO_vs_5h.2i.DMSO.tsv"))
+diff2 <- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_24h.Epi.DMSO_vs_5h.2i.DMSO.tsv"))
+
+
+geneList.RAD21 <- unique(union((diff1 %>%  
+                                  dplyr::filter((padj < alpha) & (abs(shrinked_log2FC) > foldchange)))$ensembl_gene_id,
+                               (diff2 %>% 
+                                 dplyr::filter((padj < alpha) & (abs(shrinked_log2FC) > foldchange)))$ensembl_gene_id))
+
+################################################################################
+# IMPORTING GENE LIST OF INTERST
+dataDir <- here("..", "data", "RNA_NIPBL")
+figDir <- here("..", "figure", "RNA_NIPBL")
+
+diff3 <- fread(here(dataDir, "diff_NIPBL_DMSO.Exit_vs_DMSO.0h.tsv"))
+
+geneList.NIPBL <- (diff3 %>% dplyr::filter((padj < alpha) & (abs(shrinked_log2FC) > foldchange)))$ensembl_gene_id
+
+
+
+geneIDNamePair <- bind_rows(diff1, diff2, diff3) %>%
+  dplyr::select(ensembl_gene_id, external_gene_name) %>%
+  distinct()
+
+################################################################################
+# FINDING COMMON GENE SETS
+geneList.common <- geneList.RAD21[geneList.RAD21 %in% geneList.NIPBL]
+
+################################################################################
+# IMPORTING AND BATCH CORRECTING READS
+# RAD21
+expName <- "EpiRecoveryDiffCombTrtNo8h"
+dds <- readRDS(file = here(extDir, "r_data", paste0("dds_", expName, "_group.rds")))
+norm_counts <- counts(dds, normalized=TRUE)
+
+# Batch correct
+mm <- model.matrix(~ group, colData(dds))
+batch_corrected_counts <- limma::removeBatchEffect(
+  norm_counts, 
+  batch = dds$batch, 
+  design = mm
+)
+
+diff.tb <- as.data.frame(batch_corrected_counts) %>%
+  mutate(ensembl_gene_id = rownames(.)) %>%
+  left_join(geneIDNamePair, by = "ensembl_gene_id") %>%
+  dplyr::select(9, 10,
+                11, 12, 1, 2,
+                3, 4,
+                13, 14)
+diff.filtered.tb <- diff.tb %>%
+  dplyr::filter(ensembl_gene_id %in% geneList.common)
+Z_selected.RAD21 <- diff.filtered.tb %>%
+  mutate(external_gene_name = make.unique(external_gene_name)) %>%
+  tibble::column_to_rownames("external_gene_name") %>%
+  dplyr::select(where(is.numeric)) %>%
+  t() %>%
+  scale %>%
+  t()
+
+diff.filtered.Z.RAD21.tb <- as_tibble(Z_selected.RAD21) %>% 
+  dplyr::mutate(ensembl_gene_id = diff.filtered.tb$ensembl_gene_id)
+
+# NIPBL
+expName <- "NIPBL"
+dds <- readRDS(file = here(dataDir, "r_data", paste0("dds_", expName, "_group.rds")))
+norm_counts <- counts(dds, normalized=TRUE)
+
+diff.tb <- as.data.frame(norm_counts) %>%
+  mutate(ensembl_gene_id = rownames(.)) %>%
+  left_join(geneIDNamePair, by = "ensembl_gene_id")
+
+## Import normalized counts & k means clustering
+diff.filtered.tb <- diff.tb %>%
+  dplyr::filter(ensembl_gene_id %in% geneList.common)
+Z_selected.NIPBL <- diff.filtered.tb %>%
+  tibble::column_to_rownames("external_gene_name") %>%
+  dplyr::select(c(1, 2, 3, 10, 11, 12)) %>%
+  t() %>%
+  scale %>%
+  t()
+diff.filtered.Z.NIPBL.tb <- as_tibble(Z_selected.NIPBL) %>% 
+  dplyr::mutate(ensembl_gene_id = diff.filtered.tb$ensembl_gene_id)
+
+################################################################################
+diff.filtered.Z.all.tb <- diff.filtered.Z.RAD21.tb %>% full_join(diff.filtered.Z.NIPBL.tb, by = c("ensembl_gene_id"))
+
+Z_selected.all <- diff.filtered.Z.all.tb %>%
+  left_join(geneIDNamePair, by = "ensembl_gene_id") %>% 
+  tibble::column_to_rownames("external_gene_name") %>%
+  dplyr::select(-ensembl_gene_id)
+
+################################################################################
+# Perform k-means clustering
+set.seed(1234)
+k_clusters <- kmeans(Z_selected.all, centers = 5, nstart = 100, iter.max = 500000)$cluster
+
+# COMBINING CLUSTERS
+cluster_map <- c("1" = "K2", "2" = "K1", "3" = "K4", "4" = "K2", "5" = "K3")
+row_cluster_factor <- factor(cluster_map[k_clusters], levels = c("K1", "K2", "K3", "K4"))
+
+temp <- tibble(gene = names(k_clusters),
+               group = row_cluster_factor) %>%
+  dplyr::left_join(geneIDNamePair, by = c("gene" = "external_gene_name"))
+fwrite(temp, here(dataDir, paste0("kmeans_EpiLCvsESCcommon_fc0.5.tsv")), sep = "\t")
+
+
+################################################################################
+# Plotting
+maxZscore <- 2
+col_fun <- colorRamp2(c(-maxZscore, 0, maxZscore), c("#4852A0", "white", "#CB333A"))
+split <- c(1, 1, 2, 2, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5)
+
+cluster_counts <- table(row_cluster_factor)
+row_titles <- paste0(names(cluster_counts), " (n = ", cluster_counts, ")")
+
+
+plot1 <- Heatmap(Z_selected.all, use_raster = FALSE,
+                 col = col_fun, border = TRUE,
+                 
+                 # Column settings
+                 show_column_names = FALSE,
+                 column_split = split,
+                 cluster_columns = FALSE,
+                 column_title = NULL,
+                 
+                 # Row settings
+                 show_row_names = FALSE, # TEMPORARY
+                 row_names_gp = gpar(fontsize = fontSizeS/30, fontfamily = fontType),
+                 row_split = row_cluster_factor,
+                 cluster_rows = TRUE,
+                 show_row_dend = FALSE,
+                 cluster_row_slices = FALSE,
+                 row_gap = unit(1.5, "mm"),
+                 row_title = row_titles,
+                 row_title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                 
+                 
+                 # Legend
+                 heatmap_legend_param = list(
+                   title = "Z-score",
+                   title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                   at = c(-2, -1, 0, 1, 2),
+                   labels = c("-2", "-1", "0", "1", "2"),
+                   labels_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                   legend_height = unit(15, "mm"),      # Set legend bar height to 10 mm
+                   grid_width = unit(1.5, "mm")           # Set legend bar width to 5 mm
+                 )
+)
+
+fileName <- here(figDir, paste0("heatmap_EpiLCdiff_common"))
+
+width <- panelSize(2)*mmToInch
+height <- panelSize(3)*mmToInch
+svglite(paste0(fileName, ".svg"),
+        width = width,
+        height = height)
+set.seed(1234)
+plot1
+dev.off()
+```
+
+### Plotting FC
+```{r}
+diff1 <- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_5h.Epi.DMSO_vs_5h.2i.DMSO.tsv"))
+diff2 <- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_24h.Epi.DMSO_vs_5h.2i.DMSO.tsv"))
+diff3 <- fread(here(dataDir, "diff_NIPBL_DMSO.Exit_vs_DMSO.0h.tsv"))
+
+geneIDNamePair <- bind_rows(diff1, diff2, diff3) %>%
+  dplyr::select(ensembl_gene_id, external_gene_name) %>%
+  distinct()
+
+idPair_tg <- getBM(attributes = c("ensembl_gene_id", "mgi_symbol"),
+                   filters = "ensembl_gene_id",
+                   values = geneIDNamePair$ensembl_gene_id,
+                   mart = ensembl.v102)
+geneIDNamePair <- geneIDNamePair %>% dplyr::left_join(idPair_tg, by = c("ensembl_gene_id"))
+
+
+fwrite(geneIDNamePair, here(dataDir, "expressed_genes.tsv"), sep = "\t")
+```
+
+```{r}
+# IMPORTING EpiLC UP/DOWN common gene
+clusters <- fread(here(dataDir, paste0("EpiLCvsESCcommon_fc0.5_kmeans_group4.tsv")))
+geneList.EpiUP <- (clusters %>% dplyr::filter(group == "K1"))$ensembl_gene_id
+geneList.EpiDOWN <- (clusters %>% dplyr::filter(group == "K2"))$ensembl_gene_id
+
+
+# IMPORTING FC from two dataset
+## RAD21
+diff_epiRecov_3hEpiDM <- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_5h.Epi.dTAG_vs_5h.Epi.DMSO.tsv")) %>% 
+  dplyr::select(ensembl_gene_id, shrinked_log2FC) %>% dplyr::rename(RAD21.3h = shrinked_log2FC)
+diff_epiRecov_22hEpiDM<- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_24h.Epi.dTAG_vs_24h.Epi.DMSO.tsv")) %>% 
+  dplyr::select(ensembl_gene_id, shrinked_log2FC) %>% dplyr::rename(RAD21.22h = shrinked_log2FC)
+## NIPBL
+diff_Nora_ESC.Exit <- fread(here(dataDir, "diff_NIPBL-Exit_dTAG.Exit_vs_DMSO.Exit.tsv")) %>% 
+  dplyr::select(ensembl_gene_id, shrinked_log2FC) %>% dplyr::rename(NIPBL.48h = shrinked_log2FC)
+
+diff <- diff_epiRecov_3hEpiDM %>% 
+  dplyr::full_join(diff_epiRecov_22hEpiDM, by = c("ensembl_gene_id")) %>%
+  dplyr::full_join(diff_Nora_ESC.Exit, by = c("ensembl_gene_id")) %>%
+  mutate_all(~ ifelse(is.na(.), 0, .))
+
+# IMPORTING RAD21 or NIPBL sensitive genes for filtering
+geneList.RAD21.3h <- (fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_5h.Epi.dTAG_vs_5h.Epi.DMSO.tsv")) %>%
+  dplyr::filter((padj < 0.05)))$ensembl_gene_id
+geneList.RAD21.22h <- (fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_24h.Epi.dTAG_vs_24h.Epi.DMSO.tsv")) %>%
+  dplyr::filter((padj < 0.05)))$ensembl_gene_id
+geneList.NIPBL.48h <- (fread(here(dataDir, "diff_NIPBL-Exit_dTAG.Exit_vs_DMSO.Exit.tsv")) %>%
+  dplyr::filter((padj < 0.05)))$ensembl_gene_id
+
+geneList.degs <- unique(c(geneList.RAD21.3h, geneList.RAD21.22h, geneList.NIPBL.48h))
+```
+
+
+##### Pie chart to filter sensitive genes
+```{r}
+accentColor <- "#1f9477"
+accentColorLight <- lighten(accentColor, amount = 0.4)
+# HEATMAP 1 (EPI UP, ALL GENE)
+maxLog2FC <- 1
+col_fun <- colorRamp2(c(-maxLog2FC, 0, maxLog2FC), c("#B000B0","white", "#FFC800"))
+
+################################################################################
+num.all <- nrow(diff %>% 
+  dplyr::filter(ensembl_gene_id %in% geneList.EpiUP))
+num.both <- nrow(diff %>% 
+  dplyr::filter(ensembl_gene_id %in% geneList.EpiUP) %>%
+    dplyr::filter(ensembl_gene_id %in% geneList.degs))
+num.nipbl <- nrow(diff %>% 
+  dplyr::filter(ensembl_gene_id %in% geneList.EpiUP) %>%
+    dplyr::filter(ensembl_gene_id %in% geneList.NIPBL.48h))
+num.rad21 <- nrow(diff %>% 
+  dplyr::filter(ensembl_gene_id %in% geneList.EpiUP) %>%
+    dplyr::filter(ensembl_gene_id %in% c(geneList.RAD21.3h, geneList.RAD21.22h)))
+num.common <- num.nipbl + num.rad21 - num.both
+
+
+categories <- c("No", "RAD21", "Common", "NIPBL")
+values <- c(num.all - num.both, num.rad21-num.common, num.common, num.nipbl-num.common)
+
+# Calculate percentages
+percentages <- round((values / sum(values)) * 100, 2)
+
+# Combine values and percentages for labels
+labels <- paste(categories, "\n", values, "\n(", percentages, "%)", sep = "")
+
+fileName <- here(figDir, "piechart_EpiUpCommon_depletionSensitive_all")
+width <- panelSize(2.5)*mmToInch
+height <- panelSize(2.5)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(values, 
+    labels = labels, 
+    col = c("#A8A8A8", accentColorLight, accentColor, accentColorLight),
+    cex = fontSizeM/12)
+dev.off()
+
+################################################################################
+num.all <- nrow(diff %>% 
+  dplyr::filter(ensembl_gene_id %in% geneList.EpiDOWN))
+num.both <- nrow(diff %>% 
+  dplyr::filter(ensembl_gene_id %in% geneList.EpiDOWN) %>%
+    dplyr::filter(ensembl_gene_id %in% geneList.degs))
+num.nipbl <- nrow(diff %>% 
+  dplyr::filter(ensembl_gene_id %in% geneList.EpiDOWN) %>%
+    dplyr::filter(ensembl_gene_id %in% geneList.NIPBL.48h))
+num.rad21 <- nrow(diff %>% 
+  dplyr::filter(ensembl_gene_id %in% geneList.EpiDOWN) %>%
+    dplyr::filter(ensembl_gene_id %in% c(geneList.RAD21.3h, geneList.RAD21.22h)))
+num.common <- num.nipbl + num.rad21 - num.both
+
+
+categories <- c("No", "RAD21", "Common", "NIPBL")
+values <- c(num.all - num.both, num.rad21-num.common, num.common, num.nipbl-num.common)
+
+# Calculate percentages
+percentages <- round((values / sum(values)) * 100, 2)
+
+# Combine values and percentages for labels
+labels <- paste(categories, "\n", values, "\n(", percentages, "%)", sep = "")
+
+fileName <- here(figDir, "piechart_EpiDOWNCommon_depletionSensitive_all")
+width <- panelSize(2.5)*mmToInch
+height <- panelSize(2.5)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(values, 
+    labels = labels, 
+    col = c("#A8A8A8", accentColorLight, accentColor, accentColorLight),
+    cex = fontSizeM/12)
+dev.off()
+
+################################################################################
+```
+#### UP
+###### FC heatmap
+```{r}
+data <- diff %>% 
+  dplyr::filter(ensembl_gene_id %in% geneList.EpiUP) %>%
+  dplyr::filter(ensembl_gene_id %in% geneList.degs)
+  
+dataToPlot <- as.data.frame(data %>% dplyr::select(-ensembl_gene_id))
+rownames(dataToPlot) <- make.names(data$ensembl_gene_id, unique = TRUE)
+num <- length(dataToPlot[[1]])
+
+set.seed(1234)
+# fviz_nbclust(dataToPlot, kmeans, method = "wss")
+knum <- 12
+row_km_clusters <- kmeans(dataToPlot, centers = knum, nstart = 100, iter.max = 500000)$cluster
+
+# cluster_map <- c("1" = "K2", "2" = "K1", "3" = "K2",
+#                  "4" = "K3", "5" = "K1", "6" = "K2",
+#                  "7" = "K2", "8" = "K1", "9" = "K1",
+#                  "10" = "K3", "11" = "K1", "12" = "K2")
+# row_cluster_factor <- factor(cluster_map[row_km_clusters], levels = c("K1", "K2", "K3"))
+cluster_map <- c("1" = "K2", "2" = "K1", "3" = "K2",
+                 "4" = "K2", "5" = "K1", "6" = "K2",
+                 "7" = "K2", "8" = "K1", "9" = "K1",
+                 "10" = "K2", "11" = "K1", "12" = "K2")
+row_cluster_factor <- factor(cluster_map[row_km_clusters], levels = c("K1", "K2"))
+
+
+split <- c(1, 1, 2)
+
+cluster_counts <- table(row_cluster_factor)
+row_titles <- paste0(names(cluster_counts), " (n = ", cluster_counts, ")")
+
+
+temp <- tibble(gene = names(row_km_clusters),
+               group = row_cluster_factor)
+fwrite(temp %>% left_join(geneIDNamePair, by = c("gene" = "ensembl_gene_id")), here(dataDir, paste0("kmeans_EpiLCdiff_common_EpiUP_DEGfiltered.tsv")), sep = "\t")
+
+
+
+
+# Create heatmap for the current cluster
+h1 <- Heatmap(use_raster = FALSE,
+  dataToPlot, col = col_fun,
+  
+  # COLUMN SETTINGS
+  show_column_names = FALSE,
+  column_names_rot = 45,
+  column_names_gp = gpar(fontsize = fontSizeM, fontfamily = fontType),
+  cluster_columns = FALSE,
+  show_column_dend = FALSE,
+  column_split = split,
+
+  
+  # ROW SETTINGS
+  row_split = row_cluster_factor,
+  # row_split = row_km_clusters,
+  cluster_rows = TRUE,
+  show_row_names = FALSE,
+  row_names_gp = gpar(fontsize = 2),
+  show_row_dend = FALSE,
+  row_gap = unit(1.5, "mm"),
+  cluster_row_slices = FALSE,
+  row_title = row_titles,
+  row_title_gp = gpar(fontsize = fontSizeM, fontfamily = fontType),
+  
+  # LEGEND SETTINGS
+  heatmap_legend_param = list(
+                  title = "log2FC",
+                  title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                  at = c(-1, -0.5, 0, 0.5, 1),
+                  labels = c("-1", "-0.5", "0", "0.5", "1"),
+                  labels_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                  legend_height = unit(15, "mm"),      # Set legend bar height to 10 mm
+                  grid_width = unit(1.5, "mm")           # Set legend bar width to 5 mm
+                ),
+  
+  border = TRUE,
+)
+
+fileName <- here(figDir, paste0("heatmap_EpiLCdiff_common_EpiUP_DEGfiltered_kmeans_group2"))
+
+width <- panelSize(1)*mmToInch
+height <- panelSize(1.5)*mmToInch
+
+svglite(paste0(fileName, ".svg"),
+        width = width,
+        height = height)
+set.seed(1234)
+h1
+dev.off()
+```
+
+###### ChEA from EnrichR
+```{r}
+dataToPlot <- fread(here(dataDir, "EnrichR_EpiLCdiff_common_EpiUP_DEGfiltered", "K1", "EpiUP_K1_ChEA_2022_table.txt"))
+colnames(dataToPlot) <- c("ChEA", "overlap", "pval", "padj", "oldpval", "oldpadj", "oddsRatio", "combScore", "genes")
+
+
+dataToPlot <- dataToPlot %>% 
+  dplyr::filter(str_detect(ChEA, regex("mouse", ignore_case = TRUE))) %>%
+  dplyr::mutate(tf = stringr::word(ChEA, 1),
+                tf = case_when(
+                  tf %in% c("RING1B", "RNF2") ~ "RING1B/RNF2",
+                  TRUE ~ tf
+                )) %>%
+  dplyr::group_by(tf) %>%
+  slice_max(combScore, with_ties = FALSE) %>% ungroup() %>%
+  dplyr::arrange(desc(combScore)) %>%
+  slice_head(n = 15)
+
+p <- ggplot(dataToPlot, aes(x = combScore, y = reorder(ChEA, combScore), fill = padj)) +
+  geom_bar(stat = "identity") + geom_text(
+    aes(x = 0, label = tf),
+    color = "black",            # Text color
+    hjust = 0.05,               # Horizontal alignment (adjust as needed)
+    size = fontSizeS / 3,       # Adjust font size appropriately
+    family = fontType
+  ) +
+  scale_fill_gradient(low = "#CB333A", high = "white", name = "p.adjust",limits = c(0, 0.00001),
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08,  # Adjust height of the color bar
+                        title.theme = element_text(size = fontSizeS)  # Set p.adjust label title size
+                      )) + 
+  labs(
+    x = "Combined Score", y = NULL
+  ) +theme_classic() +  # Apply theme_bw first, so custom theme settings come after
+  theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeS,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000",
+    ),
+    axis.text.y = element_blank(),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here(figDir, "ChEA_EpiUP_K1_pub")
+width <- panelSize(1.5)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"), height = height, width = width)
+print(p)
+dev.off()
+
+```
+
+
+###### GO
+```{r}
+# GO
+clusters <- fread(here(dataDir, paste0("kmeans_EpiLCdiff_common_EpiUP_DEGfiltered.tsv")))
+
+gene_cluster1 <- (clusters %>% dplyr::filter(group == "K1"))$gene
+gene_cluster2 <- (clusters %>% dplyr::filter(group == "K2"))$gene
+gene_background <- geneIDNamePair$ensembl_gene_id
+GO.1 <- enrichGO(gene = gene_cluster1, OrgDb = org.Mm.eg.db,
+                  keyType = "ENSEMBL", ont = "BP", readable = TRUE, universe = gene_background)
+GO.2 <- enrichGO(gene = gene_cluster2, OrgDb = org.Mm.eg.db,
+                  keyType = "ENSEMBL", ont = "BP", readable = TRUE, universe = gene_background)
+GO.1.df <- as.data.frame(GO.1)
+GO.2.df <- as.data.frame(GO.2)
+
+# K1
+GO.1.df$GeneRatio1 <- sapply(strsplit(GO.1.df$GeneRatio, "/"), function(x) as.numeric(x[1]) / as.numeric(x[2]))
+GO.1.df <- GO.1.df %>% dplyr::select(c(1, 2, 9, 13, 11))
+
+GOlist <- factor(c("GO:0061564", "GO:0002694", "GO:0042063", "GO:0045785", "GO:1990830" ))
+
+dataToPlot <- GO.1.df %>% dplyr::filter(ID %in% GOlist) %>%
+  dplyr::arrange(desc(GeneRatio1))
+
+p <- ggplot(dataToPlot, aes(x = GeneRatio1, y = reorder(Description, GeneRatio1), fill = p.adjust)) +
+  geom_bar(stat = "identity") + geom_text(
+    aes(x = 0, label = Description),
+    color = "black",            # Text color
+    hjust = 0.05,               # Horizontal alignment (adjust as needed)
+    size = fontSizeS / 3,       # Adjust font size appropriately
+    family = fontType
+  ) +
+  scale_fill_gradient(low = "#CB333A", high = lighten( "#CB333A", amount = 0.9), name = "p.adjust", limits = c(0, 0.05),
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08,  # Adjust height of the color bar
+                        title.theme = element_text(size = fontSizeS)  # Set p.adjust label title size
+                      )) + 
+  labs(
+    x = "Gene Ratio", y = NULL
+  ) +theme_classic() +  # Apply theme_bw first, so custom theme settings come after
+  theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeS,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000",
+    ),
+    axis.text.y = element_blank(),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here(figDir, "GO_EpiUP_K1_pub")
+width <- panelSize(1.25)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"), height = height, width = width)
+print(p)
+dev.off()
+```
+
+
+```{r}
+###########################################
+# GO
+clusters <- fread("pub_EpiUP_DEGfiltered_kmeans_group2.tsv")
+
+gene_cluster1 <- (clusters %>% dplyr::filter(group == "K1"))$gene
+gene_cluster2 <- (clusters %>% dplyr::filter(group == "K2"))$gene
+
+GO.1 <- enrichGO(gene = gene_cluster1, OrgDb = org.Mm.eg.db,
+                  keyType = "ENSEMBL", ont = "BP", readable = TRUE)
+GO.2 <- enrichGO(gene = gene_cluster2, OrgDb = org.Mm.eg.db,
+                  keyType = "ENSEMBL", ont = "BP", readable = TRUE)
+
+GO.1.df <- as.data.frame(GO.1)
+GO.2.df <- as.data.frame(GO.2)
+
+
+subset1 <- GO.1.df %>% dplyr::mutate(group = "K1") %>%
+  dplyr::arrange(p.adjust)
+subset2 <- GO.2.df %>% dplyr::mutate(group = "K2") %>%
+  dplyr::arrange(p.adjust)
+# 
+# fwrite(subset1, here("pub_GO_EpiUP_DEGfiltered_kmeans_K1.tsv"), sep = "\t")
+# fwrite(subset2, here("pub_GO_EpiUP_DEGfiltered_kmeans_K2.tsv"), sep = "\t")
+# 
+
+# K1
+GOlist <- factor(c("GO:0001667", "GO:0060562", "GO:0006694", "GO:0050767", "GO:0070371"))
+
+dataToPlot <- subset1 %>% dplyr::filter(ID %in% GOlist) %>% 
+  dplyr::select(Description, GeneRatio, p.adjust, Count)
+dataToPlot$GeneRatio <- sapply(strsplit(dataToPlot$GeneRatio, "/"), function(x) as.numeric(x[1]) / as.numeric(x[2]))
+dataToPlot <- dataToPlot %>% dplyr::arrange(rev(GeneRatio))
+
+p <- ggplot(dataToPlot, aes(x = GeneRatio, y = reorder(Description, GeneRatio), fill = p.adjust)) +
+  geom_bar(stat = "identity") + geom_text(
+    aes(x = 0, label = Description),
+    color = "black",            # Text color
+    hjust = 0.05,               # Horizontal alignment (adjust as needed)
+    size = fontSizeS / 3,       # Adjust font size appropriately
+    family = fontType
+  ) +
+  scale_fill_gradient(low = "#CB333A", high = "white", name = "p.adjust", limits = c(0, 0.05),
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08,  # Adjust height of the color bar
+                        title.theme = element_text(size = fontSizeS)  # Set p.adjust label title size
+                      )) + 
+  labs(
+    x = "Gene Ratio", y = NULL
+  ) +theme_classic() +  # Apply theme_bw first, so custom theme settings come after
+  theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeS,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000",
+    ),
+    axis.text.y = element_blank(),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here("figure", "GO_EpiUP_K1_pub")
+width <- panelSize(1.75)*mmToInch
+height <- panelSize(1)*mmToInch
+svglite(paste0(fileName, ".svg"), height = height, width = width)
+print(p)
+dev.off()
+
+
+
+
+# K2
+GOlist <- factor(c("GO:0060562", "GO:0007015", "GO:0001841", "GO:0040029", "GO:0007389"))
+
+dataToPlot <- subset2 %>% dplyr::filter(ID %in% GOlist) %>% 
+  dplyr::select(Description, GeneRatio, p.adjust, Count)
+dataToPlot$GeneRatio <- sapply(strsplit(dataToPlot$GeneRatio, "/"), function(x) as.numeric(x[1]) / as.numeric(x[2]))
+dataToPlot <- dataToPlot %>% dplyr::arrange(rev(GeneRatio))
+
+p <- ggplot(dataToPlot, aes(x = GeneRatio, y = reorder(Description, GeneRatio), fill = p.adjust)) +
+  geom_bar(stat = "identity") + geom_text(
+    aes(x = 0, label = Description),
+    color = "black",            # Text color
+    hjust = 0.05,               # Horizontal alignment (adjust as needed)
+    size = fontSizeS / 3,       # Adjust font size appropriately
+    family = fontType
+  ) +
+  scale_fill_gradient(low = "#CB333A", high = "white", name = "p.adjust", limits = c(0, 0.05),
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08,  # Adjust height of the color bar
+                        title.theme = element_text(size = fontSizeS)  # Set p.adjust label title size
+                      )) + 
+  labs(
+    x = "Gene Ratio", y = NULL
+  ) +theme_classic() +  # Apply theme_bw first, so custom theme settings come after
+  theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeS,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000",
+    ),
+    axis.text.y = element_blank(),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here("figure", "GO_EpiUP_K2_pub")
+width <- panelSize(1.75)*mmToInch
+height <- panelSize(1)*mmToInch
+svglite(paste0(fileName, ".svg"), height = height, width = width)
+print(p)
+dev.off()
+
+
+```
+
+
+
+#### DOWN
+###### FC heatmap
+```{r}
+# HEATMAP 1 (EPI UP, ALL GENE)
+maxLog2FC <- 1
+col_fun <- colorRamp2(c(-maxLog2FC, 0, maxLog2FC), c("#B000B0","white", "#FFC800"))
+
+data <- diff %>% 
+  dplyr::filter(ensembl_gene_id %in% geneList.EpiDOWN) %>%
+  dplyr::filter(ensembl_gene_id %in% geneList.degs)
+
+dataToPlot <- as.data.frame(data %>% dplyr::select(-ensembl_gene_id))
+rownames(dataToPlot) <- make.names(data$ensembl_gene_id, unique = TRUE)
+num <- length(dataToPlot[[1]])
+
+set.seed(1234)
+# fviz_nbclust(dataToPlot, kmeans, method = "wss")
+knum <- 12
+row_km_clusters <- kmeans(dataToPlot, centers = knum, nstart = 100, iter.max = 500000)$cluster
+# cluster_map <- c("1" = "K3", "2" = "K2", "3" = "K2",
+#                  "4" = "K1", "5" = "K1", "6" = "K3",
+#                  "7" = "K3", "8" = "K1", "9" = "K1",
+#                  "10" = "K2", "11" = "K2", "12" = "K3")
+# row_cluster_factor <- factor(cluster_map[row_km_clusters], levels = c("K1", "K2", "K3"))
+cluster_map <- c("1" = "K2", "2" = "K2", "3" = "K2",
+                 "4" = "K1", "5" = "K1", "6" = "K2",
+                 "7" = "K2", "8" = "K1", "9" = "K1",
+                 "10" = "K2", "11" = "K2", "12" = "K2")
+row_cluster_factor <- factor(cluster_map[row_km_clusters], levels = c("K1", "K2"))
+
+
+split <- c(1, 1, 2)
+
+cluster_counts <- table(row_cluster_factor)
+row_titles <- paste0(names(cluster_counts), " (n = ", cluster_counts, ")")
+
+
+temp <- tibble(gene = names(row_km_clusters),
+               group = row_cluster_factor)
+fwrite(temp %>% left_join(geneIDNamePair, by = c("gene" = "ensembl_gene_id")), here(dataDir, paste0("kmeans_EpiLCdiff_common_EpiDOWN_DEGfiltered.tsv")), sep = "\t")
+
+
+# Create heatmap for the current cluster
+h1 <- Heatmap(
+  dataToPlot, col = col_fun,
+  
+  # COLUMN SETTINGS
+  show_column_names = FALSE,
+  column_names_rot = 45,
+  column_names_gp = gpar(fontsize = fontSizeM, fontfamily = fontType),
+  cluster_columns = FALSE,
+  show_column_dend = FALSE,
+  column_split = split,
+
+  
+  # ROW SETTINGS
+  row_split = row_cluster_factor,
+  # row_split = row_km_clusters,
+  cluster_rows = TRUE,
+  show_row_names = FALSE,
+  row_names_gp = gpar(fontsize = 2),
+  show_row_dend = FALSE,
+  row_gap = unit(1.5, "mm"),
+  cluster_row_slices = FALSE,
+  row_title = row_titles,
+  row_title_gp = gpar(fontsize = fontSizeM, fontfamily = fontType),
+  
+  # LEGEND SETTINGS
+  heatmap_legend_param = list(
+                  title = "log2FC",
+                  title_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                  at = c(-1, -0.5, 0, 0.5, 1),
+                  labels = c("-1", "-0.5", "0", "0.5", "1"),
+                  labels_gp = gpar(fontsize = fontSizeS, fontfamily = fontType),
+                  legend_height = unit(15, "mm"),      # Set legend bar height to 10 mm
+                  grid_width = unit(1.5, "mm")           # Set legend bar width to 5 mm
+                ),
+  
+  border = TRUE,
+)
+
+fileName <- here(figDir, paste0("heatmap_EpiLCdiff_common_EpiDOWN_DEGfiltered_kmeans_group2"))
+
+width <- panelSize(1)*mmToInch
+height <- panelSize(1.5)*mmToInch
+
+svglite(paste0(fileName, ".svg"),
+        width = width,
+        height = height)
+set.seed(1234)
+h1
+dev.off()
+```
+###### ChEA from EnrichR
+```{r}
+dataToPlot <- fread(here(dataDir, "EnrichR_EpiLCdiff_common_EpiDOWN_DEGfiltered", "K2", "ChEA_2022_table.txt"))
+colnames(dataToPlot) <- c("ChEA", "overlap", "pval", "padj", "oldpval", "oldpadj", "oddsRatio", "combScore", "genes")
+
+
+dataToPlot <- dataToPlot %>% 
+  dplyr::filter(str_detect(ChEA, regex("mouse", ignore_case = TRUE))) %>%
+  dplyr::mutate(tf = stringr::word(ChEA, 1),
+                tf = case_when(
+                  tf %in% c("POU5F1", "OCT4") ~ "OCT4",
+                  TRUE ~ tf
+                )) %>%
+  dplyr::group_by(tf) %>%
+  slice_max(combScore, with_ties = FALSE) %>% ungroup() %>%
+  dplyr::arrange(desc(combScore)) %>%
+  slice_head(n = 15)
+
+p <- ggplot(dataToPlot, aes(x = combScore, y = reorder(ChEA, combScore), fill = padj)) +
+  geom_bar(stat = "identity") + geom_text(
+    aes(x = 0, label = tf),
+    color = "black",            # Text color
+    hjust = 0.05,               # Horizontal alignment (adjust as needed)
+    size = fontSizeS / 3,       # Adjust font size appropriately
+    family = fontType
+  ) +
+  scale_fill_gradient(low = "#CB333A", high = "white", name = "p.adjust",limits = c(0, 0.00001),
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08,  # Adjust height of the color bar
+                        title.theme = element_text(size = fontSizeS)  # Set p.adjust label title size
+                      )) + 
+  labs(
+    x = "Combined Score", y = NULL
+  ) +theme_classic() +  # Apply theme_bw first, so custom theme settings come after
+  theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeS,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000",
+    ),
+    axis.text.y = element_blank(),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here(figDir, "ChEA_EpiDOWN_K2_pub")
+width <- panelSize(1.5)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"), height = height, width = width)
+print(p)
+dev.off()
+
+```
+###### GO
+```{r}
+# GO
+clusters <- fread(here(dataDir, paste0("kmeans_EpiLCdiff_common_EpiDOWN_DEGfiltered.tsv")))
+
+gene_cluster1 <- (clusters %>% dplyr::filter(group == "K1"))$gene
+gene_cluster2 <- (clusters %>% dplyr::filter(group == "K2"))$gene
+gene_background <- geneIDNamePair$ensembl_gene_id
+GO.1 <- enrichGO(gene = gene_cluster1, OrgDb = org.Mm.eg.db,
+                  keyType = "ENSEMBL", ont = "BP", readable = TRUE, universe = gene_background)
+GO.2 <- enrichGO(gene = gene_cluster2, OrgDb = org.Mm.eg.db,
+                  keyType = "ENSEMBL", ont = "BP", readable = TRUE, universe = gene_background)
+GO.1.df <- as.data.frame(GO.1)
+GO.2.df <- as.data.frame(GO.2)
+
+# K2
+GO.2.df$GeneRatio1 <- sapply(strsplit(GO.2.df$GeneRatio, "/"), function(x) as.numeric(x[1]) / as.numeric(x[2]))
+GO.2.df <- GO.2.df %>% dplyr::select(c(1, 2, 9, 13, 11))
+
+GOlist <- factor(c("GO:0001525", "GO:0045785", "GO:0030198", "GO:0070371", "GO:0002009"))
+
+dataToPlot <- GO.2.df %>% dplyr::filter(ID %in% GOlist) %>%
+  dplyr::arrange(desc(GeneRatio1))
+
+p <- ggplot(dataToPlot, aes(x = GeneRatio1, y = reorder(Description, GeneRatio1), fill = p.adjust)) +
+  geom_bar(stat = "identity") + geom_text(
+    aes(x = 0, label = Description),
+    color = "black",            # Text color
+    hjust = 0.05,               # Horizontal alignment (adjust as needed)
+    size = fontSizeS / 3,       # Adjust font size appropriately
+    family = fontType
+  ) +
+  scale_fill_gradient(low = "#CB333A", high = lighten( "#CB333A", amount = 0.9), name = "p.adjust", limits = c(0, 0.05),
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08,  # Adjust height of the color bar
+                        title.theme = element_text(size = fontSizeS)  # Set p.adjust label title size
+                      )) + 
+  labs(
+    x = "Gene Ratio", y = NULL
+  ) +theme_classic() +  # Apply theme_bw first, so custom theme settings come after
+  theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeS,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000",
+    ),
+    axis.text.y = element_blank(),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here(figDir, "GO_EpiDOWN_K2_pub")
+width <- panelSize(1.25)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"), height = height, width = width)
+print(p)
+dev.off()
+```

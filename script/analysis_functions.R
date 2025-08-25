@@ -129,7 +129,9 @@ rnaseq_makeCountMatrix <- function(fileList, expName){
   fwrite(sample.TPM.tb, here("data", paste0("readCount.TPM.", expName, ".tsv")), sep = '\t')
 }
 
-rnaseq_filterLowRPM <- function(expName, RPMCutoff, sampleNumCutoff){
+rnaseq_filterLowRPM <- function(expName, RPMCutoff, sampleNumCutoff, ncol = 3,
+                                parentDir = "figure",
+                                dataDir = "data"){
   # PURPOSE: Use genes that has RPM > RPMCutoff in at least sampleNumCutoff samples 
   # to remove improve quality and reliability of downstream analysis
   # INPUT:
@@ -139,13 +141,11 @@ rnaseq_filterLowRPM <- function(expName, RPMCutoff, sampleNumCutoff){
   #   width: width of histogram showing readcount distribution
   #   height: height of histogram showing readcount distribution
   
-  expName <- "all"
-  parentDir <- "figure"
-  dir.create(here(parentDir, "histogram"), showWarnings = FALSE)
+  dir.create(here(parentDir, "histogram"), showWarnings = FALSE, recursive = TRUE)
   
-  sample.tb <- fread(here("data", paste0("readCount.", expName, ".tsv")))
-  sample.RPM.tb <- fread(here("data", paste0("readCount.RPM.", expName, ".tsv")))
-  sample.TPM.tb <- fread(here("data", paste0("readCount.TPM.", expName, ".tsv")))
+  sample.tb <- fread(here(dataDir, paste0("readCount.", expName, ".tsv")))
+  sample.RPM.tb <- fread(here(dataDir, paste0("readCount.RPM.", expName, ".tsv")))
+  sample.TPM.tb <- fread(here(dataDir, paste0("readCount.TPM.", expName, ".tsv")))
   ##############################################################################
   ### Plotting the distribution of raw readCounts
   fileName <- here(parentDir, "histogram", paste0("Histogram_readCounts.", expName))
@@ -168,7 +168,6 @@ rnaseq_filterLowRPM <- function(expName, RPMCutoff, sampleNumCutoff){
     plotList[[i]] <- plot
   }
   
-  ncol <- 3
   width <- 2*ncol
   height <- 1.5*ceiling(sampleNum/ncol)
   
@@ -204,7 +203,6 @@ rnaseq_filterLowRPM <- function(expName, RPMCutoff, sampleNumCutoff){
     plotList[[i]] <- plot
   }
   
-  ncol <- 3
   width <- 2*ncol
   height <- 1.5*ceiling(sampleNum/ncol)
   
@@ -241,9 +239,9 @@ rnaseq_filterLowRPM <- function(expName, RPMCutoff, sampleNumCutoff){
   sample.RPM.filteredOut.tb <- sample.RPM.tb[filter2, ]
   sample.TPM.filtered.tb <- sample.TPM.tb[filter1, ]
   
-  fwrite(sample.filtered.tb, here("data", paste0("readCount.filtered.", expName, ".tsv")), sep = '\t')
-  fwrite(sample.RPM.filtered.tb, here("data", paste0("readCount.filtered.RPM.", expName, ".tsv")), sep = '\t')
-  fwrite(sample.TPM.filtered.tb, here("data", paste0("readCount.filtered.TPM.", expName, ".tsv")), sep = '\t')
+  fwrite(sample.filtered.tb, here(dataDir, paste0("readCount.filtered.", expName, ".tsv")), sep = '\t')
+  fwrite(sample.RPM.filtered.tb, here(dataDir, paste0("readCount.filtered.RPM.", expName, ".tsv")), sep = '\t')
+  fwrite(sample.TPM.filtered.tb, here(dataDir, paste0("readCount.filtered.TPM.", expName, ".tsv")), sep = '\t')
   
   # PLOTTING
   options(scipen=999)
@@ -263,7 +261,6 @@ rnaseq_filterLowRPM <- function(expName, RPMCutoff, sampleNumCutoff){
     plotList[[i]] <- plot
   }
   
-  ncol <- 3
   width <- 2*ncol
   height <- 1.5*ceiling(sampleNum/ncol)
   
@@ -328,7 +325,7 @@ rnaseq_batchCorrect_SVA <- function(sample.tb, batch, covar_mat){
 }
 
 
-rnaseq_runDESeq <- function(data.tb, expName, note, colData, design){
+rnaseq_runDESeq <- function(data.tb, expName, note, colData, design, dataDir = "data"){
   # PURPOSE: Use filtered readCount table to run differential analysis 
   # INPUT:
   #   data.tb: filtered raw readCount table from `rnaseq_filterLowRPM`
@@ -348,21 +345,22 @@ rnaseq_runDESeq <- function(data.tb, expName, note, colData, design){
   dds <- DESeq(dds)
   readCount.filtered.DESeqNorm <- counts(dds, normalized = TRUE)
   temp <- as_tibble(readCount.filtered.DESeqNorm, rownames = "ensembl")
-  fwrite(temp, here("data", paste0("readCount.filtered.DESeqNorm.", expName, ".tsv")), sep = '\t')
-  saveRDS(dds, file = here("r_data", paste0("dds_", expName, "_", note, ".rds")))
+  fwrite(temp, here(dataDir, paste0("readCount.filtered.DESeqNorm.", expName, ".tsv")), sep = '\t')
+  dir.create(here(dataDir, "r_data"), showWarnings = FALSE, recursive = TRUE)
+  saveRDS(dds, file = here(dataDir, "r_data", paste0("dds_", expName, "_", note, ".rds")))
   return(dds)
 }
 
-rnaseq_runDiff <- function(dds, c1, c2, alpha, foldchange, log2FC_cutoff, width, height){
+rnaseq_runDiff <- function(dds, c1, c2, alpha, foldchange, log2FC_cutoff, width, height, dataDir = "data", figDir = "figure"){
   contrast <- c("group", c1, c2)
   output_prefix <- paste0(expName, "_", c1, "_vs_", c2)
-  rnaseq_pairwiseDiff(dds, contrast, output_prefix, alpha = alpha, foldchange = foldchange)
+  rnaseq_pairwiseDiff(dds, contrast, output_prefix, alpha = alpha, foldchange = foldchange, dataDir = dataDir)
   create_volcanoMA(dds, output_prefix, alpha = alpha, foldchange = foldchange,
-                   log2FC_cutoff = log2FC_cutoff, width = width, height = height)
+                   log2FC_cutoff = log2FC_cutoff, width = width, height = height, dataDir = dataDir, figDir = figDir)
   
 }
 
-rnaseq_pairwiseDiff <- function(dds, contrast, output_prefix, alpha = 0.05, foldchange = 0.5) {
+rnaseq_pairwiseDiff <- function(dds, contrast, output_prefix, alpha = 0.05, foldchange = 0.5, dataDir = "data") {
   readCount.filtered.DESeqNorm <- counts(dds, normalized = TRUE)
   data.tb <- as_tibble(readCount.filtered.DESeqNorm, rownames = "ensembl")
   
@@ -406,16 +404,17 @@ rnaseq_pairwiseDiff <- function(dds, contrast, output_prefix, alpha = 0.05, fold
                       by = c("ensembl_gene_id" = "ensembl"))
   
   # Save data
-  saveRDS(resLFCSort.tb, file = here("r_data", paste0("resLFCSort.tb_", output_prefix, ".rds")))
-  fwrite(out.tb, file = here("data", paste0("diff_", output_prefix, ".tsv")), sep = "\t")
+  saveRDS(resLFCSort.tb, file = here(dataDir, "r_data", paste0("resLFCSort.tb_", output_prefix, ".rds")))
+  fwrite(out.tb, file = here(dataDir, paste0("diff_", output_prefix, ".tsv")), sep = "\t")
   
   # Save summary
-  sink(file = here("data", paste0("diff_", output_prefix, "_summary.txt")))
+  sink(file = here(dataDir, paste0("diff_", output_prefix, "_summary.txt")))
   summary(res)
   sink(file = NULL)
 }
 
-create_PCA_DESeq2 <- function(dds, colData, varThreshold = 0.25, title, label = "group", deseq2BatchCorrect = FALSE, width = 6, height = 4){
+create_PCA_DESeq2 <- function(dds, colData, varThreshold = 0.25, title, label = "group", deseq2BatchCorrect = FALSE, width = 6, height = 4,
+                              figDir = "figure"){
   # PURPOSE: data used here is `rld` transformed DESeq2 normalized reads
   # INPUT:
   #   dds: rld transformed DESeq2 normalized reads
@@ -491,12 +490,12 @@ create_PCA_DESeq2 <- function(dds, colData, varThreshold = 0.25, title, label = 
   }
   print(p)
   
-  dir.create(here("figure", "PCA"), showWarnings = FALSE)
-  svglite(here("figure", "PCA", paste0(fileName, ".svg")), width = width, height = height)
+  dir.create(here(figDir, "PCA"), showWarnings = FALSE, recursive = TRUE)
+  svglite(here(figDir, "PCA", paste0(fileName, ".svg")), width = width, height = height)
   print(p)
   dev.off()
   
-  png(here("figure", "PCA", paste0(fileName, ".png")), width = width, height = height, units = "in", res = 600)
+  png(here(figDir, "PCA", paste0(fileName, ".png")), width = width, height = height, units = "in", res = 600)
   print(p)
   dev.off()
 }
@@ -580,7 +579,8 @@ create_tSNE_DESeq2 <- function(dds, colData, varThreshold = 0.25, perplexity = 1
   
 }
 
-create_distHeatmap_DESea2 <- function(dds, title, deseq2BatchCorrect = FALSE, width = 7, height = 4){
+create_distHeatmap_DESeq2 <- function(dds, title, deseq2BatchCorrect = FALSE, width = 7, height = 4,
+                                      figDir = "figure"){
   # PURPOSE: Calculate sample-to-sample distance and draw heatmap
   # INPUT:
   #   dds: DESeq2 output
@@ -607,12 +607,12 @@ create_distHeatmap_DESea2 <- function(dds, title, deseq2BatchCorrect = FALSE, wi
                 col=colors,
                 main = title)
   
-  dir.create(here("figure", "heatmap"), showWarnings = FALSE)
-  svglite(here("figure", "heatmap", paste0(fileName, ".svg")), width = width, height = height)
+  dir.create(here(figDir, "heatmap"), showWarnings = FALSE, recursive = TRUE)
+  svglite(here(figDir, "heatmap", paste0(fileName, ".svg")), width = width, height = height)
   print(p)
   dev.off()
   
-  png(here("figure", "heatmap", paste0(fileName, ".png")), width = width, height = height, units = "in", res = 600)
+  png(here(figDir, "heatmap", paste0(fileName, ".png")), width = width, height = height, units = "in", res = 600)
   print(p)
   dev.off()
   
@@ -621,12 +621,12 @@ create_distHeatmap_DESea2 <- function(dds, title, deseq2BatchCorrect = FALSE, wi
 
 create_volcanoMA <- function(dds, output_prefix, 
                              alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
-                             width = 4, height = 3.5){
-  dir.create(here("figure", "MA"), showWarnings = FALSE, recursive = TRUE)
-  dir.create(here("figure", "volcano"), showWarnings = FALSE, recursive = TRUE)
+                             width = 4, height = 3.5, dataDir = "data", figDir = "figure"){
+  dir.create(here(figDir, "MA"), showWarnings = FALSE, recursive = TRUE)
+  dir.create(here(figDir, "volcano"), showWarnings = FALSE, recursive = TRUE)
   
   # MA plot
-  resLFCSort.tb <- readRDS(here(
+  resLFCSort.tb <- readRDS(here(dataDir,
     "r_data",
     paste0("resLFCSort.tb_", output_prefix, ".rds")
   ))
@@ -689,7 +689,7 @@ create_volcanoMA <- function(dds, output_prefix,
     ) + scale_colour_manual(values = mycolors)
   
   
-  fileName = here("figure", "MA", paste0("MA_", output_prefix, "_", alpha, "_", foldchange))
+  fileName = here(figDir, "MA", paste0("MA_", output_prefix, "_", alpha, "_", foldchange))
   
   svglite(paste0(fileName, ".svg"),
           width = width,
@@ -805,9 +805,9 @@ create_volcanoMA <- function(dds, output_prefix,
       text = element_text(size = 8)
     ) + coord_cartesian(clip = "off") +
     xlab("log2fc")
-  fileName = here("figure", "MA", paste0("MA_", output_prefix, "_", alpha, "_", foldchange))
+  fileName = here(figDir, "MA", paste0("MA_", output_prefix, "_", alpha, "_", foldchange))
   
-  fileName = here("figure", "volcano", paste0("volcano_", output_prefix, "_", alpha, "_", foldchange, "_shrlog2FC"))
+  fileName = here(figDir, "volcano", paste0("volcano_", output_prefix, "_", alpha, "_", foldchange, "_shrlog2FC"))
   
   svglite(paste0(fileName, ".svg"),
           width = width,
@@ -825,7 +825,7 @@ create_volcanoMA <- function(dds, output_prefix,
   print(plot)
   dev.off()
   
-  fileName = here("figure", "volcano", paste0("volcano_", output_prefix, "_", alpha, "_", foldchange, "_log2FC"))
+  fileName = here(figDir, "volcano", paste0("volcano_", output_prefix, "_", alpha, "_", foldchange, "_log2FC"))
   
   
   svglite(paste0(fileName, ".svg"),

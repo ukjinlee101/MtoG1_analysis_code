@@ -133,7 +133,7 @@ panelSize <- function(num, unit = panelUnit, margin = panelMargin){
 # Merging loops across conditions
 ```{r}
 res <- 10
-qcutoff <- 0.0005
+qcutoff <- 0.0001
 
 col <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
 
@@ -263,7 +263,8 @@ createLoopAnnotation <- function(bedpe.loop.anno, name, figDir){
 ```
 ### Annotate anchors
 ```{r}
-loop <- fread(here(loopDir, "fithic_union_10000bp_qcutoff0.0005.bedpe"))
+qcutoff <- 0.0001
+loop <- fread(here(loopDir, paste0("fithic_union_10000bp_qcutoff", qcutoff, ".bedpe")))
 
 colnames(loop) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
 anchor1.tb <- as_tibble(loop) %>% dplyr::select(chrom1, start1, end1)
@@ -327,7 +328,7 @@ anchor.tb <- fread(here(loopDir, "fithic_union_10000bp_anchor.bed")) %>%
   rename(annot = V5)
 
 # Merging with ChIP annotation
-consensus.loop.anno.tb <- fread(here(loopDir, "fithic_union_10000bp_qcutoff0.0005.bedpe"))
+consensus.loop.anno.tb <- fread(here(loopDir, paste0("fithic_union_10000bp_qcutoff", qcutoff, ".bedpe")))
 colnames(consensus.loop.anno.tb) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
 
 consensus.loop.anno.tb <- consensus.loop.anno.tb %>%

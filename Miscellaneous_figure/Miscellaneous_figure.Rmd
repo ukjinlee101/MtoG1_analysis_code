@@ -380,6 +380,91 @@ dev.off()
 
 ```
 
+#### Otx2 TPM
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Create the data frame
+data <- data.frame(
+  Timepoint = c("22 h DM", "22 h DM",
+                "22 h dT", "22 h dT",
+                "48 h DM", "48 h DM", "48 h DM", 
+                "48 h dT", "48 h dT", "48 h dT"),
+  HA = c(73.09441697, 71.68242966,
+         63.18523465, 63.10380639,
+         133.6224654, 118.0649558, 150.487477,
+         94.38613912, 85.58628617, 116.7908954)
+)
+
+# Convert Timepoint to an ordered factor (ensures correct plotting order)
+data$Timepoint <- factor(data$Timepoint, levels = c("22 h DM", "22 h dT", "48 h DM", "48 h dT"))
+
+# Calculate summary statistics
+data_summary <- data %>%
+  group_by(Timepoint) %>%
+  summarise(
+    Mean_HA = mean(HA),
+    SD = sd(HA),
+    SE = SD / sqrt(n())  # Calculate Standard Error
+  )
+
+# Bar Plot with Error Bars (SE)
+p <- ggplot(data_summary, aes(x = Timepoint, y = Mean_HA)) +
+  # Bar plot for means
+  geom_bar(stat = "identity", fill = "grey50", color = "black", width = 0.75, size = lineThick * mmToLineUnit) +
+  # Error bars for SE
+  geom_jitter(data = data, aes(x = Timepoint, y = HA),
+              color = "black", size = 2/10, width = 0.1, shape = 16) +
+  geom_errorbar(aes(ymin = Mean_HA - SE, ymax = Mean_HA + SE), 
+                width = 0.2, color = "black", size = lineThick * mmToLineUnit) +
+  # Labels and Theme
+  labs(
+    x = NULL,
+    y = "TPM"
+  ) +
+  theme_classic() +  # Apply theme_bw first, so custom theme settings come after
+  theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeM,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS,         # Ensure size is set for y-axis text
+      family = fontType,
+      color = "#000000",
+      lineheight = 0.9          # Allows wrapping for y-axis labels to fit into 2 lines
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here(figDir, "TPM_Otx2")
+width <- panelSize(1.2)*mmToInch
+height <- panelSize(1)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+
+```
 
 ```{r}
 # Load necessary libraries
@@ -581,8 +666,9 @@ dev.off()
 ```
 
 ## [FIG] ChIP Venn diagram
+### RAD21 DMSO vs dTAG
 ```{r}
-chipDir <- here("../reference", "ChIP")
+chipDir <- here("../reference", "ChIP", "RAD21-HA")
 bed1 <- import(here(chipDir, "RAD21_ESC-DMSO_unionPeaks.bed"), format="BED")
 bed2 <- import(here(chipDir, "RAD21_ESC-dTAG_unionPeaks.bed"), format="BED")
 
@@ -640,6 +726,67 @@ print(p)
 dev.off()
 
 ```
+### RAD21/HA ESC vs EpiLC
+```{r}
+chipDir <- here("../reference", "ChIP", "RAD21-HA")
+bed1 <- import(here(chipDir, "UnionPeaks_RAD21-HA_ESC-DMSO.bed"), format="BED")
+bed2 <- import(here(chipDir, "UnionPeaks_RAD21-HA_EpiLC.bed"), format="BED")
+
+# compute overlaps and uniques
+ov1 <- overlapsAny(bed1, bed2)
+ov2 <- overlapsAny(bed2, bed1)
+
+# partition into three sets
+common <- bed1[ov1]             # all bed1 ranges that overlap bed2
+only1  <- bed1[!ov1]            # bed1 ranges with no overlap
+only2  <- bed2[!ov2]            # bed2 ranges with no overlap
+
+# counts
+nOnly1  <- length(only1)
+nOnly2  <- length(only2)
+nCommon <- length(common)
+
+
+# build and plot Euler diagram
+fit <- euler(c(
+  "Rep1" = nOnly1,
+  "Rep2" = nOnly2,
+  "Rep1&Rep2"       = nCommon
+))
+
+p <- plot(
+  fit,
+  fills = list(alpha = 0.5),
+  labels = list(
+    font = 1,         # font face: 1=plain, 2=bold, 3=italic, 4=bold italic
+    cex = 1,        # label font size multiplier
+    family = fontType # font family name
+  ),
+  quantities = list(
+    cex = 1,        # quantity font size multiplier
+    font = 1,         # font face for numbers
+    family = fontType
+  ),
+  edges = list(
+    lwd = 2           # line width in points
+  ),
+  main = "ChIP-seq | RAD21 ESC-dTAG peaks",
+  main.pos = c(0.5, 1.05), # adjust title position
+  main.gp = gpar(
+    fontsize = fontSizeL,    # title font size in points
+    fontfamily = fontType,
+    fontface = "bold"
+  )
+)
+fileName <- here(figDir, "Venn_ChIP_RAD21-HA_ESC_vs_EpiLC")
+width <- panelSize(1)*mmToInch
+height <- panelSize(1)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+
+```
+
 
 ## Pie chart for loop updown
 ```{r}

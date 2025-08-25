@@ -85,7 +85,7 @@ dir.create(figDir, showWarnings = FALSE)
 dir.create(rdsDir, showWarnings = FALSE)
 loopDir <- here("../data/loop_hicdcp")
 figDir <- here("../figure/loop_hicdcp")
-refDir <- here("reference")
+refDir <- here("../reference")
 
 ```
 
