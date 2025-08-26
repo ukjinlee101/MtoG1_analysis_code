@@ -12,8 +12,10 @@ num_cpus="$2"
 eval "$(mamba shell hook --shell bash)"
 mamba activate hicexplorer_3.7.4
 
-# run the correction
-
 # recompute KR weights into bins.weight
 cooler balance --force -p "${num_cpus}" \
     "${cool_file}"
+
+mamba activate jupyterlab_cooltools
+exp_file="${cool_file%.cool}_exp.tsv"
+cooltools expected-cis -p "${num_cpus}" -o "${exp_file}" "${cool_file}"
