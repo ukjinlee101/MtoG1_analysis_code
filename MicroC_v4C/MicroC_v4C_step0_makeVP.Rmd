@@ -1,0 +1,83 @@
+---
+title: "R Notebook"
+---
+
+# IMPORTING REQUIRED PACKAGES
+```{r}
+# LIST OF PACKAGES
+pkgs = c(
+  "tidyverse",
+  "here",
+  "svglite",
+  "ggplot2",
+  "ggrepel",
+  "stringr",
+  "BiocManager",
+  "RColorBrewer",
+  "viridis",
+  "magick",
+  "nlme",
+  "ashr",
+  "factoextra",
+  "plotly",
+  "remotes",
+  "cowplot", "tibble", "dplyr",
+  "gridExtra",
+  "eulerr", "data.table", "clusterProfiler", "zoo"
+)
+bio_pkgs = c("biomaRt",
+             "DESeq2",
+             "ComplexHeatmap",
+             "apeglm",
+             "vsn", "caTools",
+             "sva",
+             "limma",
+             "mixOmics", "plotgardener", "org.Mm.eg.db")
+
+# INSTALL PACKAGES
+#install.packages(pkgs)
+#BiocManager::install(bio_pkgs)
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+
+#remotes::install_github("EvaYiwenWang/PLSDAbatch")
+require(PLSDAbatch)
+
+# CLEANING
+rm(pkgs, bio_pkgs)
+
+options(scipen = 999)
+```
+# Make v4c
+(0) Make vpInfo file for gene oof interest
+```{r}
+dataDir <- here("..", "data")
+refDir <- here("..", "reference", "mm10")
+outDir <- here(dataDir, "v4C", "vpInfo")
+dir.create(outDir, recursive = TRUE, showWarnings = FALSE)
+temp <- fread(here(dataDir, "RNA_diff", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05) 
+
+geneList <- temp$ensembl_gene_id
+
+temp <- fread(here(refDir, "mm10_GRCm38.p6_gene_sorted.bed")) %>%
+  dplyr::mutate(TSS = ifelse(V4 == "+",
+                             V2, V3),
+                TSSend = TSS + 1) %>%
+  dplyr::select(V6, V1, TSS, TSSend, V5) %>% dplyr::filter(V6 %in% geneList)
+colnames(temp) = c("ensembl", "chr", "TSS", "TSSend", "gene")
+
+
+
+for(ens in temp$ensembl){
+  temp2 <- temp %>% dplyr::filter(ensembl == ens)
+  out <- temp2 %>% dplyr::select(chr, TSS, TSSend)
+  gene <- temp2$gene
+  fileName <- paste("vp", ens, gene, "bed", sep = ".") 
+  fwrite(out, here(outDir, fileName), sep = "\t", col.names = FALSE)
+  
+}
+
+```
