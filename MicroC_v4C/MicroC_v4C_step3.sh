@@ -14,3 +14,4 @@ do
 	bedGraphToBigWig ${V4CDIR}/bw/temp ${REFDIR}/mm10.chrom.sizes ${V4CDIR}/bw/${filename}.bw
 	rm ${V4CDIR}/bw/temp
 done
+

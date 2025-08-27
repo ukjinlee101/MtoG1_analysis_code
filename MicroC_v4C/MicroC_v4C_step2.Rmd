@@ -57,7 +57,7 @@ options(scipen = 999)
 -- up until this part is done by step1.sh
 (4) Normalize with CPM for total Micro_C reads
 (5) Visualize
-
+## Specific genes
 ```{r}
 bgDir <- here("..", "data", "v4C", "bedgraph")
 dir.create(bgDir, showWarnings = FALSE, recursive = TRUE)
@@ -123,3 +123,133 @@ for(expName in c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled", "EpiG1DMSO_p
 }
 }
 ```
+
+## Many genes
+```{r}
+bgDir <- here("..", "data", "v4C", "bedgraph_parallel")
+dir.create(bgDir, showWarnings = FALSE, recursive = TRUE)
+statDir <- here("..", "data", "v4C", "stats")
+allInfoDir <- here("..", "data", "v4C", "allInfo_parallel")
+
+
+fileList <- as_tibble(list.files(allInfoDir))
+
+fileList <- fileList %>% dplyr::rowwise() %>% dplyr::mutate(ensembl = unlist(strsplit(value, "\\."))[[2]],
+                           note = unlist(strsplit(value, "\\."))[[3]],
+                           gene = unlist(strsplit(note, "__"))[[1]],
+                           vp = paste(ensembl, gene, sep = "."))
+vpList <- unique(fileList$vp)
+expList <- c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled", "EpiG1DMSO_pooled", "EpiG1dTAG_pooled", "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled")
+resList <- c(5, 10)
+
+for(vp in vpList){
+  for(res in resList){
+    for(expName in expList){
+      shiftSize <- res*1000/20
+      print(paste0("Processing ", vp, ", ", res, "kb res, ", expName))
+      
+      # Importing stats for normalization
+      firstLine <- readLines(paste0(statDir, "/", expName, ".stats.txt"), n = 1)
+      validPairNum <- as.numeric(sub("total\\t(\\d+)", "\\1", firstLine))
+      # Calculate normFactor. CPM using total Micro-C reads
+      normFactor <- 1000000 / validPairNum
+      
+      
+      tb <- as_tibble(fread(here(allInfoDir, paste0("allinfo.", vp, "__", expName, "__", res, "kb"))))
+      colnames(tb) <- c('chr', 'start', 'end', 'restrictionsites', 'coverage', 'regioncenter')
+      
+      # Skipping setting the center to 0
+      #tb <- tb %>% dplyr::mutate(coverage = ifelse(regioncenter == 1, 0, coverage))
+      
+      tb <- tb %>% dplyr::mutate(normCov = coverage*normFactor,
+                                 start = 50*floor(start/50),
+                                 end = 50*floor(end/50))
+      #tb$normCovWindow<- rollmean(tb$normCov, window, align="center", fill=T)
+      out.tb <- tb %>% dplyr::mutate(pos = (start + end)/2,
+                                     startPos = pos - shiftSize/2,
+                                     endPos = pos + shiftSize/2 - 1) %>%
+        dplyr::select(chr, startPos, endPos, normCov)
+      # out.tb <- tb %>% dplyr::mutate(end2 = start + 499) %>%
+      #   dplyr::select(chr, start, end2, normCov)
+      
+      fwrite(out.tb, file = here(bgDir, paste0("v4c_", vp, "__", expName, "__", res, "kb.bedGraph")), 
+             col.names = FALSE, sep = "\t")
+      
+    }
+  }
+}
+
+```
+## Many genes (local normalization)
+```{r}
+bgDir <- here("..", "data", "v4C", "bedgraph_parallel_localNorm")
+dir.create(bgDir, showWarnings = FALSE, recursive = TRUE)
+statDir <- here("..", "data", "v4C", "stats")
+allInfoDir <- here("..", "data", "v4C", "allInfo_parallel")
+
+
+fileList <- as_tibble(list.files(allInfoDir))
+
+fileList <- fileList %>% dplyr::rowwise() %>% dplyr::mutate(ensembl = unlist(strsplit(value, "\\."))[[2]],
+                           note = unlist(strsplit(value, "\\."))[[3]],
+                           gene = unlist(strsplit(note, "__"))[[1]],
+                           vp = paste(ensembl, gene, sep = "."))
+vpList <- unique(fileList$vp)
+expList <- c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled", "EpiG1DMSO_pooled", "EpiG1dTAG_pooled", "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled")
+resList <- c(5, 10)
+
+for(vp in vpList){
+  for(res in resList){
+    for(expName in expList){
+      shiftSize <- res*1000/20
+      print(paste0("Processing ", vp, ", ", res, "kb res, ", expName))
+      
+      # Importing stats for normalization
+      # firstLine <- readLines(paste0(statDir, "/", expName, ".stats.txt"), n = 1)
+      # validPairNum <- as.numeric(sub("total\\t(\\d+)", "\\1", firstLine))
+      # Calculate normFactor. CPM using total Micro-C reads
+      # normFactor <- 1000000 / validPairNum
+      
+      
+      tb <- as_tibble(fread(here(allInfoDir, paste0("allinfo.", vp, "__", expName, "__", res, "kb"))))
+      colnames(tb) <- c('chr', 'start', 'end', 'restrictionsites', 'coverage', 'regioncenter')
+      
+      localValidPairNum <- sum((tb %>% dplyr::filter(regioncenter == 0))$coverage)
+      normFactor <- 1000000/localValidPairNum  
+      
+      # Skipping setting the center to 0
+      #tb <- tb %>% dplyr::mutate(coverage = ifelse(regioncenter == 1, 0, coverage))
+      
+      tb <- tb %>% dplyr::mutate(normCov = coverage*normFactor,
+                                 start = 50*floor(start/50),
+                                 end = 50*floor(end/50))
+      #tb$normCovWindow<- rollmean(tb$normCov, window, align="center", fill=T)
+      out.tb <- tb %>% dplyr::mutate(pos = (start + end)/2,
+                                     startPos = pos - shiftSize/2,
+                                     endPos = pos + shiftSize/2 - 1) %>%
+        dplyr::select(chr, startPos, endPos, normCov)
+      # out.tb <- tb %>% dplyr::mutate(end2 = start + 499) %>%
+      #   dplyr::select(chr, start, end2, normCov)
+      
+      fwrite(out.tb, file = here(bgDir, paste0("v4c_", vp, "__", expName, "__", res, "kb_localNorm.bedGraph")), 
+             col.names = FALSE, sep = "\t")
+      
+    }
+  }
+}
+
+```
+
+
+# Using cooltoos for v4C
+```{r}
+# BiocManager::install("HiContacts")
+library(HiContacts)
+
+coolDir <- here("..", "data", "cool_norm_pooled")
+
+cool.G1DMSO <- import(CoolFile(here(coolDir, "G1DMSO_pooled_10000bp_KR.cool")))
+
+
+```
+
