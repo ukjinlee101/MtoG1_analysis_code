@@ -1,0 +1,9 @@
+{
+    "__default__" : {
+        "partition" : "scu-cpu",
+        "account" : "apostoloulab",
+        "time" : "8:00:00",
+        "threads" : "4",
+        "mem" : "8G"
+    }
+}

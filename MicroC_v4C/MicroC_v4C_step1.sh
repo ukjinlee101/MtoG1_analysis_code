@@ -33,7 +33,7 @@ done
 
 
 #######################################################################################
-
+# Round 1: selected loci
 
 # Make vp info file per gene from vp.all.bed file
 awk -F'\t' '{print $2"\t"$3"\t"$3+1 > ("'${VPDIR}'/vp."$1".bed")}' ${VPDIR}/vp.all.bed

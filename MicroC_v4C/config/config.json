@@ -1,0 +1,8 @@
+{
+  "REFDIR" : "/athena/apostoloulab/scratch/ukl4001/reference",
+  "GENOMEDIR" : "/athena/apostoloulab/scratch/collab/Genome/Mus_Musculus/UCSC/mm10/Sequence/WholeGenomeFasta",
+  "VPDIR" : "/athena/apostoloulab/scratch/ukl4001/data/v4C/vpInfo",
+  "TEMPDIR" : "/athena/apostoloulab/scratch/ukl4001/temp",
+  "AIDIR" : "/athena/apostoloulab/scratch/ukl4001/data/v4C/allInfo",
+  "PAIRDIR" : "/athena/apostoloulab/scratch/ukl4001/temp/mappedPairChr",
+}
