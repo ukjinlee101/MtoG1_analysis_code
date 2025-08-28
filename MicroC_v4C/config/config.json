@@ -3,6 +3,6 @@
   "GENOMEDIR" : "/athena/apostoloulab/scratch/collab/Genome/Mus_Musculus/UCSC/mm10/Sequence/WholeGenomeFasta",
   "VPDIR" : "/athena/apostoloulab/scratch/ukl4001/data/v4C/vpInfo",
   "TEMPDIR" : "/athena/apostoloulab/scratch/ukl4001/temp",
-  "AIDIR" : "/athena/apostoloulab/scratch/ukl4001/data/v4C/allInfo",
+  "AIDIR" : "/athena/apostoloulab/scratch/ukl4001/data/v4C/allInfo_parallel_chr",
   "PAIRDIR" : "/athena/apostoloulab/scratch/ukl4001/temp/mappedPairChr",
 }

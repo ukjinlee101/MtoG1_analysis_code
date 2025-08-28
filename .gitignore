@@ -4,3 +4,4 @@
 **/*.bg
 **/*.bed
 reference/LOLACore_cashed
+**/.snakemake

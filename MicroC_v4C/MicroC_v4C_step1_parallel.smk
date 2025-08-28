@@ -48,10 +48,14 @@ rule step:
 		# Extract bin with VP (region1)
 		intersectBed -a {input.binned} -b {input.vp} -wa -u > {output.region1}
 		
-		# Expand the region of interest to +- 2Mb (slop)
-		slopBed -i {output.region1} -g {input.genome} -b 2000000 > {output.slop}
+		# (ARCHIVED) Expand the region of interest to +- 2Mb (slop)
+		# slopBed -i {output.region1} -g {input.genome} -b 2000000 > {output.slop}
 		
-		# Create 5kb windows with 500 bp steps within 4Mb regions (step)
+		# Get the chromosome name from the viewpoint file, find the full size of ghromozome, and create slope for the entire chromosome
+		grep -w "$(cut -f1 {output.region1})" {input.genome} | awk '{{print $1 "\\t0\\t" $2}}' > {output.slop}
+
+
+		# Create (res) kb windows with 0.05*(res) bp steps within regions (step)
 		window=$((1000*{params.res}))
 		step=$((50*{params.res}))
 		bedtools makewindows -b {output.slop} -w ${{window}} -s ${{step}} > {output.step}
