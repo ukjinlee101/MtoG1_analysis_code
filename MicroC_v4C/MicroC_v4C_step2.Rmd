@@ -182,10 +182,10 @@ for(vp in vpList){
 ```
 ## Many genes (local normalization)
 ```{r}
-bgDir <- here("..", "data", "v4C", "bedgraph_parallel_localNorm")
+bgDir <- here("..", "data", "v4C", "bedgraph_parallel_chrLocalNorm")
 dir.create(bgDir, showWarnings = FALSE, recursive = TRUE)
 statDir <- here("..", "data", "v4C", "stats")
-allInfoDir <- here("..", "data", "v4C", "allInfo_parallel")
+allInfoDir <- here("..", "data", "v4C", "allInfo_parallel_chr")
 
 
 fileList <- as_tibble(list.files(allInfoDir))

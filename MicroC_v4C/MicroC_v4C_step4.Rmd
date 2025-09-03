@@ -1,0 +1,807 @@
+---
+title: "R Notebook"
+---
+
+# IMPORTING REQUIRED PACKAGES
+```{r}
+# LIST OF PACKAGES
+pkgs = c(
+  "tidyverse",
+  "here",
+  "svglite",
+  "ggplot2",
+  "ggrepel",
+  "stringr",
+  "BiocManager",
+  "RColorBrewer",
+  "viridis",
+  "magick",
+  "nlme",
+  "ashr",
+  "factoextra",
+  "plotly",
+  "remotes",
+  "cowplot", "tibble", "dplyr",
+  "gridExtra",
+  "eulerr", "data.table", "clusterProfiler", "zoo"
+)
+bio_pkgs = c("biomaRt",
+             "DESeq2",
+             "ComplexHeatmap",
+             "apeglm",
+             "vsn", "caTools",
+             "sva",
+             "limma",
+             "mixOmics", "plotgardener", "org.Mm.eg.db")
+
+# INSTALL PACKAGES
+#install.packages(pkgs)
+#BiocManager::install(bio_pkgs)
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+
+#remotes::install_github("EvaYiwenWang/PLSDAbatch")
+require(PLSDAbatch)
+
+# CLEANING
+rm(pkgs, bio_pkgs)
+
+options(scipen = 999)
+```
+# Make v4c
+(1) Extract read pairs which a readmate maps from the 10kb  bin that the read mate maps around the vitual read point
+(2) Make successive over-lapping windows for each chromosome at a 10 kb resolution (1 kb step)
+(3) Counted all secondmapped read mate in all overlapping bins
+-- up until this part is done by step1.sh
+(4) Normalize with CPM for total Micro_C reads
+(5) Visualize
+## Visualization
+```{r}
+mmToLinePlotgarden <- 1/0.75
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+weak_red <- lighten(strong_red, amount = 0.4)   # FF7D81
+weak_blue <- lighten(strong_blue, amount = 0.4) # 8A91DD
+no_grey <- "#A8A8A8"
+
+strong_teel <- "#0892A5"
+strong_green <- "#23CE6B" # A485
+strong_darkgreen <- "#054A29"
+strong_yellow <- "#FFBA49"
+strong_orange <- "#F18F01" # dTAG
+strong_lightpurple <- "#BD93D8"
+strong_purple <- "#9E33CB" # Epi
+
+color_esc_light <- "#f28e2c"
+color_esc_dark <- colorspace::darken(color_esc_light, amount = 0.3)
+"#AA5F00"
+color_epi <- "#009b77"
+color_epi_dark <- colorspace::darken(color_epi, amount = 0.3)
+"#006B51"
+################################################################################
+# IMPORTING PARAMETERS & SAMPLE LIST
+################################################################################
+library(Gviz)
+library(plotgardener)
+
+bgDir <- here("..", "data", "v4C", "bedgraph_parallel_chrLocalNorm")
+allInfoDir <- here("..", "data", "v4C", "allInfo_parallel_chr")
+loopDir <- here("..", "data", "loop_analysis")
+refDir <- here("..", "reference")
+
+fileList <- as_tibble(list.files(allInfoDir))
+
+fileList <- fileList %>% dplyr::rowwise() %>% dplyr::mutate(ensembl = unlist(strsplit(value, "\\."))[[2]],
+                           note = unlist(strsplit(value, "\\."))[[3]],
+                           gene = unlist(strsplit(note, "__"))[[1]],
+                           vp = paste(ensembl, gene, sep = "."))
+vpList <- unique(fileList$vp)
+expList <- c("G1DMSO_pooled", "G1dTAG_pooled", "G1A485_pooled", "EpiG1DMSO_pooled", "EpiG1dTAG_pooled", "GSE178982_AsyncUT_pooled", "GSE178982_AsyncAID_pooled")
+resList <- c(5, 10)
+################################################################################
+################################################################################
+# TEMPORARY
+vp <- "ENSMUSG00000022346.Myc"
+res <- 10
+expName <- expList[1]
+################################################################################
+# IMPORTING TRACKS
+################################################################################
+# Import bedgraph
+tb_ESC_DMSO <- fread(here(bgDir, paste0("v4C_", vp, "__", "G1DMSO_pooled", "__", res, "kb_localNorm.bedGraph" )))
+colnames(tb_ESC_DMSO) <- c("chrom", "start", "end", "score")
+bg_ESC_DMSO <- makeGRangesFromDataFrame(tb_ESC_DMSO, keep.extra.columns = TRUE)
+keep <- countOverlaps(bg_ESC_DMSO) == 1
+bg_ESC_DMSO <- bg_ESC_DMSO[keep]
+# Import bedgraph
+tb_EpiLC_DMSO <- fread(here(bgDir, paste0("v4C_", vp, "__", "EpiG1DMSO_pooled", "__", res, "kb_localNorm.bedGraph" )))
+colnames(tb_EpiLC_DMSO) <- c("chrom", "start", "end", "score")
+bg_EpiLC_DMSO <- makeGRangesFromDataFrame(tb_EpiLC_DMSO, keep.extra.columns = TRUE)
+keep <- countOverlaps(bg_EpiLC_DMSO) == 1
+bg_EpiLC_DMSO <- bg_EpiLC_DMSO[keep]
+
+# Import bedgraph
+tb_ESC_dTAG <- fread(here(bgDir, paste0("v4C_", vp, "__", "G1dTAG_pooled", "__", res, "kb_localNorm.bedGraph" )))
+colnames(tb_ESC_dTAG) <- c("chrom", "start", "end", "score")
+bg_ESC_dTAG <- makeGRangesFromDataFrame(tb_ESC_dTAG, keep.extra.columns = TRUE)
+keep <- countOverlaps(bg_ESC_dTAG) == 1
+bg_ESC_dTAG <- bg_ESC_dTAG[keep]
+# Import bedgraph
+tb_EpiLC_dTAG <- fread(here(bgDir, paste0("v4C_", vp, "__", "EpiG1dTAG_pooled", "__", res, "kb_localNorm.bedGraph" )))
+colnames(tb_EpiLC_dTAG) <- c("chrom", "start", "end", "score")
+bg_EpiLC_dTAG <- makeGRangesFromDataFrame(tb_EpiLC_dTAG, keep.extra.columns = TRUE)
+keep <- countOverlaps(bg_EpiLC_dTAG) == 1
+bg_EpiLC_dTAG <- bg_EpiLC_dTAG[keep]
+
+# Make differential bedgraph
+tb_diff_ESCvsEpiLC <- tb_ESC_DMSO %>% left_join(tb_EpiLC_DMSO, by = c("chrom", "start", "end")) %>%
+  dplyr::mutate(score = score.y - score.x) %>%
+  dplyr::select(chrom, start, end, score)
+bg_diff_ESCvsEpiLC <- makeGRangesFromDataFrame(tb_diff_ESCvsEpiLC, keep.extra.columns = TRUE)
+keep <- countOverlaps(bg_diff_ESCvsEpiLC) == 1
+bg_diff_ESCvsEpiLC <- bg_diff_ESCvsEpiLC[keep]
+
+# Make differential bedgraph
+tb_diff_ESC_dTAGvsDMSO <- tb_ESC_DMSO %>% left_join(tb_ESC_dTAG, by = c("chrom", "start", "end")) %>%
+  dplyr::mutate(score = score.y - score.x) %>%
+  dplyr::select(chrom, start, end, score)
+bg_diff_ESC_dTAGvsDMSO <- makeGRangesFromDataFrame(tb_diff_ESC_dTAGvsDMSO, keep.extra.columns = TRUE)
+keep <- countOverlaps(bg_diff_ESC_dTAGvsDMSO) == 1
+bg_diff_ESC_dTAGvsDMSO <- bg_diff_ESC_dTAGvsDMSO[keep]
+
+# Make differential bedgraph
+tb_diff_EpiLC_dTAGvsDMSO <- tb_EpiLC_DMSO %>% left_join(tb_EpiLC_dTAG, by = c("chrom", "start", "end")) %>%
+  dplyr::mutate(score = score.y - score.x) %>%
+  dplyr::select(chrom, start, end, score)
+bg_diff_EpiLC_dTAGvsDMSO <- makeGRangesFromDataFrame(tb_diff_EpiLC_dTAGvsDMSO, keep.extra.columns = TRUE)
+keep <- countOverlaps(bg_diff_EpiLC_dTAGvsDMSO) == 1
+bg_diff_EpiLC_dTAGvsDMSO <- bg_diff_EpiLC_dTAGvsDMSO[keep]
+
+# CHIP TRACKS
+bw_H3K4me3_ESC <- here(refDir, "ChIP", "H3K4me3", "H3K4me3_ESC_avg_depthNorm.bw")
+bed_H3K4me3_ESCspecific <- here(refDir, "ChIP", "differential", "H3K4me3_diff_specific_ESC.bed")
+bw_H3K27ac_ESC <- here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_avg_depthNorm.bw")
+bed_H3K27ac_ESCspecific <- here(refDir, "ChIP", "differential", "H3K27ac_diff_specific_ESC.bed")
+bw_H3K4me3_EpiLC <- here(refDir, "ChIP", "H3K4me3", "H3K4me3_EpiLC_avg_depthNorm.bw")
+bed_H3K4me3_EpiLCspecific <- here(refDir, "ChIP", "differential", "H3K4me3_diff_specific_EpiLC.bed")
+bw_H3K27ac_EpiLC <- here(refDir, "ChIP", "H3K27ac", "H3K27ac_EpiLC_avg_depthNorm.bw")
+bed_H3K27ac_EpiLCspecific <- here(refDir, "ChIP", "differential", "H3K27ac_diff_specific_EpiLC.bed")
+bw_RAD21_ESC <- here(refDir, "ChIP", "RAD21-HA", "RAD21_ESC-DMSO_avg_spikeNorm_inputNorm.bw") 
+bw_RAD21_EpiLC <- here(refDir, "ChIP", "RAD21-HA", "RAD21_EpiLC_avg_spikeNorm_inputNorm.bw") 
+
+# PROMOTER LOOPS
+bedpe_promoterLoops <- here(loopDir, "chromosight_score_complex_allP.bedpe")
+################################################################################
+# DEFINING RANGES
+################################################################################
+# Y ranges for virtual 4C
+ymin <- 0
+ymax <- if_else(res == 10, 800, 800)
+diffYmax <- if_else(res == 10, 300, 300)
+
+# X ranges 
+data <- as_tibble(fread(here(bgDir, paste0("v4C_", vp, "__", "G1DMSO_pooled", "__", res, "kb_localNorm.bedGraph" ))))
+cutoff <- 75
+xmin <- min((data %>% dplyr::filter(V4 > cutoff))$V2)
+xmax <- max((data %>% dplyr::filter(V4 > cutoff))$V2)
+chr <- data$V1[1]
+
+# Y ranges for ChIP
+region_gr <- GRanges(seqnames = chr,
+                     ranges = IRanges(start = xmin,
+                                      end = xmax))
+## H3K4me3 range
+bw_subset1 <- rtracklayer::import.bw(bw_H3K4me3_ESC, which = region_gr)
+bw_subset2 <- rtracklayer::import.bw(bw_H3K4me3_EpiLC, which = region_gr)
+max_score <- max(bw_subset1$score, bw_subset2$score)
+common_range_H3K4me3 <- c(0, ceiling(max_score / 0.1) * 0.1)
+
+## H3K27ac range
+bw_subset1 <- rtracklayer::import.bw(bw_H3K27ac_ESC, which = region_gr)
+bw_subset2 <- rtracklayer::import.bw(bw_H3K27ac_EpiLC, which = region_gr)
+max_score <- max(bw_subset1$score, bw_subset2$score)
+common_range_H3K27ac <- c(0, ceiling(max_score / 0.1) * 0.1)
+
+
+## RAD21 range
+bw_subset1 <- rtracklayer::import.bw(bw_RAD21_ESC, which = region_gr)
+bw_subset2 <- rtracklayer::import.bw(bw_RAD21_EpiLC, which = region_gr)
+max_score <- max(bw_subset1$score, bw_subset2$score)
+common_range_RAD21 <- c(0, ceiling(max_score / 0.1) * 0.1)
+
+## Defining the genomic region to plot
+plot_region <- pgParams(
+    chrom = chr,
+    chromstart = xmin,
+    chromend = xmax,
+    assembly = "mm10"
+)
+```
+
+
+```{r}
+################################################################################
+# Plot 1: Drawing ESC vs EpiLC DMSO
+################################################################################
+xPosition <- 0.25
+yPosition <- 0.4
+width <- 3.5
+height.v4C <- 0.5
+height.v4CDiff <- 0.2
+height.chip <- 0.1
+height.chipPeak <- 0.05
+yPositionShift <- "0.15b"
+yPositionShiftSmall <- "0.05b"
+yPositionShiftMini <- "0.025b"
+
+yPositionShiftNum <- 0.15
+yPositionShiftSmallNum <- 0.05
+yPositionShiftMiniNum <- 0.025
+textShift <- 0.05
+fontfamily <- "Helvetica"
+# Create a new page for the plot
+pdf("my_genomic_plot.pdf", width = 4, height = 8)
+pageCreate(width = 4, height = 8, default.units = "inches")
+# --- TITLE ---
+plotText(
+    label = paste0("Virtual 4C, ", unlist(strsplit(vp, "\\."))[2], " (", res, "kb resolution)"),
+    x = 0.2, y = 0.2,
+    just = "left",
+    fontface = "bold",
+    fontsize = 8, fontfamily = fontfamily
+)
+# --- v4C G1 ESC DMSO---
+plotText(label = "G1.ESC.DMSO", x = xPosition + textShift, y = yPosition, just = "left",
+    fontsize = 6, fontfamily = fontfamily)
+# Plot the signal track
+v4C.ESC.DMSO <- plotSignal(
+    data = bg_ESC_DMSO,
+    params = plot_region,
+    range = c(ymin, ymax),
+    x = xPosition, y = yPosition, width = width, height = height.v4C,
+    just = c("left", "top"),
+    linecolor = color_esc_dark, lwd = 0.25*mmToLinePlotgarden,
+    fill = color_esc_dark
+)
+annoYaxis(
+    plot = v4C.ESC.DMSO,
+    axisLine = TRUE, lineend = "square",
+    fontsize = 4, fontfamily = fontfamily
+)
+# --- ChIP H3K4me3 ESC ---
+plotText(label = "H3K4me3", x = xPosition + textShift, y = yPositionShiftSmall, just = "left",
+    fontsize = 6, fontfamily = fontfamily)
+chip.h3k4me3.ESC <- plotSignal(
+    data = bw_H3K4me3_ESC,
+    params = plot_region, range = common_range_H3K4me3,
+    x = xPosition, y = yPositionShiftSmall, width = width, height = height.chip,
+    just = c("left", "top"),
+    linecolor = strong_green,
+    fill = strong_green
+)
+annoYaxis(
+    plot = chip.h3k4me3.ESC,
+    axisLine = TRUE, lineend = "square",
+    fontsize = 4, fontfamily = fontfamily
+)
+# --- ESC specific peaks ---
+plotText(label = "ESC specific peak", x = xPosition + textShift, y = yPositionShiftMini, just = "left",
+    fontsize = 4, fontfamily = fontfamily)
+plotRanges(
+    data = bed_H3K4me3_ESCspecific,
+    params = plot_region,
+    x = xPosition, y = yPositionShiftMini, width = width, height = height.chipPeak,
+    just = c("left", "top"),
+    fill = strong_green
+)
+# --- ChIP H3K27ac ESC ---
+plotText(label = "H3K27ac", x = xPosition + textShift, y = yPositionShiftSmall, just = "left",
+    fontsize = 6, fontfamily = fontfamily)
+chip.H3K27ac.ESC <- plotSignal(
+    data = bw_H3K27ac_ESC,
+    params = plot_region, range = common_range_H3K27ac,
+    x = xPosition, y = yPositionShiftSmall, width = width, height = height.chip,
+    just = c("left", "top"),
+    linecolor = strong_green,
+    fill = strong_green
+)
+annoYaxis(
+    plot = chip.H3K27ac.ESC,
+    axisLine = TRUE, lineend = "square",
+    fontsize = 4, fontfamily = fontfamily
+)
+# --- ESC specific peaks ---
+plotText(label = "ESC specific peak", x = xPosition + textShift, y = yPositionShiftMini, just = "left",
+    fontsize = 4, fontfamily = fontfamily)
+plotRanges(
+    data = bed_H3K27ac_ESCspecific,
+    params = plot_region,
+    x = xPosition, y = yPositionShiftMini, width = width, height = height.chipPeak,
+    just = c("left", "top"),
+    fill = strong_green
+)
+# --- ChIP RAD21 ESC ---
+plotText(label = "RAD21", x = xPosition + textShift, y = yPositionShiftSmall, just = "left",
+    fontsize = 6, fontfamily = fontfamily)
+chip.RAD21.ESC <- plotSignal(
+    data = bw_RAD21_ESC,
+    params = plot_region, range = common_range_RAD21,
+    x = xPosition, y = yPositionShiftSmall, width = width, height = height.chip,
+    just = c("left", "top"),
+    linecolor = strong_green,
+    fill = strong_green
+)
+annoYaxis(
+    plot = chip.RAD21.ESC,
+    axisLine = TRUE, lineend = "square",
+    fontsize = 4, fontfamily = fontfamily
+)
+
+
+# --- v4C G1 EpiLC DMSO---
+# The y-coordinate "0.2b" places this plot 0.2 inches below the previous one
+plotText(label = "G1.EpiLC.DMSO", x = xPosition + textShift, y = yPositionShiftSmall, just = "left",
+         fontsize = 6, fontfamily = fontfamily)
+v4C.EpiLC.DMSO <- plotSignal(
+    data = bg_Epi_DMSO,
+    params = plot_region,
+    range = c(ymin, ymax),
+    x = xPosition, y = yPositionShiftSmall, width = width, height = height.v4C,
+    just = c("left", "top"),
+    linecolor = color_epi_dark, lwd = 0.25*mmToLinePlotgarden,
+    fill = color_epi_dark
+)
+annoYaxis(
+    plot = v4C.EpiLC.DMSO,
+    axisLine = TRUE, lineend = "square",
+    fontsize = 4, fontfamily = fontfamily
+)
+
+# --- ChIP H3K4me3 EpiLC ---
+plotText(label = "H3K4me3", x = xPosition + textShift, y = yPositionShiftSmall, just = "left",
+    fontsize = 6, fontfamily = fontfamily)
+chip.h3k4me3.EpiLC <- plotSignal(
+    data = bw_H3K4me3_EpiLC,
+    params = plot_region, range = common_range_H3K4me3,
+    x = xPosition, y = yPositionShiftSmall, width = width, height = height.chip,
+    just = c("left", "top"),
+    linecolor = strong_green,
+    fill = strong_green
+)
+annoYaxis(
+    plot = chip.h3k4me3.EpiLC,
+    axisLine = TRUE, lineend = "square",
+    fontsize = 4, fontfamily = fontfamily
+)
+# --- EpiLC specific peaks ---
+plotText(label = "EpiLC specific peak", x = xPosition + textShift, y = yPositionShiftMini, just = "left",
+    fontsize = 4, fontfamily = fontfamily)
+plotRanges(
+    data = bed_H3K4me3_EpiLCspecific,
+    params = plot_region,
+    x = xPosition, y = yPositionShiftMini, width = width, height = height.chipPeak,
+    just = c("left", "top"),
+    fill = strong_green
+)
+# --- ChIP H3K27ac EpiLC ---
+plotText(label = "H3K27ac", x = xPosition + textShift, y = yPositionShiftSmall, just = "left",
+    fontsize = 6, fontfamily = fontfamily)
+chip.H3K27ac.EpiLC <- plotSignal(
+    data = bw_H3K27ac_EpiLC,
+    params = plot_region, range = common_range_H3K27ac,
+    x = xPosition, y = yPositionShiftSmall, width = width, height = height.chip,
+    just = c("left", "top"),
+    linecolor = strong_green,
+    fill = strong_green
+)
+annoYaxis(
+    plot = chip.H3K27ac.EpiLC,
+    axisLine = TRUE, lineend = "square",
+    fontsize = 4, fontfamily = fontfamily
+)
+# --- EpiLC specific peaks ---
+plotText(label = "EpiLC specific peak", x = xPosition + textShift, y = yPositionShiftMini, just = "left",
+    fontsize = 4, fontfamily = fontfamily)
+plotRanges(
+    data = bed_H3K27ac_EpiLCspecific,
+    params = plot_region,
+    x = xPosition, y = yPositionShiftMini, width = width, height = height.chipPeak,
+    just = c("left", "top"),
+    fill = strong_green
+)
+# --- ChIP RAD21 EpiLC ---
+plotText(label = "RAD21", x = xPosition + textShift, y = yPositionShiftSmall, just = "left",
+    fontsize = 6, fontfamily = fontfamily)
+chip.RAD21.EpiLC <- plotSignal(
+    data = bw_RAD21_EpiLC,
+    params = plot_region, range = common_range_RAD21,
+    x = xPosition, y = yPositionShiftSmall, width = width, height = height.chip,
+    just = c("left", "top"),
+    linecolor = strong_green,
+    fill = strong_green
+)
+annoYaxis(
+    plot = chip.RAD21.EpiLC,
+    axisLine = TRUE, lineend = "square",
+    fontsize = 4, fontfamily = fontfamily
+)
+
+pageGuideHide()
+
+dev.off()
+```
+
+
+```{r}
+
+# --- v4C G1 Differential --
+positive_scores_gr <- bg_diff_ESCvsEpi[bg_diff_ESCvsEpi$score > 0]
+negative_scores_gr <- bg_diff_ESCvsEpi[bg_diff_ESCvsEpi$score < 0]
+
+
+plotText(label = "Δ (EpiLC - ESC)", x = xPosition + textShift, y = yPositionShift, just = "left",
+         fontsize = 6, fontfamily = fontfamily)
+v4C.diff.EpiLCvsESC <- plotSignal(
+  data = negative_scores_gr,
+  params = plot_region,
+  range = c(-diffYmax, diffYmax),
+  x = xPosition, y = yPositionShift, width = width, height = height.v4CDiff,
+  just = c("left", "top"),
+  linecolor = color_esc_dark, lwd = 0.25*mmToLinePlotgarden, baseline = FALSE,
+  fill = color_esc_dark
+)
+plotSignal(
+  data = positive_scores_gr,
+  params = plot_region,
+  range = c(-diffYmax, diffYmax),
+  x = xPosition, y = yPosition + yPositionShiftNum*2 + height.v4C*2 , width = width, height = height.v4CDiff,
+  just = c("left", "top"),
+  linecolor = color_epi_dark, lwd = 0.25*mmToLinePlotgarden, baseline = FALSE,
+  fill = color_epi_dark
+)
+annoYaxis(
+  plot = v4C.diff.EpiLCvsESC,
+  axisLine = TRUE, lineend = "square",
+  fontsize = 4, fontfamily = fontfamily
+)
+
+dev.off()
+```
+
+
+```{r}
+# --- ESC specific peaks ---
+plotText(label = "ESC specific H3K27ac", x = 0.6, y = "0.1b", just = "left")
+plotRanges(
+    data = bed_H3K27ac_ESCspecific,
+    params = plot_region,
+    x = 0.5, y = "0.1b", width = 6.5, height = 0.2,
+    just = c("left", "top"),
+    fill = "#1B9E77"
+)
+# --- Plot the second BedGraph file ---
+
+
+# --- promoter loops ---
+plotText(label = "All promoter loops", x = 0.6, y = "0.1b", just = "left")
+plotPairsArches(
+    data = bedpe_promoterLoops,
+    params = plot_region,
+    x = 0.5, y = "0.1b", width = 6.5, height = 1.5,
+    just = c("left", "top"),
+    fill = "#E7298A",
+    linecolor = "#E7298A"
+)
+# --- genome axis ---
+plotGenes(
+    params = plot_region,
+    x = 0.5, y = "0.3b", width = 6.5, height = 1,
+    just = c("left", "top")
+)
+plotGenomeLabel(
+    params = plot_region,
+    x = 0.5, y = "0.1b", length = 6.5,
+    fontsize = 10
+)
+
+
+
+
+# for(vp in vpList){
+#   for(res in resList){
+#     for(expName in expList){
+#       
+#     }}}
+
+```
+
+
+```{r}
+# Import RDS
+  reads.ESC.D1 <- readRDS(here(rdsDir, paste0(VP, "_ESC-G1DMSO_Exp1-Rep1.rds")))$reads
+  reads.ESC.D2 <- readRDS(here(rdsDir, paste0(VP, "_ESC-G1DMSO_Exp2-Rep1.rds")))$reads
+  reads.EPI.D1 <- readRDS(here(rdsDir, paste0(VP, "_Epi-G1DMSO_Exp1-Rep1.rds")))$reads
+  reads.EPI.D2 <- readRDS(here(rdsDir, paste0(VP, "_Epi-G1DMSO_Exp2-Rep1.rds")))$reads
+  
+  vpChr <- as.character(unique(seqnames(reads.ESC.D1)))
+  
+  # Make sliding bin
+  bin.ESC.D1 <- as_tibble(slideBinNormReads(reads.ESC.D1, binSize, shiftSize)) %>%
+    dplyr::mutate(reads.ESC.D1 = reads) %>% dplyr::select(start, reads.ESC.D1)
+  bin.ESC.D2 <- as_tibble(slideBinNormReads(reads.ESC.D2, binSize, shiftSize)) %>%
+    dplyr::mutate(reads.ESC.D2 = reads) %>% dplyr::select(start, reads.ESC.D2)
+  bin.EPI.D1 <- as_tibble(slideBinNormReads(reads.EPI.D1, binSize, shiftSize)) %>%
+    dplyr::mutate(reads.EPI.D1 = reads) %>% dplyr::select(start, reads.EPI.D1)
+  bin.EPI.D2 <- as_tibble(slideBinNormReads(reads.EPI.D2, binSize, shiftSize)) %>%
+    dplyr::mutate(reads.EPI.D2 = reads) %>% dplyr::select(start, reads.EPI.D2)
+  
+  bin.data <- full_join(bin.ESC.D1, bin.ESC.D2, by = "start") %>% 
+    full_join(bin.EPI.D1, by = "start") %>%
+    full_join(bin.EPI.D2, by = "start")
+  
+  bin.data <- bin.data %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(reads.avg.ESC.D = (reads.ESC.D1 + reads.ESC.D2)/2,
+                  reads.avg.EPI.D = (reads.EPI.D1 + reads.EPI.D2)/2,
+                  reads.ESC.D.lower = min(reads.ESC.D1, reads.ESC.D2),
+                  reads.ESC.D.upper = max(reads.ESC.D1, reads.ESC.D2),
+                  reads.EPI.D.lower = min(reads.EPI.D1, reads.EPI.D2),
+                  reads.EPI.D.upper = max(reads.EPI.D1, reads.EPI.D2),
+                  pos = start + binSize/2)
+  
+  #### Visualization
+  accentColor <- "darkolivegreen1"
+  pvalueCutoff <- 0.05
+  
+  
+  
+  # Filtering data
+  bin.data.ranged <- bin.data %>%
+    dplyr::filter(pos > vp.pos - range.minus) %>%
+    dplyr::filter(pos < vp.pos + range.plus)
+  
+  bin.data.ranged <- bin.data.ranged %>% dplyr::mutate_at(vars(-pos), 
+                                                          ~ifelse(pos > vp.pos - binSize &
+                                                                    pos < vp.pos + binSize,
+                                                                  NA, .))
+  # Adding significant box 1, EPI vs ESC
+  
+  # temp <- bin.data.ranged %>%
+  #   dplyr::filter(complete.cases(reads.ESC.D1, reads.ESC.D2, reads.EPI.D1, reads.EPI.D2)) %>%
+  #   dplyr::rowwise() %>%
+  #   dplyr::mutate(pvalue = (t.test(c(reads.ESC.D1, reads.ESC.D2), c(reads.EPI.D1, reads.EPI.D2),
+  #                                  alternative = "two.sided", paired = FALSE))$p.value)
+  # 
+  # temp2 = temp %>% dplyr::filter(pvalue < pvalueCutoff)
+  # rect.df = data.frame(
+  #   xmin = temp2$start,
+  #   xmax = temp2$start + binSize
+  # )
+  
+  # Panel 1: ESC vs EPI DMSO, binned sliding
+  gg1 <- ggplot(bin.data.ranged) +
+    # Significant box
+    # geom_rect(data = rect.df, aes(xmin = xmin, xmax = xmax, ymin = 0, ymax = yrange),
+    #           fill = accentColor, alpha = 1) +
+    # Zero line
+    geom_hline(yintercept = 0,
+               color = "black",
+               size = lineThick*mmToLineUnit,
+               lineend = "square") +
+    # Line plot
+    geom_line(aes(x = pos, y = reads.avg.ESC.D), 
+              linetype = "solid", color = "black",
+              linewidth = lineThick*mmToLineUnit, lineend = "square") +
+    geom_line(aes(x = pos, y = reads.avg.EPI.D), 
+              linetype = "solid", color = strong_purple,
+              linewidth = lineThick*mmToLineUnit, lineend = "square") +
+    geom_ribbon(aes(x = pos, ymin = reads.ESC.D.lower, ymax = reads.ESC.D.upper), 
+                color = NA, fill = "black", alpha = 0.3) +
+    geom_ribbon(aes(x = pos, ymin = reads.EPI.D.lower, ymax = reads.EPI.D.upper), 
+                color = NA, fill = strong_purple, alpha = 0.3) +
+    scale_x_continuous(expand = c(0, 0), labels = label_kb_mb,
+                       limits = c(vp.pos - range.minus, vp.pos + range.plus)) +
+    scale_y_continuous(breaks = seq(0, yrange, by = 500),
+                       labels = scales::number_format(accuracy = 1), limits = c(0, yrange)) +
+    theme_classic() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent")
+    ) +
+    labs(x = NULL, y = "normalized 4C signal")  +
+    annotate("text", x = vp.pos - range.minus, y = yrange, label = " G1.ESC.DMSO (black), G1.Epi.DMSO (purple)", 
+             size = fontSizeM/3, family = fontType, hjust = 0, vjust = 1)
+  
+  # Panel 2: EPI DMSO - ESC DMSO
+  yrange.max2 <- ceiling(max(bin.data.ranged$reads.avg.EPI.D - bin.data.ranged$reads.avg.ESC.D, na.rm = TRUE)/100)*100
+  yrange.min2 <- floor(min(bin.data.ranged$reads.avg.EPI.D - bin.data.ranged$reads.avg.ESC.D, na.rm = TRUE)/100)*100
+  
+  gg2 <- ggplot(bin.data.ranged) +
+    # geom_rect(data = rect.df, aes(xmin = xmin, xmax = xmax, ymin = yrange.min2, ymax = yrange.max2),
+    #           fill = accentColor, alpha = 1) +
+    geom_ribbon(aes(x = pos, ymin = 0, ymax = pmax(0, reads.avg.EPI.D - reads.avg.ESC.D)), 
+                fill = strong_red, alpha = 1) +
+    geom_ribbon(aes(x = pos, ymin = 0, ymax = pmin(0, reads.avg.EPI.D - reads.avg.ESC.D)), 
+                fill = strong_blue,alpha = 1) +
+    geom_hline(yintercept = 0,
+               size = lineThick*mmToLineUnit,
+               lineend = "square") +
+    scale_x_continuous(expand = c(0, 0), labels = label_kb_mb,
+                       limits = c(vp.pos - range.minus, vp.pos + range.plus)) +
+    scale_y_continuous(breaks = seq(yrange.min2, yrange.max2, by = 200),
+                       labels = scales::number_format(accuracy = 1), limits = c(yrange.min2, yrange.max2)) +
+    theme_classic() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent")
+    ) +
+    labs(x = NULL, y =  "normalized 4C signal") +
+    annotate("text", x = vp.pos - range.minus, y = yrange.max2, label = " G1.Epi.DMSO - G1.ESC.DMSO", 
+             size = fontSizeM/3, family = fontType, hjust = 0, vjust = 1)
+  
+  
+  ######### Plot
+  width <- panelSize(3)*mmToInch
+  height <- panelSize(1.5)*mmToInch
+  
+  
+  pdf(here(figDir, paste0("visualization_", VP, "_4C_EpivsESC_bin", floor(binSize/1000),
+                          "kb_wSize", wSize, 
+                          "_range_L", floor(range.minus/1000),
+                          "_R", floor(range.plus/1000), ".pdf")), onefile = TRUE, width = width, height = height)
+  print(plot_grid(gg1, gg2, align = 'v', axis = 'b', ncol = 1))
+  dev.off()
+}
+make4Cfigure_type1_track <- function(vp.pos, VP, binSize, shiftSize, wSize,
+                                  range.plus, range.minus, yrange, yrange.min, yrange.max,
+                                  genome, ymaxEpi, genomePanelSize = 2){
+  reads.ESC.D1 <- readRDS(here(rdsDir, paste0(VP, "_ESC-G1DMSO_Exp1-Rep1.rds")))$reads
+  vpChr <- as.character(unique(seqnames(reads.ESC.D1)))
+  
+  chromosome <- vpChr
+  start_pos <- vp.pos - range.minus
+  end_pos <- vp.pos + range.plus
+  
+  purple1 <- lighten(strong_purple, amount = 0.08*7)
+  purple2 <- lighten(strong_purple, amount = 0.08*6)
+  purple3 <- lighten(strong_purple, amount = 0.08*5)
+  purple4 <- lighten(strong_purple, amount = 0.08*4)
+  purple5 <- lighten(strong_purple, amount = 0.08*3)
+  purple6<- lighten(strong_purple, amount = 0.08*2)
+  purple7 <- lighten(strong_purple, amount = 0.08*1)
+  
+  # Read data
+  axisTrack <- GenomeAxisTrack(labelPos = "below", 
+                               col = "black",
+                               fontsize = fontSizeS*5/4, fontcolor = "black",
+                               lwd = lineThick)
+  
+  fm <- Gviz:::.getBMFeatureMap()
+  fm["symbol"] <- "external_gene_name"
+  bm <-BiomartGeneRegionTrack(chromosome=chromosome, genome=genome, 
+                              start=start_pos, end = end_pos, 
+                              biomart=ensembl.v102, filters=list("biotype" = c("protein_coding", "lncRNA", "miRNA", "lincRNA")),
+                              collapseTranscripts="longest",
+                              featureMap=fm,
+                              name="Gene",
+                              cex=1, col = "black", 
+                              fontcolor.title = "black",
+                              fontcolor = "black", fontfamily = fontType, fontsize = fontSizeS*5/3,
+                              fontcolor.group = "black", fontfamily.group = fontType, fontsize.group = fontSizeS*5/3,
+                              lwd = lineThick, showId = TRUE)
+  
+  
+  track0 <- createDataTrackNoYlim(
+    "GSM2438476_EC-DG-3458-H3K27AC_ASYN_1_bin50bp.bw",
+    "black",
+    "H3K27ac ESC"
+  )
+  track1 <- createDataTrack(
+    "GSM3314701_H3K27ac-0h_mm10Lifsted.black_bin50bp.bw",
+    purple1,
+    "H3K27ac EpiLC 0h", ymaxEpi
+  )
+  track2 <- createDataTrack(
+    "GSM3314702_H3K27ac-1h_mm10Lifsted.black_bin50bp.bw",
+    purple2,
+    "H3K27ac EpiLC 1h", ymaxEpi
+  )
+  track3 <- createDataTrack(
+    "GSM3314703_H3K27ac-6h_mm10Lifsted.black_bin50bp.bw",
+    purple3,
+    "H3K27ac EpiLC 6h", ymaxEpi
+  )
+  track4 <- createDataTrack(
+    "GSM3314704_H3K27ac-12h_mm10Lifsted.black_bin50bp.bw",
+    purple4,
+    "H3K27ac EpiLC 12h", ymaxEpi
+  )
+  track5 <- createDataTrack(
+    "GSM3314705_H3K27ac-24h_mm10Lifsted.black_bin50bp.bw",
+    purple5,
+    "H3K27ac EpiLC 24h", ymaxEpi
+  )
+  track6 <- createDataTrack(
+    "GSM3314706_H3K27ac-36h_mm10Lifsted.black_bin50bp.bw",
+    purple6,
+    "H3K27ac EpiLC 36h", ymaxEpi
+  )
+  track7 <- createDataTrack(
+    "GSM3314707_H3K27ac-48h_mm10Lifsted.black_bin50bp.bw",
+    purple7,
+    "H3K27ac EpiLC 48h", ymaxEpi
+  )
+  track8 <- createDataTrack(
+    "GSM3314708_H3K27ac-72h_mm10Lifsted.black_bin50bp.bw",
+    strong_purple,
+    "H3K27ac EpiLC 72h", ymaxEpi
+  )
+  
+  width <- panelSize(3.28)*mmToInch
+  height <- panelSize(2.5)*mmToInch
+  
+  pdf(here(figDir, paste0("visualization_", VP, "_ChIPseq_bin", floor(binSize/1000),
+                          "kb_wSize", wSize, 
+                          "_range_L", floor(range.minus/1000),
+                          "_R", floor(range.plus/1000), ".pdf")), onefile = TRUE, width = width, height = height)
+  plotTracks(c(axisTrack, bm, track0, track1, track2, track3, track4, track5, track6, track7, track8 ),
+             from = start_pos, to = end_pos, type = "histogram",
+             sizes = c(2, genomePanelSize, 2, 2, 2, 2, 2, 2, 2, 2, 2))
+  dev.off()
+}
+
+```
+

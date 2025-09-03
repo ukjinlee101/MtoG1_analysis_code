@@ -8363,7 +8363,8 @@ for(i in seq(1, nrow(temp))){
 ```
 
 # [7] EpiLC Micro-C & ChIP-seq analysis
-## Linking differential ChIP-seq to gene
+## Gene-centric approach
+### Linking differential ChIP-seq to gene
 ```{r}
 # IMPORTING PEAKS
 chipDir <- here(refDir, "ChIP")
@@ -8381,7 +8382,7 @@ peak.H3K27ac.EpiLC <- makeGRangesFromDataFrame(fread(
 ))
 ```
 
-## H3K4me3 TSS genes
+### H3K4me3 TSS genes
 ```{r}
 # Linking H3K4me3 with TSS
 flankSize <- 2500
@@ -8405,8 +8406,8 @@ fwrite(gene.filtered.tb, here(dataDir, "gene_H3K4me3_diff_specific_EpiLC.tsv"), 
 geneList.H3K4me3 <- gene.filtered.tb$V5
 ```
 
-## H3K27ac genes
-### Anchor with P
+### H3K27ac genes
+#### Anchor with P
 ```{r}
 # Linking H3K27ac with TSS
 loop.tb <- fread(here(dataDir, "loopScore_chromosight.tsv"))
@@ -8432,8 +8433,8 @@ geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", "chrom
 temp <- (geneAnnoData %>% dplyr::filter(id %in% loop.filtered.hasP.tb$id))
 geneList.hasP <- unlist(temp$gene)
 ```
-### Anchor without P
-#### Strategy 1, assignign nonP reg loops to nearest expressed genes regardless of TAD domain.
+#### Anchor without P
+##### Strategy 1, assignign nonP reg loops to nearest expressed genes regardless of TAD domain.
 ```{r}
 # Import TAD
 # tad <- fread(here(dataDir, "../TAD", "TAD_25kb_125kb_otsu_G1DMSO_pooled.bed"))
@@ -8517,7 +8518,7 @@ geneList.noP.strat1 <- (final_annotated_loops %>% dplyr::filter(!is.na(nearest_g
 # fwrite(out, here(dataDir, "gene_H3K27ac_diff_specific_EpiLC.tsv"), sep = "\t")
 ```
 
-#### Strategy 2, Find connected network and use the genes annotated to promoter within the network
+##### Strategy 2, Find connected network and use the genes annotated to promoter within the network
 ```{r}
 library(igraph)
 
@@ -8551,7 +8552,7 @@ geneList.noP.strat2 <- unlist((loop.filtered.noP.tb %>% left_join(hubInfo, by = 
 
 ```
 
-### Merge and export gene list
+#### Merge and export gene list
 ```{r}
 venn_list <- list(
   "K27ac Has Promoter" = geneList.hasP,
@@ -8608,7 +8609,7 @@ fwrite(gene.tb %>% dplyr::filter(V5 %in% c(geneList.H3K4me3, geneList.hasP, gene
        here(dataDir, "gene_both_diff_specific_EpiLC_strategy2.tsv"), sep = "\t")
 
 ```
-### Statistical analysis
+#### Statistical analysis
 ```{r}
 alpha <- 0.05
 fcCutoff <- 0.5
@@ -8675,14 +8676,7 @@ ggplot(diff.RNA %>% dplyr::filter(padj < alpha) %>% mutate(flag = if_else(ensemb
 
 ```
 
-
-
-```{r}
-
-```
-
-
-## EXPLORATORY
+## Loop-centric approach
 ### APA on EpiLC only called loops
 ```{r}
 # diffCutoff <- 0.2
@@ -8766,416 +8760,521 @@ ggplot(diff.RNA %>% dplyr::filter(padj < alpha) %>% mutate(flag = if_else(ensemb
 
 ```
 ### Filtering loops associated with differential chip-seq peaks (both H3K4me3 and H3K27ac)
-#### Importing ChIP-seq peaks and expanding them
 ```{r}
-# IMPORTING PEAKS
+
+# --- 1. PROGRAMMATICALLY IMPORT PEAKS ---
 chipDir <- here("..", "reference", "ChIP")
 
-peak.H3K27ac.EpiLC <- makeGRangesFromDataFrame(fread(
-  here(chipDir, "temp", "H3K27ac_diff_specific_EpiLC.bed"),
-  select = 1:3,
-  col.names = c("chr", "start", "end")
-))
-peak.H3K27ac.ESC <- makeGRangesFromDataFrame(fread(
-  here(chipDir, "temp", "H3K27ac_diff_specific_ESC.bed"),
-  select = 1:3,
-  col.names = c("chr", "start", "end")
-))
-peak.H3K27ac.common <- makeGRangesFromDataFrame(fread(
-  here(chipDir, "temp", "H3K27ac_diff_noChange.bed"),
-  select = 1:3,
-  col.names = c("chr", "start", "end")
-))
+# Create a list of peak files and generate clean names
+peak_files <- list.files(here(chipDir, "differential"),
+                         pattern = "specific.*\\.bed$", full.names = TRUE)
+peak_names <- basename(peak_files) %>%
+  gsub("_diff_specific_", ".", .) %>%
+  gsub("\\.bed$", "", .)
 
-peak.H3K4me3.EpiLC <- makeGRangesFromDataFrame(fread(
-  here(chipDir, "temp", "H3K4me3_diff_specific_EpiLC.bed"),
-  select = 1:3,
-  col.names = c("chr", "start", "end")
-))
-peak.H3K4me3.ESC <- makeGRangesFromDataFrame(fread(
-  here(chipDir, "temp", "H3K4me3_diff_specific_ESC.bed"),
-  select = 1:3,
-  col.names = c("chr", "start", "end")
-))
-peak.H3K4me3.common <- makeGRangesFromDataFrame(fread(
-  here(chipDir, "temp", "H3K4me3_diff_noChange.bed"),
-  select = 1:3,
-  col.names = c("chr", "start", "end")
-))
+# Read all peak files into a named list of GRanges objects
+peak_list <- lapply(peak_files, function(f) {
+  makeGRangesFromDataFrame(fread(f, select = 1:3, col.names = c("chr", "start", "end")))
+}) %>% setNames(peak_names)
 
-peak.Epi <- c(peak.H3K27ac.EpiLC, peak.H3K4me3.EpiLC)
-peak.ESC <- c(peak.H3K27ac.ESC, peak.H3K4me3.ESC)
+# Combine peaks for analysis
+peak.Epi <- c(peak_list$H3K27ac.EpiLC, peak_list$H3K4me3.EpiLC)
+peak.ESC <- c(peak_list$H3K27ac.ESC, peak_list$H3K4me3.ESC)
 
-# IMPORTING LOOPS
+
+
+
+# --- 2. IMPORT AND FILTER LOOPS ---
 data <- fread(here(commonLoopDir, "loopScore_chromosight_extra.tsv"))
 
 loop <- data %>% dplyr::select(seq(1, 6))
 colnames(loop) <- c("V1", "V2", "V3", "V4", "V5", "V6")
 loop <- importBedpe(loop)
 
-index <- unique(c(queryHits(findOverlaps(first(loop), peak.Epi)),
-                     queryHits(findOverlaps(second(loop), peak.Epi))))
-loop.Epi <- loop[index]
-index <- unique(c(queryHits(findOverlaps(first(loop), peak.ESC)),
-                     queryHits(findOverlaps(second(loop), peak.ESC))))
-loop.ESC <- loop[index]
 
-# fwrite(as_tibble(loop.Epi) %>% dplyr::select(c(1, 2, 3, 6, 7, 8)), here(dataDir, "temp_loop_epi.bedpe"), sep = "\t", col.names = FALSE)
-# fwrite(as_tibble(loop.ESC) %>% dplyr::select(c(1, 2, 3, 6, 7, 8)), here(dataDir, "temp_loop_esc.bedpe"), sep = "\t", col.names = FALSE)
+# Helper function to find loops overlapping with peaks
+find_overlapping_loops <- function(loops, peaks) {
+  idx <- unique(c(
+    queryHits(findOverlaps(first(loops), peaks)),
+    queryHits(findOverlaps(second(loops), peaks))
+  ))
+  loops[idx]
+}
 
-temp.Epi <- as_tibble(loop.Epi) %>% dplyr::mutate(id = paste(seqnames1, start1-1, end1, seqnames2, start2-1, end2, sep = "_"))
-temp.ESC <- as_tibble(loop.ESC) %>% dplyr::mutate(id = paste(seqnames1, start1-1, end1, seqnames2, start2-1, end2, sep = "_"))
+loop.Epi <- find_overlapping_loops(loop, peak.Epi)
+loop.ESC <- find_overlapping_loops(loop, peak.ESC)
 
+fwrite(as_tibble(loop.Epi) %>% dplyr::select(c(1, 2, 3, 6, 7, 8)), here(dataDir, "loop_ChIP_diff_EpiLCspecific.bedpe"), sep = "\t", col.names = FALSE)
+fwrite(as_tibble(loop.ESC) %>% dplyr::select(c(1, 2, 3, 6, 7, 8)), here(dataDir, "loop_ChIP_diff_ESCspecific.bedpe"), sep = "\t", col.names = FALSE)
 
-# Scatterplot
-temp <- as_tibble(loop.Epi) %>% dplyr::mutate(id = paste(seqnames1, start1-1, end1, seqnames2, start2-1, end2, sep = "_"))
-data_to_plot <- data %>% dplyr::filter(id %in% temp$id)
-temp <- data_to_plot %>%
-  dplyr::mutate(density = get_density(score_DMSO, score_EpiDMSO, n = 200))
-  density_limits <- range(temp$density, na.rm = TRUE)
-diffCutoff <- 0.2
+# Generate IDs for joining
+temp.Epi <- as_tibble(loop.Epi) %>%
+  mutate(id = paste(seqnames1, start1-1, end1, seqnames2, start2-1, end2, sep = "_"))
+loopIDList.Epi <- temp.Epi$id
 
-  # ------ Scatterplot ------
-  p1 <- ggplot(temp, aes(x = score_DMSO, y = score_EpiDMSO)) +
-    # Layer 1: Plot "NO" points with a grey scale
-    geom_point(data = . %>% arrange(density),
-               aes(color = density), size = 0.1) +
-    # Add annotations and theme elements
-    xlim(-0.5, 1) + ylim(-0.5, 1) + coord_fixed() +
-    geom_abline(slope = 1, intercept = 0, col = "grey50", linetype = "dashed",
-                color = "black",
-                size = lineThick*mmToLineUnit,
-                lineend = "square") +
-    geom_abline(slope = 1, intercept = -diffCutoff, col = "grey", linetype = "dotted",
-                color = "black",
-                size = lineThick*mmToLineUnit,
-                lineend = "square") +
-    geom_abline(slope = 1, intercept = diffCutoff, col = "grey", linetype = "dotted",
-                color = "black",
-                size = lineThick*mmToLineUnit,
-                lineend = "square") +
-    geom_hline(yintercept = 0, alpha = 0.5, color = "grey",
-               color = "black",
-               size = lineThick*mmToLineUnit,
-               lineend = "square") +
-    geom_vline(xintercept = 0, alpha = 0.5, color = "grey",
-               color = "black",
-               size = lineThick*mmToLineUnit,
-               lineend = "square") +
-    theme_classic() +
-    theme(
-      legend.position = "none",
-      plot.title = element_text(
-        hjust = 0.5,
-        size = fontSizeS,
-        family = fontType
-      ),
-      axis.title = element_text(
-        size = fontSizeS,
-        family = fontType,
-        color = "#000000"
-      ),
-      axis.text = element_text(
-        size = fontSizeS,
-        family = fontType,
-        color = "#000000"
-      ),
-      axis.line = element_line(
-        color = "#000000",
-        size = lineThick*mmToLineUnit,
-        lineend = "square"
-      ),
-      axis.ticks = element_line(
-        color = "#000000",
-        size = lineThick*mmToLineUnit,
-        lineend = "square"
-      ),
-      panel.background = element_rect(fill = "transparent"),
-    )
-  width <- panelSize(1.5)*mmToInch
-  height <- panelSize(1.5)*mmToInch
+temp.ESC <- as_tibble(loop.ESC) %>%
+  mutate(id = paste(seqnames1, start1-1, end1, seqnames2, start2-1, end2, sep = "_"))
+loopIDList.ESC <- temp.ESC$id
 
-  name = "ChIP_diff_Epispecific"
-  fileName <- paste0("scatterplot_", name)
+# --- 3. REUSABLE PLOTTING FUNCTION & THEME ---
+# Define a common theme to reduce code duplication
+common_theme <- theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.title = element_text(size = fontSizeS, family = fontType, color = "black"),
+    axis.text = element_text(size = fontSizeS, family = fontType, color = "black"),
+    axis.line = element_line(color = "black", size = lineThick * mmToLineUnit, lineend = "square"),
+    axis.ticks = element_line(color = "black", size = lineThick * mmToLineUnit, lineend = "square"),
+    panel.background = element_rect(fill = "transparent")
+  )
 
-  png(here(figDir, paste0(fileName, ".png")),
-      width = width, height = height, units = "in", res = 600)
-  print(p1)
-  dev.off()
-  
-  temp <- data_to_plot %>%
-  dplyr::mutate(density = get_density(score_DMSO, score_dTAG, n = 200))
-  density_limits <- range(temp$density, na.rm = TRUE)
-diffCutoff <- 0.2
+# Function to generate and save scatterplots
+generate_scatterplot <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
+  plot_data <- df %>%
+    mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
 
-  # ------ Scatterplot ------
-  p1 <- ggplot(temp, aes(x = score_DMSO, y = score_dTAG)) +
-    # Layer 1: Plot "NO" points with a grey scale
-    geom_point(data = . %>% arrange(density),
-               aes(color = density), size = 0.1) +
-    # Add annotations and theme elements
-    xlim(-0.5, 1) + ylim(-0.5, 1) + coord_fixed() +
-    geom_abline(slope = 1, intercept = 0, col = "grey50", linetype = "dashed",
-                color = "black",
-                size = lineThick*mmToLineUnit,
-                lineend = "square") +
-    geom_abline(slope = 1, intercept = -diffCutoff, col = "grey", linetype = "dotted",
-                color = "black",
-                size = lineThick*mmToLineUnit,
-                lineend = "square") +
-    geom_abline(slope = 1, intercept = diffCutoff, col = "grey", linetype = "dotted",
-                color = "black",
-                size = lineThick*mmToLineUnit,
-                lineend = "square") +
-    geom_hline(yintercept = 0, alpha = 0.5, color = "grey",
-               color = "black",
-               size = lineThick*mmToLineUnit,
-               lineend = "square") +
-    geom_vline(xintercept = 0, alpha = 0.5, color = "grey",
-               color = "black",
-               size = lineThick*mmToLineUnit,
-               lineend = "square") +
-    theme_classic() +
-    theme(
-      legend.position = "none",
-      plot.title = element_text(
-        hjust = 0.5,
-        size = fontSizeS,
-        family = fontType
-      ),
-      axis.title = element_text(
-        size = fontSizeS,
-        family = fontType,
-        color = "#000000"
-      ),
-      axis.text = element_text(
-        size = fontSizeS,
-        family = fontType,
-        color = "#000000"
-      ),
-      axis.line = element_line(
-        color = "#000000",
-        size = lineThick*mmToLineUnit,
-        lineend = "square"
-      ),
-      axis.ticks = element_line(
-        color = "#000000",
-        size = lineThick*mmToLineUnit,
-        lineend = "square"
-      ),
-      panel.background = element_rect(fill = "transparent"),
-    )
-  width <- panelSize(1.5)*mmToInch
-  height <- panelSize(1.5)*mmToInch
+  p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
+    coord_fixed() +
+    scale_x_continuous(limits = limits) +
+    scale_y_continuous(limits = limits) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
+    geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    common_theme
 
-  name = "ChIP_diff_Epispecific_dTAGvsDMSO"
-  fileName <- paste0("scatterplot_", name)
+  # Save the plot
+  ggsave(
+    filename = here(figDir, paste0("scatterplot_", name, ".png")),
+    plot = p,
+    width = panelSize(1.5) * mmToInch,
+    height = panelSize(1.5) * mmToInch,
+    dpi = 600
+  )
+}
 
-  png(here(figDir, paste0(fileName, ".png")),
-      width = width, height = height, units = "in", res = 600)
-  print(p1)
-  dev.off()
-  
-   temp <- data_to_plot %>%
-  dplyr::mutate(density = get_density(score_EpiDMSO, score_EpidTAG, n = 200))
-  density_limits <- range(temp$density, na.rm = TRUE)
-diffCutoff <- 0.2
+# --- 4. GENERATE PLOTS ---
 
-  # ------ Scatterplot ------
-  p1 <- ggplot(temp, aes(x = score_EpiDMSO, y = score_EpidTAG)) +
-    # Layer 1: Plot "NO" points with a grey scale
-    geom_point(data = . %>% arrange(density),
-               aes(color = density), size = 0.1) +
-    # Add annotations and theme elements
-    xlim(-0.5, 1) + ylim(-0.5, 1) + coord_fixed() +
-    geom_abline(slope = 1, intercept = 0, col = "grey50", linetype = "dashed",
-                color = "black",
-                size = lineThick*mmToLineUnit,
-                lineend = "square") +
-    geom_abline(slope = 1, intercept = -diffCutoff, col = "grey", linetype = "dotted",
-                color = "black",
-                size = lineThick*mmToLineUnit,
-                lineend = "square") +
-    geom_abline(slope = 1, intercept = diffCutoff, col = "grey", linetype = "dotted",
-                color = "black",
-                size = lineThick*mmToLineUnit,
-                lineend = "square") +
-    geom_hline(yintercept = 0, alpha = 0.5, color = "grey",
-               color = "black",
-               size = lineThick*mmToLineUnit,
-               lineend = "square") +
-    geom_vline(xintercept = 0, alpha = 0.5, color = "grey",
-               color = "black",
-               size = lineThick*mmToLineUnit,
-               lineend = "square") +
-    theme_classic() +
-    theme(
-      legend.position = "none",
-      plot.title = element_text(
-        hjust = 0.5,
-        size = fontSizeS,
-        family = fontType
-      ),
-      axis.title = element_text(
-        size = fontSizeS,
-        family = fontType,
-        color = "#000000"
-      ),
-      axis.text = element_text(
-        size = fontSizeS,
-        family = fontType,
-        color = "#000000"
-      ),
-      axis.line = element_line(
-        color = "#000000",
-        size = lineThick*mmToLineUnit,
-        lineend = "square"
-      ),
-      axis.ticks = element_line(
-        color = "#000000",
-        size = lineThick*mmToLineUnit,
-        lineend = "square"
-      ),
-      panel.background = element_rect(fill = "transparent"),
-    )
-  width <- panelSize(1.5)*mmToInch
-  height <- panelSize(1.5)*mmToInch
-
-  name = "ChIP_diff_Epispecific_EpidTAGvsEpiDMSO"
-  fileName <- paste0("scatterplot_", name)
-
-  png(here(figDir, paste0(fileName, ".png")),
-      width = width, height = height, units = "in", res = 600)
-  print(p1)
-  dev.off()
-  
-  
-  # Violin plot
-pseudo_ooe = 0.01
-  plot_df_ooe <- temp %>%
-    dplyr::select(id, ooe_DMSO, ooe_dTAG, ooe_EpiDMSO, ooe_EpidTAG) %>%
-    dplyr::filter(!is.na(ooe_DMSO), !is.na(ooe_dTAG), !is.na(ooe_EpiDMSO), !is.na(ooe_EpidTAG)) %>%
-    dplyr::mutate(
-      ooe_DMSO = if_else(ooe_DMSO == 0, pseudo_ooe, ooe_DMSO),
-      ooe_dTAG = if_else(ooe_dTAG == 0, pseudo_ooe, ooe_dTAG),
-      ooe_EpiDMSO = if_else(ooe_EpiDMSO == 0, pseudo_ooe, ooe_EpiDMSO),
-      ooe_EpidTAG = if_else(ooe_EpidTAG == 0, pseudo_ooe, ooe_EpidTAG),
-      fc_ESC    = log2(ooe_dTAG / ooe_DMSO),
-      fc_Epi = log2(ooe_EpidTAG/ooe_EpiDMSO)
-    )
-  
-  plot_df_ooe <- plot_df_ooe %>% dplyr::select(fc_ESC, fc_Epi) %>% pivot_longer(everything(), names_to = "condition")
-
-  plot_df_ooe$condition <- factor(plot_df_ooe$condition, levels = c("fc_ESC", "fc_Epi"))
-  
-  p3 <- ggplot(plot_df_ooe, aes(x = condition, y = value, fill = condition)) +
-    geom_violin(linewidth = lineThick * mmToLineUnit, lineend = "square", alpha = .4, show.legend = FALSE) + 
-    geom_boxplot(width = 0.3, color = "black",
-                 linewidth = lineThick * mmToLineUnit, lineend = "square",
-                 outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + 
-    theme_classic() + 
-    stat_summary(
-      aes(group = condition), fun = mean,
-      geom = "point", shape = 21, size = 0.5,
-      fill = "black", color = "black", position = position_dodge(.3)
-    ) +
-    coord_cartesian(ylim = c(-3, 3)) +
-    scale_fill_manual(values = c(strong_red, "grey30", strong_blue)) +
-    theme(
-      axis.title.x = element_blank(),
-      axis.title.y = element_text(
-        size = fontSizeM,
-        family = fontType,
-        color = "#000000"
-      ),
-      axis.text = element_text(
-        size = fontSizeS,
-        family = fontType,
-        color = "#000000"
-      ),
-      axis.text.x = element_text(
-        size = fontSizeM,
-        angle = 45,      # Rotate x-axis labels 45 degrees
-        hjust = 1,       # Adjust horizontal justification
-        vjust = 1        # Adjust vertical justification
-      ),
-      axis.line = element_line(
-        color = "#000000",
-        size = lineThick*mmToLineUnit,
-        lineend = "square"
-      ),
-      axis.ticks = element_line(
-        color = "#000000",
-        size = lineThick*mmToLineUnit,
-        lineend = "square"
-      ),
-      panel.background = element_rect(fill = "transparent"),
-      legend.text = element_text(family = fontType, size = fontSizeS),
-      legend.title = element_text(family = fontType, size = fontSizeS)
-    ) +labs(y = "log2 fc of obs/exp")  +
-    geom_hline(yintercept = 0,
-               alpha = 1,
-               color = "black",
-               size = lineThick*mmToLineUnit,
-               lineend = "square") +
-    geom_hline(yintercept = c(-0.5, 0.5),
-               alpha = 0.5,
-               color = "black",
-               size = lineThick*mmToLineUnit,
-               lineend = "square", linetype = "dashed")
-  
-  
-  width <- panelSize(1.5)*mmToInch
-  height <- panelSize(1.5)*mmToInch
-  fileName <- paste0("violin_", name)
-  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-  print(p3)
-  dev.off()  
-  
-
-# Annotation of those loops
+# Generate the first three scatterplots
+data_to_plot <- data %>% dplyr::filter(id %in% loopIDList.Epi)
+generate_scatterplot(data_to_plot, "score_DMSO",    "score_EpiDMSO", "ChIP_diff_EpiLCspecific_EpiLCvsESC")
+generate_scatterplot(data_to_plot, "score_DMSO",    "score_dTAG",    "ChIP_diff_EpiLCspecific_ESCdTAGvsESCDMSO")
+generate_scatterplot(data_to_plot, "score_EpiDMSO", "score_EpidTAG", "ChIP_diff_EpiLCspecific_EpiLCdTAGvsEpiLCDMSO")
+data_to_plot <- data %>% dplyr::filter(id %in% loopIDList.ESC)
+generate_scatterplot(data_to_plot, "score_DMSO",    "score_EpiDMSO", "ChIP_diff_ESCspecific_EpiLCvsESC")
+generate_scatterplot(data_to_plot, "score_DMSO",    "score_dTAG",    "ChIP_diff_ESCspecific_ESCdTAGvsESCDMSO")
+generate_scatterplot(data_to_plot, "score_EpiDMSO", "score_EpidTAG", "ChIP_diff_ESCspecific_EpiLCdTAGvsEpiLCDMSO")
 
 
+# Prepare data for O/E analysis
+pseudo_ooe <- 0.01
+## EpiLC
+data_to_plot <- data %>% dplyr::filter(id %in% loopIDList.Epi)
+plot_df_ooe <- data_to_plot %>%
+  dplyr::select(id, ooe_DMSO, ooe_dTAG, ooe_EpiDMSO, ooe_EpidTAG) %>%
+  na.omit() %>%
+  mutate(
+    across(starts_with("ooe_"), ~ if_else(. == 0, pseudo_ooe, .)),
+    fc_ESC = log2(ooe_dTAG / ooe_DMSO),
+    fc_Epi = log2(ooe_EpidTAG / ooe_EpiDMSO)
+  )
+
+# --- Violin Plot ---
+plot_df_ooe_long <- plot_df_ooe %>%
+  select(fc_ESC, fc_Epi) %>%
+  pivot_longer(everything(), names_to = "condition", values_to = "value") %>%
+  mutate(condition = factor(condition, levels = c("fc_ESC", "fc_Epi")))
+
+p_violin <- ggplot(plot_df_ooe_long, aes(x = condition, y = value, fill = condition)) +
+  geom_violin(linewidth = lineThick * mmToLineUnit, alpha = .4, show.legend = FALSE) +
+  geom_boxplot(width = 0.3, outlier.shape = NA, alpha = 0.6, show.legend = FALSE, linewidth = lineThick * mmToLineUnit) +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 0.5, fill = "black") +
+  geom_hline(yintercept = c(-0.5, 0.5), linetype = "dashed", alpha = 0.5, color = "black", size = lineThick * mmToLineUnit) +
+  geom_hline(yintercept = 0, color = "black", size = lineThick * mmToLineUnit) +
+  coord_cartesian(ylim = c(-3, 3)) +
+  scale_fill_manual(values = c(strong_red, strong_blue)) +
+  labs(y = "log2 fc of obs/exp") +
+  common_theme +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = fontSizeM),
+    axis.title.y = element_text(size = fontSizeM)
+  )
+
+svglite(here(figDir, "violin_ChIP_diff_EpiLCspecific_EpiLCvsESC.svg"), height = panelSize(1.5)*mmToInch, width = panelSize(1.5)*mmToInch)
+print(p_violin)
+dev.off()
+
+# --- Final Scatterplot ---
+generate_scatterplot(
+  df = plot_df_ooe,
+  x_var = "fc_ESC",
+  y_var = "fc_Epi",
+  name = "ChIP_diff_EpiLCspecific_EpiLCvsESC",
+  limits = NULL, # Use default data limits
+  diff_cutoff = 0.5
+)
 
 
-#
-loop.reg <- data %>% dplyr::filter(Anno %in% c("P-P", "P-E", "E-E")) %>%
-  dplyr::select(seq(1, 6))
-colnames(loop.reg) <- c("V1", "V2", "V3", "V4", "V5", "V6")
-loop.reg <- importBedpe(loop.reg)
-loop.str <- data %>% dplyr::filter(Anno %in% c("S-S", "S-X")) %>%
-  dplyr::select(seq(1, 6))
-colnames(loop.str) <- c("V1", "V2", "V3", "V4", "V5", "V6")
-loop.str <- importBedpe(loop.str)
-#
+## ESC
+data_to_plot <- data %>% dplyr::filter(id %in% loopIDList.ESC)
+plot_df_ooe <- data_to_plot %>%
+  dplyr::select(id, ooe_DMSO, ooe_dTAG, ooe_EpiDMSO, ooe_EpidTAG) %>%
+  na.omit() %>%
+  mutate(
+    across(starts_with("ooe_"), ~ if_else(. == 0, pseudo_ooe, .)),
+    fc_ESC = log2(ooe_dTAG / ooe_DMSO),
+    fc_Epi = log2(ooe_EpidTAG / ooe_EpiDMSO)
+  )
+
+# --- Violin Plot ---
+plot_df_ooe_long <- plot_df_ooe %>%
+  select(fc_ESC, fc_Epi) %>%
+  pivot_longer(everything(), names_to = "condition", values_to = "value") %>%
+  mutate(condition = factor(condition, levels = c("fc_ESC", "fc_Epi")))
+
+p_violin <- ggplot(plot_df_ooe_long, aes(x = condition, y = value, fill = condition)) +
+  geom_violin(linewidth = lineThick * mmToLineUnit, alpha = .4, show.legend = FALSE) +
+  geom_boxplot(width = 0.3, outlier.shape = NA, alpha = 0.6, show.legend = FALSE, linewidth = lineThick * mmToLineUnit) +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 0.5, fill = "black") +
+  geom_hline(yintercept = c(-0.5, 0.5), linetype = "dashed", alpha = 0.5, color = "black", size = lineThick * mmToLineUnit) +
+  geom_hline(yintercept = 0, color = "black", size = lineThick * mmToLineUnit) +
+  coord_cartesian(ylim = c(-3, 3)) +
+  scale_fill_manual(values = c(strong_red, strong_blue)) +
+  labs(y = "log2 fc of obs/exp") +
+  common_theme +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = fontSizeM),
+    axis.title.y = element_text(size = fontSizeM)
+  )
+
+svglite(here(figDir, "violin_ChIP_diff_ESCspecific_EpiLCvsESC.svg"), height = panelSize(1.5)*mmToInch, width = panelSize(1.5)*mmToInch)
+print(p_violin)
+dev.off()
+
+# --- Final Scatterplot ---
+generate_scatterplot(
+  df = plot_df_ooe,
+  x_var = "fc_ESC",
+  y_var = "fc_Epi",
+  name = "ChIP_diff_ESCspecific_EpiLCvsESC",
+  limits = NULL, # Use default data limits
+  diff_cutoff = 0.5
+)
 
 
-index <- unique(c(queryHits(findOverlaps(first(loop.reg), peak.Epi)),
-                     queryHits(findOverlaps(second(loop.reg), peak.Epi))))
-loop.reg.Epi <- loop.reg[index]
-index <- unique(c(queryHits(findOverlaps(first(loop.reg), peak.ESC)),
-                     queryHits(findOverlaps(second(loop.reg), peak.ESC))))
-loop.reg.ESC <- loop.reg[index]
-index <- unique(c(queryHits(findOverlaps(first(loop.str), peak.Epi)),
-                     queryHits(findOverlaps(second(loop.str), peak.Epi))))
-loop.str.Epi <- loop.str[index]
-index <- unique(c(queryHits(findOverlaps(first(loop.str), peak.ESC)),
-                     queryHits(findOverlaps(second(loop.str), peak.ESC))))
-loop.str.ESC <- loop.str[index]
-
-
-as_tibble(loop.reg.Epi) %>% dplyr::select(seq(1, 6))
-
-
-
-
-fwrite(as_tibble(loop.reg.Epi) %>% dplyr::select(c(1, 2, 3, 6, 7, 8)), here(dataDir, "temp_loop_reg_epi.bedpe"), sep = "\t", col.names = FALSE)
-fwrite(as_tibble(loop.reg.ESC) %>% dplyr::select(c(1, 2, 3, 6, 7, 8)), here(dataDir, "temp_loop_reg_esc.bedpe"), sep = "\t", col.names = FALSE)
-
-fwrite(as_tibble(loop.str.Epi) %>% dplyr::select(c(1, 2, 3, 6, 7, 8)), here(dataDir, "temp_loop_str_epi.bedpe"), sep = "\t", col.names = FALSE)
-fwrite(as_tibble(loop.str.ESC) %>% dplyr::select(c(1, 2, 3, 6, 7, 8)), here(dataDir, "temp_loop_str_esc.bedpe"), sep = "\t", col.names = FALSE)
 
 ```
+### Union loops, checking differential perturbation
+#### OOE fc
+```{r}
+pseudo_ooe <- 0.01
+data_to_plot <- data
+plot_df_ooe <- data_to_plot %>%
+  dplyr::select(id, ooe_DMSO, ooe_dTAG, ooe_EpiDMSO, ooe_EpidTAG) %>%
+  na.omit() %>%
+  mutate(
+    across(starts_with("ooe_"), ~ if_else(. == 0, pseudo_ooe, .)),
+    fc_ESC = log2(ooe_dTAG / ooe_DMSO),
+    fc_Epi = log2(ooe_EpidTAG / ooe_EpiDMSO)
+  )
+
+generate_scatterplot(
+  df = plot_df_ooe,
+  x_var = "fc_ESC",
+  y_var = "fc_Epi",
+  name = "allLoops_ooeFC_EpiLCvsESC",
+  limits = NULL, # Use default data limits
+  diff_cutoff = 0.5
+)
+
+# Filtering out loops of interest
+library(dbscan)
+
+# Select only the columns for clustering
+cluster_data <- plot_df_ooe %>% 
+  select(fc_ESC, fc_Epi)
+
+# Run DBSCAN. You may need to adjust 'eps' based on your data's scale.
+# 'eps = 1.5' is a good starting point for data on this scale.
+for(eps in c(0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2)){
+  set.seed(123) # for reproducibility
+  db_clusters <- dbscan(cluster_data, eps = eps, minPts = 10)
+  
+  # Add the cluster assignments back to your original data
+  # Cluster 0 represents noise/outliers
+  plot_df_ooe$cluster <- db_clusters$cluster
+  plot_df_ooe$cluster <- as.factor(plot_df_ooe$cluster)
+  
+  plot_data <- plot_df_ooe
+  diff_cutoff <- 0.5
+  p <- ggplot(plot_data, aes(x = fc_ESC, fc_Epi, colour = cluster)) +
+    geom_point(size = 0.5, alpha = 0.7) + # Simplified geom_point
+    coord_fixed() +
+    scale_y_continuous(limits = NULL) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
+    geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    common_theme + scale_color_brewer(palette = "Set1")
+  
+  # Save the plot
+  name <- paste0("allLoops_ooeFC_EpiLCvsESC_clusters_", eps)
+  ggsave(
+    filename = here(figDir, paste0("scatterplot_", name, ".png")),
+    plot = p,
+    width = panelSize(1.5) * mmToInch,
+    height = panelSize(1.5) * mmToInch,
+    dpi = 600
+  )
+}
+
+
+
+eps <- 0.5
+
+set.seed(123) # for reproducibility
+db_clusters <- dbscan(cluster_data, eps = eps, minPts = 10)
+
+# Add the cluster assignments back to your original data
+# Cluster 0 represents noise/outliers
+plot_df_ooe$cluster <- db_clusters$cluster
+plot_df_ooe$cluster <- as.factor(plot_df_ooe$cluster)
+
+for(i in seq(1, 6)){
+plot_data <- plot_df_ooe %>% dplyr::filter(cluster == i)
+diff_cutoff <- 0.5
+p <- ggplot(plot_data, aes(x = fc_ESC, fc_Epi, colour = cluster)) +
+  geom_point(size = 0.5, alpha = 0.7) + # Simplified geom_point
+  coord_fixed() +
+  scale_y_continuous(limits = c(-11, 10)) +
+    scale_x_continuous(limits = c(-11, 10)) +
+
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
+  geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+  geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+  geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+  common_theme + scale_color_brewer(palette = "Set1")
+  name <- paste0("allLoops_ooeFC_EpiLCvsESC_clusters_", eps, "_", i)
+  ggsave(
+    filename = here(figDir, paste0("scatterplot_", name, ".png")),
+    plot = p,
+    width = panelSize(1.5) * mmToInch,
+    height = panelSize(1.5) * mmToInch,
+    dpi = 600
+  )}
+
+# Saving specific cluster loops
+temp <- plot_df_ooe %>% dplyr::filter(cluster == 3)
+fwrite((data %>% dplyr::filter(id %in% temp$id)) %>% dplyr::select(seq(1, 6)), here(dataDir, "loop_fcCluster_EpiLCspecificPerturb.bedpe"), sep = "\t", col.names = FALSE)
+
+temp <- plot_df_ooe %>% dplyr::filter(cluster == 4)
+fwrite((data %>% dplyr::filter(id %in% temp$id)) %>% dplyr::select(seq(1, 6)), here(dataDir, "loop_fcCluster_ESCspecificPerturb.bedpe"), sep = "\t", col.names = FALSE)
+```
+##### Checking characteristics of specific perturb loops
+```{r}
+
+loop.EpiLCSpecificPerturb <- fread(here(dataDir, "loop_fcCluster_EpiLCspecificPerturb.bedpe"))
+colnames(loop.EpiLCSpecificPerturb) <- c("V1", "V2", "V3", "V4", "V5", "V6")
+loop.EpiLCSpecificPerturb <- importBedpe(loop.EpiLCSpecificPerturb)
+
+
+loop.ESCSpecificPerturb <- fread(here(dataDir, "loop_fcCluster_ESCspecificPerturb.bedpe"))
+colnames(loop.ESCSpecificPerturb) <- c("V1", "V2", "V3", "V4", "V5", "V6")
+loop.ESCSpecificPerturb <- importBedpe(loop.ESCSpecificPerturb)
+
+
+# Helper function to find loops overlapping with peaks
+find_overlapping_loops <- function(loops, peaks) {
+  idx <- unique(c(
+    queryHits(findOverlaps(first(loops), peaks)),
+    queryHits(findOverlaps(second(loops), peaks))
+  ))
+  loops[idx]
+}
+
+
+find_overlapping_loops(loop.EpiLCSpecificPerturb, peak.Epi)
+find_overlapping_loops(loop.EpiLCSpecificPerturb, peak.ESC)
+
+find_overlapping_loops(loop.ESCSpecificPerturb, peak.Epi)
+find_overlapping_loops(loop.ESCSpecificPerturb, peak.ESC)
+
+
+### classification
+make_table <- function(loop, name){
+  n <- nrow(loop)
+  temp <- loop %>% dplyr::select(id, Anno) %>%
+    dplyr::mutate(AnnoGroup = case_when(
+      
+      
+      Anno %in% c("P-P", "P-E", "E-E") ~ "Reg (P-P, P-E, E-E)",
+      
+      Anno %in% c("P-S", "E-S") ~ "Reg/Str mixed",
+      Anno %in% c("P-SP", "P-SE", "E-SP", "E-SE") ~ "Reg/Str mixed",
+      Anno %in% c("SP-SP", "SP-SE", "SE-SE") ~ "Reg/Str mixed",
+      Anno %in% c("SP-S", "SE-S") ~ "Reg/Str mixed",
+      
+      Anno %in% c("S-S", "S-X") ~ "Str (S-S, S-X)",
+      Anno %in% c("P-X", "E-X") ~ "Reg-Other",
+      Anno %in% c("SP-X", "SE-X") ~ "StrReg-Other",
+      Anno %in% c("X-X") ~ "Other",
+      TRUE ~ NA
+    ))
+  
+  
+  temp$AnnoGroup <- factor(temp$AnnoGroup, levels = c("Reg (P-P, P-E, E-E)",
+                                                      "Reg/Str mixed",
+                                                      "Str (S-S, S-X)",
+                                                      "Reg-Other",
+                                                      "StrReg-Other",
+                                                      "Other"))
+  
+  
+  pie_df <- temp %>%
+    as_tibble() %>%                          # if temp was a list, this will error early
+    group_by(AnnoGroup) %>%
+    summarise(n = n(), .groups = "drop")
+  colnames(pie_df) <- c("AnnoGroup", name)
+  return(pie_df)
+}
+
+loop.EpiLCSpecificPerturb <- fread(here(dataDir, "loop_fcCluster_EpiLCspecificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+loop.ESCSpecificPerturb <- fread(here(dataDir, "loop_fcCluster_ESCspecificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+
+loop <- data %>% dplyr::filter(id %in% loop.EpiLCSpecificPerturb$id)
+temp1 <- make_table(loop, "EpiLCspecificPerturb")
+loop <- data %>% dplyr::filter(id %in% loop.ESCSpecificPerturb$id)
+temp2 <- make_table(loop, "ESCspecificPerturb")
+
+
+temp <- temp1 %>% dplyr::full_join(temp2, by = "AnnoGroup")
+
+
+data_long <- temp %>% pivot_longer(cols = c("EpiLCspecificPerturb", "ESCspecificPerturb"))
+
+data_long$name <- factor(data_long$name, levels = c("EpiLCspecificPerturb", "ESCspecificPerturb"))
+
+p <- ggplot(data_long, aes(x = name, y = value, fill = AnnoGroup)) +
+  geom_bar(position="fill", stat="identity") +
+  labs(
+    x = NULL,         # Remove x-axis title
+    y = "Ratio"       # Change y-axis title
+  ) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1,          # Rotate x labels
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + 
+guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )
+  )
+
+```
+
+#### Delta score fc
+```{r}
+plot_df_delta <- data_to_plot %>%
+  dplyr::mutate(
+    delta_ESC = score_dTAG - score_DMSO,
+    delta_EpiLC = score_EpidTAG - score_EpiDMSO
+  )
+
+
+# Function to generate and save scatterplots
+generate_scatterplot2 <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
+  plot_data <- df %>%
+    mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
+
+  p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
+    coord_fixed() +
+    scale_x_continuous(limits = limits) +
+    scale_y_continuous(limits = limits) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
+    geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    common_theme
+
+  # Save the plot
+  ggsave(
+    filename = here(figDir, paste0("scatterplot_", name, ".png")),
+    plot = p,
+    width = panelSize(1.5) * mmToInch,
+    height = panelSize(1.5) * mmToInch,
+    dpi = 600
+  )
+}
+generate_scatterplot2(
+  df = plot_df_delta,
+  x_var = "delta_ESC",
+  y_var = "delta_EpiLC",
+  name = "allLoops_deltaScore_EpiLCvsESC",
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+temp <- plot_df_delta %>% dplyr::filter(delta_EpiLC < -0.2, 
+                                abs(delta_ESC) < 0.2,
+                                delta_EpiLC - delta_ESC < -0.2)
+fwrite((temp %>% dplyr::select(seq(1, 6))), here(dataDir, "loop_deltaScore_EpiLCspecificPerturb.bedpe"), sep = "\t", col.names = FALSE)
+
+generate_scatterplot2(
+  df = temp,
+  x_var = "delta_ESC",
+  y_var = "delta_EpiLC",
+  name = "allLoops_deltaScore_EpiLCvsESC_EpiLCspecific",
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+temp <- plot_df_delta %>% dplyr::filter(delta_ESC < -0.2, 
+                                abs(delta_EpiLC) < 0.2,
+                                 delta_ESC - delta_EpiLC < -0.2)
+fwrite((temp %>% dplyr::select(seq(1, 6))), here(dataDir, "loop_deltaScore_ESCspecificPerturb.bedpe"), sep = "\t", col.names = FALSE)
+
+generate_scatterplot2(
+  df = temp,
+  x_var = "delta_ESC",
+  y_var = "delta_EpiLC",
+  name = "allLoops_deltaScore_EpiLCvsESC_ESCspecific",
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+
+```
+
+
 
 ```{r}
 make_table <- function(loop, name){
@@ -9274,7 +9373,626 @@ svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
 print(p)
 dev.off()
 ```
+##### Checking characteristics of specific perturb loops
+```{r}
 
+loop.EpiLCSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_EpiLCspecificPerturb.bedpe"))
+colnames(loop.EpiLCSpecificPerturb) <- c("V1", "V2", "V3", "V4", "V5", "V6")
+loop.EpiLCSpecificPerturb <- importBedpe(loop.EpiLCSpecificPerturb)
+
+
+loop.ESCSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_ESCspecificPerturb.bedpe"))
+colnames(loop.ESCSpecificPerturb) <- c("V1", "V2", "V3", "V4", "V5", "V6")
+loop.ESCSpecificPerturb <- importBedpe(loop.ESCSpecificPerturb)
+
+
+# Helper function to find loops overlapping with peaks
+find_overlapping_loops <- function(loops, peaks) {
+  idx <- unique(c(
+    queryHits(findOverlaps(first(loops), peaks)),
+    queryHits(findOverlaps(second(loops), peaks))
+  ))
+  loops[idx]
+}
+
+
+length(find_overlapping_loops(loop.EpiLCSpecificPerturb, peak.Epi))/length(loop.EpiLCSpecificPerturb)
+find_overlapping_loops(loop.EpiLCSpecificPerturb, peak.ESC)
+
+find_overlapping_loops(loop.ESCSpecificPerturb, peak.Epi)
+find_overlapping_loops(loop.ESCSpecificPerturb, peak.ESC)
+
+
+### classification
+make_table <- function(loop, name){
+  n <- nrow(loop)
+  temp <- loop %>% dplyr::select(id, Anno) %>%
+    dplyr::mutate(AnnoGroup = case_when(
+      
+      
+      Anno %in% c("P-P", "P-E", "E-E") ~ "Reg (P-P, P-E, E-E)",
+      
+      Anno %in% c("P-S", "E-S") ~ "Reg/Str mixed",
+      Anno %in% c("P-SP", "P-SE", "E-SP", "E-SE") ~ "Reg/Str mixed",
+      Anno %in% c("SP-SP", "SP-SE", "SE-SE") ~ "Reg/Str mixed",
+      Anno %in% c("SP-S", "SE-S") ~ "Reg/Str mixed",
+      
+      Anno %in% c("S-S", "S-X") ~ "Str (S-S, S-X)",
+      Anno %in% c("P-X", "E-X") ~ "Reg-Other",
+      Anno %in% c("SP-X", "SE-X") ~ "StrReg-Other",
+      Anno %in% c("X-X") ~ "Other",
+      TRUE ~ NA
+    ))
+  
+  
+  temp$AnnoGroup <- factor(temp$AnnoGroup, levels = c("Reg (P-P, P-E, E-E)",
+                                                      "Reg/Str mixed",
+                                                      "Str (S-S, S-X)",
+                                                      "Reg-Other",
+                                                      "StrReg-Other",
+                                                      "Other"))
+  
+  
+  pie_df <- temp %>%
+    as_tibble() %>%                          # if temp was a list, this will error early
+    group_by(AnnoGroup) %>%
+    summarise(n = n(), .groups = "drop")
+  colnames(pie_df) <- c("AnnoGroup", name)
+  return(pie_df)
+}
+
+loop.EpiLCSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_EpiLCspecificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_")) 
+loop.ESCSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_ESCspecificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+
+loop <- data %>% dplyr::filter(id %in% loop.EpiLCSpecificPerturb$id)
+temp1 <- make_table(loop, "EpiLCspecificPerturb")
+loop <- data %>% dplyr::filter(id %in% loop.ESCSpecificPerturb$id)
+temp2 <- make_table(loop, "ESCspecificPerturb")
+
+
+temp <- temp1 %>% dplyr::full_join(temp2, by = "AnnoGroup")
+
+
+data_long <- temp %>% pivot_longer(cols = c("EpiLCspecificPerturb", "ESCspecificPerturb"))
+
+data_long$name <- factor(data_long$name, levels = c("EpiLCspecificPerturb", "ESCspecificPerturb"))
+
+p <- ggplot(data_long, aes(x = name, y = value, fill = AnnoGroup)) +
+  geom_bar(position="fill", stat="identity") +
+  labs(
+    x = NULL,         # Remove x-axis title
+    y = "Ratio"       # Change y-axis title
+  ) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1,          # Rotate x labels
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + 
+guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )
+  )
+
+```
+##### Checking related genes
+```{r}
+
+# IMPORTING GENE LIST OF INTERST
+extDir <- here("..", "RNA_231102_14065-14458-15127-H202SC24044572")
+alpha <- 0.05
+foldchange <- 0.5
+
+# Create a mapping of ensembl gene ID to external gene name for visualization
+geneIDNamePair <- bind_rows(fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.DMSO_vs_G1.2i.DMSO.tsv")),
+                            fread(here(extDir, "data", "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")),
+                            fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv"))) %>%
+  dplyr::select(ensembl_gene_id, external_gene_name) %>%
+  distinct()
+
+
+loop.EpiLCSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_EpiLCspecificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+loop.ESCSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_ESCspecificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+
+# EpiLC
+# annotating hasP
+geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", "chromosight", "_p-n_complex_ensemblList.tsv")))
+temp <- (geneAnnoData %>% dplyr::filter(id %in% loop.EpiLCSpecificPerturb$id))
+geneList.hasP.EpiLC <- unlist(temp$gene)
+
+
+# ESC
+temp <- (geneAnnoData %>% dplyr::filter(id %in% loop.ESCSpecificPerturb$id))
+geneList.hasP.ESC <- unlist(temp$gene)
+
+
+gene_background <- geneIDNamePair$ensembl_gene_id
+GO.1 <- enrichGO(gene = geneList.hasP.ESC, OrgDb = org.Mm.eg.db,
+                  keyType = "ENSEMBL", ont = "BP", readable = TRUE, universe = gene_background)
+GO.2 <- enrichGO(gene = geneList.hasP.EpiLC, OrgDb = org.Mm.eg.db,
+                  keyType = "ENSEMBL", ont = "BP", readable = TRUE, universe = gene_background)
+GO.1.df <- as.data.frame(GO.1)
+GO.2.df <- as.data.frame(GO.2)
+
+```
+
+# [8] Async vs G1
+```{r}
+# Define a common theme to reduce code duplication
+common_theme <- theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.title = element_text(size = fontSizeS, family = fontType, color = "black"),
+    axis.text = element_text(size = fontSizeS, family = fontType, color = "black"),
+    axis.line = element_line(color = "black", size = lineThick * mmToLineUnit, lineend = "square"),
+    axis.ticks = element_line(color = "black", size = lineThick * mmToLineUnit, lineend = "square"),
+    panel.background = element_rect(fill = "transparent")
+  )
+
+# Function to generate and save scatterplots
+generate_scatterplot <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
+  plot_data <- df %>%
+    mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
+
+  p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
+    coord_fixed() +
+    scale_x_continuous(limits = limits) +
+    scale_y_continuous(limits = limits) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
+    geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    common_theme
+
+  # Save the plot
+  ggsave(
+    filename = here(figDir, paste0("scatterplot_", name, ".png")),
+    plot = p,
+    width = panelSize(1.5) * mmToInch,
+    height = panelSize(1.5) * mmToInch,
+    dpi = 600
+  )
+}
+
+# --- 4. GENERATE PLOTS ---
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
+
+generate_scatterplot(data, "score_DMSO",    "score_UT", "allLoops_AsyncUTvsG1DMSO")
+generate_scatterplot(data, "score_UT",    "score_AID", "allLoops_AsyncAIDvsAsyncUT")
+generate_scatterplot(data, "score_DMSO",    "score_dTAG", "allLoops_G1dTAGvsG1DMSO")
+
+## Plot diff score
+plot_df_delta <- data %>%
+  dplyr::mutate(
+    delta_G1 = score_dTAG - score_DMSO,
+    delta_Async = score_AID - score_UT
+  )
+
+
+# Function to generate and save scatterplots
+generate_scatterplot2 <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
+  plot_data <- df %>%
+    mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
+
+  p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
+    coord_fixed() +
+    scale_x_continuous(limits = limits) +
+    scale_y_continuous(limits = limits) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
+    geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    common_theme
+
+  # Save the plot
+  ggsave(
+    filename = here(figDir, paste0("scatterplot_", name, ".png")),
+    plot = p,
+    width = panelSize(1.5) * mmToInch,
+    height = panelSize(1.5) * mmToInch,
+    dpi = 600
+  )
+}
+generate_scatterplot2(
+  df = plot_df_delta,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = "allLoops_deltaScore_AsyncvsG1",
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+
+
+
+temp <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2, 
+                                        abs(delta_Async) < 0.2,
+                                        delta_G1 - delta_Async < -0.2)
+fwrite((temp %>% dplyr::select(seq(1, 6))), here(dataDir, "loop_deltaScore_G1specificPerturb.bedpe"), sep = "\t", col.names = FALSE)
+
+generate_scatterplot2(
+  df = temp,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = "allLoops_deltaScore_AsyncvsG1_G1specific",
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
+                                        abs(delta_G1) < 0.2,
+                                        delta_Async - delta_G1 < -0.2)
+fwrite((temp %>% dplyr::select(seq(1, 6))), here(dataDir, "loop_deltaScore_AsyncspecificPerturb.bedpe"), sep = "\t", col.names = FALSE)
+
+generate_scatterplot2(
+  df = temp,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = "allLoops_deltaScore_AsyncvsG1_Asyncspecific",
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+
+```
+
+
+
+
+
+```{r}
+
+### classification
+make_table <- function(loop, name){
+  n <- nrow(loop)
+  temp <- loop %>% dplyr::select(id, Anno) %>%
+    dplyr::mutate(AnnoGroup = case_when(
+      
+      
+      Anno %in% c("P-P", "P-E", "E-E") ~ "Reg (P-P, P-E, E-E)",
+      
+      Anno %in% c("P-S", "E-S") ~ "Reg/Str mixed",
+      Anno %in% c("P-SP", "P-SE", "E-SP", "E-SE") ~ "Reg/Str mixed",
+      Anno %in% c("SP-SP", "SP-SE", "SE-SE") ~ "Reg/Str mixed",
+      Anno %in% c("SP-S", "SE-S") ~ "Reg/Str mixed",
+      
+      Anno %in% c("S-S", "S-X") ~ "Str (S-S, S-X)",
+      Anno %in% c("P-X", "E-X") ~ "Reg-Other",
+      Anno %in% c("SP-X", "SE-X") ~ "StrReg-Other",
+      Anno %in% c("X-X") ~ "Other",
+      TRUE ~ NA
+    ))
+  
+  
+  temp$AnnoGroup <- factor(temp$AnnoGroup, levels = c("Reg (P-P, P-E, E-E)",
+                                                      "Reg/Str mixed",
+                                                      "Str (S-S, S-X)",
+                                                      "Reg-Other",
+                                                      "StrReg-Other",
+                                                      "Other"))
+  
+  
+  pie_df <- temp %>%
+    as_tibble() %>%                          # if temp was a list, this will error early
+    group_by(AnnoGroup) %>%
+    summarise(n = n(), .groups = "drop")
+  colnames(pie_df) <- c("AnnoGroup", name)
+  return(pie_df)
+}
+
+loop.G1SpecificPerturb <- fread(here(dataDir, "loop_deltaScore_G1specificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_")) 
+loop.AsyncSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_AsyncspecificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+
+loop <- data %>% dplyr::filter(id %in% loop.G1SpecificPerturb$id)
+temp1 <- make_table(loop, "G1SpecificPerturb")
+loop <- data %>% dplyr::filter(id %in% loop.AsyncSpecificPerturb$id)
+temp2 <- make_table(loop, "AsyncSpecificPerturb")
+
+
+temp <- temp1 %>% dplyr::full_join(temp2, by = "AnnoGroup")
+
+
+data_long <- temp %>% pivot_longer(cols = c("G1SpecificPerturb", "AsyncSpecificPerturb"))
+
+data_long$name <- factor(data_long$name, levels = c("G1SpecificPerturb", "AsyncSpecificPerturb"))
+
+p <- ggplot(data_long, aes(x = name, y = value, fill = AnnoGroup)) +
+  geom_bar(position="fill", stat="identity") +
+  labs(
+    x = NULL,         # Remove x-axis title
+    y = "Ratio"       # Change y-axis title
+  ) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1,          # Rotate x labels
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + 
+guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )
+  )
+```
+## Characteristics
+```{r}
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
+
+loop.G1SpecificPerturb <- fread(here(dataDir, "loop_deltaScore_G1specificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_")) 
+loop.AsyncSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_AsyncspecificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+
+temp <- data %>% dplyr::mutate(
+  group = case_when(
+    id %in% loop.G1SpecificPerturb$id ~ "G1SpecificPerturb",
+    id %in% loop.AsyncSpecificPerturb$id ~ "AsyncSpecificPerturb",
+    TRUE ~ NA
+  ),
+  size = start2 - start1
+) %>%
+  dplyr::filter(!is.na(group))
+
+ggplot(temp, aes(x = group, y = size, fill = group)) +
+  geom_violin() +
+  geom_boxplot(width = 0.25) +
+  theme_classic()
+
+################
+temp.reg <- temp %>% dplyr::filter(Anno %in% c("P-P", "P-E", "E-E"))
+
+
+###################
+# Prepare data for O/E analysis
+pseudo_ooe <- 0.01
+data_to_plot <- temp.reg
+plot_df_ooe <- data_to_plot %>%
+  dplyr::select(id, ooe_DMSO, ooe_dTAG, ooe_UT, ooe_AID, group) %>%
+  na.omit() %>%
+  mutate(
+    across(starts_with("ooe_"), ~ if_else(. == 0, pseudo_ooe, .)),
+    fc_G1 = log2(ooe_dTAG / ooe_DMSO),
+    fc_Async = log2(ooe_AID / ooe_UT)
+  )
+
+# --- Violin Plot ---
+plot_df_ooe_long <- plot_df_ooe %>%
+  select(fc_G1, fc_Async, group) %>%
+  pivot_longer(cols = -group, names_to = "condition", values_to = "value") %>%
+  mutate(condition = factor(condition, levels = c("fc_G1", "fc_Async")))
+
+p_violin <- ggplot(plot_df_ooe_long, aes(x = condition, y = value, fill = condition)) +
+  facet_wrap(~group) +
+  geom_violin(linewidth = lineThick * mmToLineUnit, alpha = .4, show.legend = FALSE) +
+  geom_boxplot(width = 0.3, outlier.shape = NA, alpha = 0.6, show.legend = FALSE, linewidth = lineThick * mmToLineUnit) +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 0.5, fill = "black") +
+  geom_hline(yintercept = c(-0.5, 0.5), linetype = "dashed", alpha = 0.5, color = "black", size = lineThick * mmToLineUnit) +
+  geom_hline(yintercept = 0, color = "black", size = lineThick * mmToLineUnit) +
+  coord_cartesian(ylim = c(-3, 3)) +
+  scale_fill_manual(values = c(strong_red, strong_blue)) +
+  labs(y = "log2 fc of obs/exp") +
+  common_theme +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = fontSizeM),
+    axis.title.y = element_text(size = fontSizeM)
+  )
+
+```
+## LOLA
+##### ESC
+```{r}
+#-------------------------------------------------------------------------------
+# LOADING LOLA DB
+library("simpleCache")
+library("LOLA")
+lolaDB = loadRegionDB("/Volumes/UKJIN_SSD/reference/LOLACore_cached/mm10")
+
+atac <- fread(here(refDir, "mm10", "GSM3106257_ATAC_ESC_1.bed")) %>% dplyr::select(V1, V2, V3)
+colnames(atac) <- c("chr", "start", "end")
+atac.gr <- makeGRangesFromDataFrame(atac)
+```
+###### All loops
+```{r}
+#-------------------------------------------------------------------------------
+# LOADING LOOPS
+### Importing differential regulatory loops & extract anchor
+commonLoopDir <- here("../data/loop_analysis")
+loop.all <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
+
+anchor.all <- (extractAnchor(loop.all))
+overlaps <- findOverlaps(anchor.all, atac.gr)
+anchor.all <- pintersect(anchor.all[queryHits(overlaps)], atac.gr[subjectHits(overlaps)])
+
+loop.G1 <- fread(here(commonLoopDir, "loop_deltaScore_G1specificPerturb.bedpe"))
+anchor.G1 <- (extractAnchor(loop.G1))
+overlaps <- findOverlaps(anchor.G1, atac.gr)
+anchor.G1 <- pintersect(anchor.G1[queryHits(overlaps)], atac.gr[subjectHits(overlaps)])
+
+loop.Async <- fread(here(commonLoopDir, "loop_deltaScore_AsyncspecificPerturb.bedpe"))
+anchor.Async <- (extractAnchor(loop.Async))
+overlaps <- findOverlaps(anchor.Async, atac.gr)
+anchor.Async <- pintersect(anchor.Async[queryHits(overlaps)], atac.gr[subjectHits(overlaps)])
+
+#-------------------------------------------------------------------------------
+# RUNNING LOLA
+# G1
+lolaDir <- here(commonLoopDir, "LOLA")
+dir.create(lolaDir, showWarnings = FALSE, recursive = TRUE)
+
+
+name <- "chromosight_score_G1vsAsync_G1Specific"
+result <- runLOLA(anchor.G1, anchor.all, lolaDB)
+tb <- as_tibble(result)
+fwrite(tb, here(lolaDir, paste0("LOLA_", name, "_ATAC.tsv")), sep = "\t")
+
+# Async
+name <- "chromosight_score_G1vsAsync_AsyncSpecific"
+result <- runLOLA(anchor.Async, anchor.all, lolaDB)
+tb <- as_tibble(result)
+fwrite(tb, here(lolaDir, paste0("LOLA_", name, "_ATAC.tsv")), sep = "\t")
+
+
+
+### Visualizing p-value and OR
+alpha <- 0.05
+name <- "chromosight_score_G1vsAsync_G1Specific"
+tb.G1 <- fread(here(lolaDir, paste0("LOLA_", name, "_ATAC.tsv"))) %>%
+  dplyr::mutate(target = toupper(antibody),
+                qValueLog = -log2(qValue),
+                group = "UP") %>%
+  filter(str_to_lower(cellType) == "embryonic stem cell") %>%
+  dplyr::filter(qValue < alpha) %>% dplyr::group_by(target) %>%
+  slice_min(meanRnk, with_ties = FALSE)
+name <- "chromosight_score_G1vsAsync_AsyncSpecific"
+tb.Async <- fread(here(lolaDir, paste0("LOLA_", name, "_ATAC.tsv"))) %>%
+  dplyr::mutate(target = toupper(antibody),
+                qValueLog = -log2(qValue),
+                group = "NO") %>%
+  filter(str_to_lower(cellType) == "embryonic stem cell") %>%
+  dplyr::filter(qValue < alpha) %>% dplyr::group_by(target) %>%
+  slice_min(meanRnk, with_ties = FALSE)
+
+
+```
+## Hansen loops
+```{r}
+# --- 4. GENERATE PLOTS ---
+data <- fread(here(commonLoopDir, "loopScore_Hansen.tsv"))
+
+generate_scatterplot(data, "score_DMSO",    "score_UT", "allLoops_AsyncUTvsG1DMSO")
+generate_scatterplot(data, "score_UT",    "score_AID", "allLoops_AsyncAIDvsAsyncUT")
+generate_scatterplot(data, "score_DMSO",    "score_dTAG", "allLoops_G1dTAGvsG1DMSO")
+
+## Plot diff score
+plot_df_delta <- data %>%
+  dplyr::mutate(
+    delta_G1 = score_dTAG - score_DMSO,
+    delta_Async = score_AID - score_UT
+  )
+
+
+# Function to generate and save scatterplots
+generate_scatterplot2 <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
+  plot_data <- df %>%
+    mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
+
+  p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
+    coord_fixed() +
+    scale_x_continuous(limits = limits) +
+    scale_y_continuous(limits = limits) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
+    geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    common_theme
+
+  # Save the plot
+  ggsave(
+    filename = here(figDir, paste0("scatterplot_", name, ".png")),
+    plot = p,
+    width = panelSize(1.5) * mmToInch,
+    height = panelSize(1.5) * mmToInch,
+    dpi = 600
+  )
+}
+generate_scatterplot2(
+  df = plot_df_delta,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = "allLoops_deltaScore_AsyncvsG1",
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+
+
+
+temp <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2, 
+                                        abs(delta_Async) < 0.2,
+                                        delta_G1 - delta_Async < -0.2)
+fwrite((temp %>% dplyr::select(seq(1, 6))), here(dataDir, "loop_deltaScore_G1specificPerturb.bedpe"), sep = "\t", col.names = FALSE)
+
+generate_scatterplot2(
+  df = temp,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = "allLoops_deltaScore_AsyncvsG1_G1specific",
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
+                                        abs(delta_G1) < 0.2,
+                                        delta_Async - delta_G1 < -0.2)
+fwrite((temp %>% dplyr::select(seq(1, 6))), here(dataDir, "loop_deltaScore_AsyncspecificPerturb.bedpe"), sep = "\t", col.names = FALSE)
+
+generate_scatterplot2(
+  df = temp,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = "allLoops_deltaScore_AsyncvsG1_Asyncspecific",
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+
+```
+
+
+# ARCHIVE?
 ## [2.13] How to define multiconnected hub using regulatory loops?
 ```{r}
 # IMPORTING GENE ANNO DATA FOR P-N LOOPS
