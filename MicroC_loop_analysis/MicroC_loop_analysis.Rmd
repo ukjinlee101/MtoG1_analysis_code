@@ -9200,12 +9200,23 @@ guides(
 
 #### Delta score fc
 ```{r}
+data_to_plot <- fread(here(commonLoopDir, "loopScore_chromosight_extra.tsv"))
+
 plot_df_delta <- data_to_plot %>%
   dplyr::mutate(
     delta_ESC = score_dTAG - score_DMSO,
     delta_EpiLC = score_EpidTAG - score_EpiDMSO
   )
 
+common_theme <- theme_classic() +
+  theme(
+    legend.position = "none",
+    axis.title = element_text(size = fontSizeS, family = fontType, color = "black"),
+    axis.text = element_text(size = fontSizeS, family = fontType, color = "black"),
+    axis.line = element_line(color = "black", size = lineThick * mmToLineUnit, lineend = "square"),
+    axis.ticks = element_line(color = "black", size = lineThick * mmToLineUnit, lineend = "square"),
+    panel.background = element_rect(fill = "transparent")
+  )
 
 # Function to generate and save scatterplots
 generate_scatterplot2 <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
@@ -9537,6 +9548,38 @@ GO.2 <- enrichGO(gene = geneList.hasP.EpiLC, OrgDb = org.Mm.eg.db,
                   keyType = "ENSEMBL", ont = "BP", readable = TRUE, universe = gene_background)
 GO.1.df <- as.data.frame(GO.1)
 GO.2.df <- as.data.frame(GO.2)
+
+```
+##### Checking how much of them overlap with DEGs
+```{r}
+loop.EpiLCSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_EpiLCspecificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+loop.ESCSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_ESCspecificPerturb.bedpe")) %>%
+  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+
+geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", "chromosight", "_p-n_complex_ensemblList.tsv")))
+temp <- (geneAnnoData %>% dplyr::filter(id %in% loop.EpiLCSpecificPerturb$id))
+geneList.hasP.EpiLC <- unlist(temp$gene)
+
+extDir <- here("..", "RNA_231102_14065-14458-15127-H202SC24044572")
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05)
+
+nrow(diff.tb)
+diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList.hasP.EpiLC)
+
+
+### Checking how many of the down DEGs has any perturbed loops
+data_to_plot <- fread(here(commonLoopDir, "loopScore_chromosight_extra.tsv"))
+
+plot_df_delta <- data_to_plot %>%
+  dplyr::mutate(
+    delta_ESC = score_dTAG - score_DMSO,
+    delta_EpiLC = score_EpidTAG - score_EpiDMSO
+  )
+
+geneList <- unlist((geneAnnoData %>% dplyr::filter(id %in% (plot_df_delta %>% dplyr::filter(delta_EpiLC < -0.2))$id))$gene)
+nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
 
 ```
 

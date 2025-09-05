@@ -180,265 +180,33 @@ loops <- loops %>% dplyr::mutate(cohesin = ifelse(id %in% temp$id, TRUE, FALSE))
 
 ```
 
-
-Since the loops are called in mm39 and were liftovered to mm10, they need to be realigned to specific resolution
+# Splitting loops into different resolutions for loop score calculation
 ```{r}
-canonical <- c("chr1", "chr2", "chr3", "chr4", "chr5",
-               "chr6", "chr7", "chr8", "chr9", "chr10",
-               "chr11", "chr12", "chr13", "chr14", "chr15",
-               "chr16", "chr17", "chr18", "chr19", "chrX", "chrY"
-               )
+loops <- fread(here(loopDir, "TjianChromo_union_allRes.bedpe")) %>%
+  dplyr::mutate(size = V3-V2)
 
-loops <- fread(here(loopDir, "Hansen_union_allRes.bedpe"))
-colnames(loops) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+saveResBedpe <- function(loops, res, loopDir, name){
+  temp <- loops %>% dplyr::filter(size == res) %>% dplyr::select(seq(1, 6))
+  cols_to_check <- c(2, 3, 5, 6)
+  
+  # This line will stop the function if any value in ANY of the specified
+  # columns is NOT a multiple of 'res'.
+  stopifnot(
+    "Values in one or more specified columns (2, 3, 5, 6) are not multiples of res" =
+      all(as.matrix(temp[, ..cols_to_check]) %% res == 0)
+  )
+  
+  fwrite(temp, here(loopDir, paste0(name, "_", res, "bp.bedpe")), sep = "\t", col.names = FALSE)
+} 
 
-loops <- loops %>% dplyr::mutate(size = end1 - start1) %>%
-  mutate(size2 = c(1000, 2000, 5000)[apply(abs(outer(size, c(1000, 2000, 5000), "-")), 1, which.min)])
+saveResBedpe(loops, 400, loopDir, "TjianChromo_union")
+saveResBedpe(loops, 600, loopDir, "TjianChromo_union")
+saveResBedpe(loops, 800, loopDir, "TjianChromo_union")
+saveResBedpe(loops, 1000, loopDir, "TjianChromo_union")
+saveResBedpe(loops, 2000, loopDir, "TjianChromo_union")
+saveResBedpe(loops, 4000, loopDir, "TjianChromo_union")
+saveResBedpe(loops, 10000, loopDir, "TjianChromo_union")
+saveResBedpe(loops, 20000, loopDir, "TjianChromo_union")
 
-loops_adjusted <- loops %>%
-  mutate(
-    start1 = round(start1 / size2) * size2,
-    end1   = start1 + size2,
-    start2 = round(start2 / size2) * size2,
-    end2   = start2 + size2,
-    loopSize = start2 - start1
-  ) %>%
-  dplyr::filter(chrom1 == chrom2) %>%
-  mutate(
-    temp_start1 = ifelse(loopSize < 0, start2, start1),
-    temp_end1   = ifelse(loopSize < 0, end2, end1),
-    temp_start2 = ifelse(loopSize < 0, start1, start2),
-    temp_end2   = ifelse(loopSize < 0, end1, end2),
-    start1 = temp_start1,
-    end1 = temp_end1,
-    start2 = temp_start2,
-    end2 = temp_end2,
-    # Recalculate loopSize after the swap
-    loopSize = start2 - start1
-  ) %>%
-  dplyr::filter(loopSize < 2000000) %>%
-  dplyr::select(-temp_start1, -temp_end1, -temp_start2, -temp_end2, -size) # Remove temporary columns
-
-loops_adjusted <- loops_adjusted %>% dplyr::filter(chrom1 %in% canonical) %>%
-  distinct()
-
-fwrite(loops_adjusted %>% dplyr::select(seq(1, 6)),
-       here(loopDir, paste0("Hansen_union_allRes_postprocessed.bedpe")), sep = "\t",
-       col.names = FALSE)
-
-
-loops.5kb <- loops_adjusted %>% dplyr::filter(size2 == 5000)
-loops.2kb <- loops_adjusted %>% dplyr::filter(size2 == 2000)
-loops.1kb <- loops_adjusted %>% dplyr::filter(size2 == 1000)
-
-
-fwrite(loops.5kb %>% dplyr::select(seq(1, 6)),
-       here(loopDir, paste0("Hansen_union_allRes_postprocessed_5000bp.bedpe")), sep = "\t",
-       col.names = FALSE)
-
-fwrite(loops.2kb %>% dplyr::select(seq(1, 6)),
-       here(loopDir, paste0("Hansen_union_allRes_postprocessed_2000bp.bedpe")), sep = "\t",
-       col.names = FALSE)
-
-fwrite(loops.1kb %>% dplyr::select(seq(1, 6)),
-       here(loopDir, paste0("Hansen_union_allRes_postprocessed_1000bp.bedpe")), sep = "\t",
-       col.names = FALSE)
 
 ```
-
-# ChromHMM based annotation
-### Functions
-```{r}
-createLoopAnnotation <- function(bedpe.loop.anno, name, figDir){
-  temp = bedpe.loop.anno %>%
-    dplyr::mutate(sample = name)
-  
-  # num = nrow(temp)
-  # p7 = ggplot(temp, aes(x = sample, fill = Anno2)) +
-  #   geom_bar(color = "black") +
-  #   theme_bw() +
-  #   labs(title = paste0(num, " loops"),
-  #        x = "", y = "Counts") +
-  #   scale_y_continuous(labels = comma_format()) +
-  #   theme(plot.title = element_text(hjust = 0.5),
-  #         aspect.ratio = 5,
-  #         legend.position = "right",
-  #         legend.direction  = "vertical")
-  # +
-  # scale_fill_manual(values = colorList)
-  
-  pie_df <- temp %>%
-    as_tibble() %>%                          # if temp was a list, this will error early
-    group_by(Anno2) %>%
-    summarise(n = n(), .groups = "drop") %>%
-    mutate(label = paste0(Anno2, " (", n, ")"))
-  
-  
-  p7 <- ggplot(pie_df, aes(x = "", y = n, fill = Anno2)) +
-    geom_col(color = "black", width = 1) +
-    coord_polar(theta = "y") +
-    geom_text(aes(label = label),
-              position = position_stack(vjust = 0.5),
-              size = 3) +
-    theme_void() +   theme(legend.position = "none")
-  
-  width = 3
-  height = 3
-  svglite(here(figDir,
-               paste0("loopClassify_", name, ".svg")),
-          width = width, height = height)
-  plot(p7)
-  invisible(dev.off())
-  png(here(figDir,
-           paste0("loopClassify_", name, ".png")),
-      width = width, height = height, res = 600, units = "in")
-  plot(p7)
-  invisible(dev.off())
-
-  
-  }
-
-```
-
-### Group ChromHMM + RAD21 peaks
-### Annotate anchors
-```{r}
-loop <- as_tibble(fread(here(loopDir, "Hansen_union_allRes_postprocessed.bedpe")))
-
-anchor1.tb <- as_tibble(loop) %>% dplyr::select(V1, V2, V3)
-colnames(anchor1.tb) <- c("chr", "start", "end")
-anchor2.tb <- as_tibble(loop) %>% dplyr::select(V4, V5, V6)
-colnames(anchor2.tb) <- c("chr", "start", "end")
-anchor.tb <- bind_rows(anchor1.tb, anchor2.tb) %>% 
-  distinct()
-
-anchor <- makeGRangesFromDataFrame(data.frame(anchor.tb))
-chromHMM <- fread(here(refDir, "chromHMM_fullstack", "mm10_100_segments_segments_grouped_ChIP.bed"))
-colnames(chromHMM) <- c("chr", "start", "end", "state")
-chromHMM <- makeGRangesFromDataFrame(data.frame(chromHMM), keep.extra.columns = TRUE)
-
-hits <- findOverlaps(anchor, chromHMM, minoverlap = 2)
-ov <- as.data.frame(hits)
-collapsed <- ov %>%
-  group_by(queryHits) %>%
-  summarize(annot = paste(unique(mcols(chromHMM)$state[subjectHits]), collapse=";"))
-
-anchor.tb$annot <- NA_character_
-anchor.tb$annot[collapsed$queryHits] <- collapsed$annot
-
-anchor.tb <- anchor.tb %>% dplyr::mutate(annotSingle = case_when(
-  str_detect(annot, regex("SP",     ignore_case = TRUE)) ~ "SP",
-  str_detect(annot, regex("SE",     ignore_case = TRUE)) ~ "SE",
-  str_detect(annot, regex("S",     ignore_case = TRUE)) ~ "S",
-  str_detect(annot, regex("P",     ignore_case = TRUE)) ~ "P",
-  str_detect(annot, regex("E",     ignore_case = TRUE)) ~ "E",
-  TRUE ~ "X",
-))
-
-fwrite(anchor.tb, here(loopDir, "Hansen_union_allRes_postprocessed_anchor.bed"), sep = "\t", col.names = FALSE)
-
-# Visualize anchor classification
-colorList <- rev(c(colorListPromoter[3], colorListEnhancer[3], colorListPromoter[2], colorListEnhancer[2], colorListStructure[3], colorListStructure[1]))
-anchor.tb$annotSingle <- factor(anchor.tb$annotSingle, rev(c("P", "E", "SP", "SE", "S", "X")))
-temp <- anchor.tb %>% dplyr::mutate(name = "anchor")
-num <- nrow(temp)
-p <- ggplot(temp, aes(x = name, fill = annotSingle)) +
-  geom_bar(color = "black") +
-  theme_bw() +
-  labs(title = paste0(num, " anchors"),
-       x = "", y = "Counts") +
-  scale_y_continuous(labels = comma_format()) +
-  theme(plot.title = element_text(hjust = 0.5),
-        aspect.ratio = 5,
-        legend.position = "right",
-        legend.direction  = "vertical") +
-    scale_fill_manual(values = colorList)
-
-svglite(here(figDir, "anchorClassify_Hansen_union_allRes_postprocessed_chromHMMRAD21.svg"), width = 3, height = 5)
-print(p)
-dev.off()
-```
-### Annotate loops
-```{r}
-anchor.tb <- fread(here(loopDir, "Hansen_union_allRes_postprocessed_anchor.bed")) %>%
-  dplyr::mutate(anchor_id = paste(V1, V2, V3, sep = "_")) %>%
-  rename(annot = V5)
-
-consensus.loop.anno.tb <- fread(here(loopDir, "Hansen_union_allRes_postprocessed.bedpe"))
-colnames(consensus.loop.anno.tb) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
-
-consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
-  dplyr::mutate(anchor_id_1 = paste(chrom1, start1, end1, sep = "_"),
-                anchor_id_2 = paste(chrom2, start2, end2, sep = "_"))
-
-
-consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
-  left_join(
-    anchor.tb %>% select(anchor_id, annot),
-    by = c("anchor_id_1" = "anchor_id")
-  ) %>%
-  rename(A1 = annot) %>%
-  left_join(
-    anchor.tb %>% select(anchor_id, annot),
-    by = c("anchor_id_2" = "anchor_id")
-  ) %>%
-  rename(A2 = annot) %>%
-  dplyr::mutate(A1_simple = recode(A1,
-                                   "SE" = "S",
-                                   "SP" = "S"),
-                A2_simple = recode(
-                  A2,
-                  "SE" = "S",
-                  "SP" = "S"
-                ))
-
-order_lvls <- c("P","E","SP","SE","S","X")
-rank_map   <- setNames(seq_along(order_lvls), order_lvls)
-consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
-  mutate(
-    r1 = rank_map[A1],           # map A1 → 1..6
-    r2 = rank_map[A2],           # map A2 → 1..6
-    first  = if_else(r1 <= r2, A1, A2),
-    second = if_else(r1 <= r2, A2, A1),
-    Anno  = paste(first, second, sep = "-")
-  ) %>%
-  select(-r1, -r2, -first, -second)
-
-
-order_lvls <- c("P","E","S","X")
-rank_map   <- setNames(seq_along(order_lvls), order_lvls)
-consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
-  mutate(
-    r1 = rank_map[A1_simple],           # map A1 → 1..6
-    r2 = rank_map[A2_simple],           # map A2 → 1..6
-    first  = if_else(r1 <= r2, A1_simple, A2_simple),
-    second = if_else(r1 <= r2, A2_simple, A1_simple),
-    Anno_simple  = paste(first, second, sep = "-")
-  ) %>%
-  select(-r1, -r2, -first, -second)
-
-
-name <- "Hansen_union_allRes_postprocessed"
-fwrite(consensus.loop.anno.tb, here(loopDir, paste0(name, "_annotated.tsv")), 
-       sep = "\t", col.names = TRUE)
-
-temp <- consensus.loop.anno.tb %>% rename(Anno2 = Anno_simple)
-temp$Anno2 <- factor(temp$Anno2, levels = rev(c("P-P", "P-E", "E-E",
-                                                "P-S", "E-S",
-                                                "P-X", "E-X", "S-X",
-                                                "X-X",
-                                                "S-S")))
-createLoopAnnotation(temp, paste0(name, "_annotated_simple"), figDir)
-
-
-temp <- consensus.loop.anno.tb %>% rename(Anno2 = Anno)
-temp$Anno2 <- factor(temp$Anno2, levels = rev(c("P-P", "P-E", "E-E",
-                                                "P-SP", "P-SE", "P-S", "E-SP", "E-SE", "E-S",
-                                                "P-X", "E-X", "SP-X", "SE-X", "S-X",
-                                                "X-X",
-                                                "SP-SP", "SP-SE", "SP-S", "SE-SE", "SE-S", "S-S")))
-
-createLoopAnnotation(temp, paste0(name, "_annotated_complex"), figDir)
-
-```
-
