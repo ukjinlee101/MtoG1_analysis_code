@@ -459,6 +459,36 @@ data <- as_tibble(fread(here(loopDir, "Hansen_union_allRes_postprocessed_annotat
 
 resolutions  <- c(5000, 2000, 1000)
 
+# helper: read, filter, select and rename for one experiment
+annotate_scores <- function(experiment, suffix) {
+  map_dfr(resolutions, function(res) {
+    fread(here(loopDir,
+               sprintf("%s_pooled_union_%dbp_pu100pz100.tsv",
+                       experiment, res))
+    ) %>%
+      mutate(id = paste(chrom1, start1, end1, chrom2, start2, end2, sep = "_")) %>%
+      filter(start2 - start1 <= 2e6) %>%
+      select(id, score, pvalue, qvalue) %>%
+      rename_with(~ paste0(., "_", suffix),
+                  c(score, pvalue, qvalue))
+  })
+}
+
+data <- data %>%
+  left_join(annotate_scores("G1DMSO", "DMSO"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("G1dTAG", "dTAG"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("G1A485", "A485"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("EpiG1DMSO", "EpiDMSO"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("EpiG1dTAG", "EpidTAG"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("GSE178982_AsyncUT", "UT"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("GSE178982_AsyncAID", "AID"), by = "id")
+
 # Adding obs/exp
 import_obsexp <- function(experiment, suffix) {
   map_dfr(resolutions, function(res) {
@@ -667,6 +697,58 @@ temp <- data %>% rowwise() %>%
 temp_p_n <- temp %>% dplyr::filter(str_detect(Anno, "P")) %>%
   dplyr::select(-c("A1_gene", "A2_gene"))
 fwrite(temp_p_n, here(commonLoopDir, paste0("loopScore_", name, "_p-n_complex_ensemblList.tsv")), sep = "\t")
+```
+
+
+#### [5] Tjian
+```{r}
+################################################################################
+# Import annotated postprocessed loops with chromosight score
+loopDir <- here("../data/loop_Tjian")
+data <- as_tibble(fread(here(loopDir, "TjianChromo_union_allRes_annotated.tsv"))) %>%
+  mutate(id = paste(chrom1, start1, end1, chrom2, start2, end2, sep = "_")) %>%
+  relocate(id, .after = end2) %>%
+  dplyr::select(-c("anchor_id_1", "anchor_id_2"))
+
+################################################################################
+# Integrate chromosight score from asynchronous experiment
+resolutions  <- c(20000, 10000, 4000, 2000, 1000, 800, 600, 400)
+
+# helper: read, filter, select and rename for one experiment
+annotate_scores <- function(experiment, suffix) {
+  map_dfr(resolutions, function(res) {
+    fread(here(loopDir,
+               sprintf("%s_pooled_union_%dbp_pu100pz100.tsv",
+                       experiment, res))
+    ) %>%
+      mutate(id = paste(chrom1, start1, end1, chrom2, start2, end2, sep = "_")) %>%
+      filter(start2 - start1 <= 2e6) %>%
+      select(id, score, pvalue, qvalue) %>%
+      rename_with(~ paste0(., "_", suffix),
+                  c(score, pvalue, qvalue))
+  })
+}
+
+data <- data %>%
+  left_join(annotate_scores("G1DMSO", "DMSO"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("G1dTAG", "dTAG"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("G1A485", "A485"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("EpiG1DMSO", "EpiDMSO"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("EpiG1dTAG", "EpidTAG"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("GSE178982_AsyncUT", "UT"), by = "id")
+data <- data %>%
+  left_join(annotate_scores("GSE178982_AsyncAID", "AID"), by = "id")
+
+################################################################################
+fwrite(data, here(commonLoopDir, "loopScore_TjianChromo.tsv"),
+       sep = "\t", col.names = TRUE)
+
+
 ```
 
 # ANALYSIS
@@ -9197,6 +9279,37 @@ guides(
   )
 
 ```
+#### Plotting scores (Taken from async vs G1)
+```{r}
+# --- 4. GENERATE PLOTS ---
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
+    # dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
+    # dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3))
+
+loopName <- "EpiLC"
+
+# Checking the distribution of scores
+dataToPlot <- data %>% dplyr::select(score_DMSO, score_dTAG, score_EpiDMSO, score_EpidTAG) %>%
+  pivot_longer(everything(), names_to = "condition", values_to = "score" )
+dataToPlot$condition <- factor(dataToPlot$condition, levels = c("score_DMSO", "score_dTAG", "score_EpiDMSO", "score_EpidTAG"))
+
+ggplot(dataToPlot, aes(x = condition, y = score, fill = condition)) +
+  geom_violin() +
+  scale_y_continuous(limits = c(-0.5, 1)) +
+  geom_boxplot(width = 0.4) +
+  ggtitle("Chromo EpiLC") +
+  theme_classic() +
+  geom_hline(yintercept = c(0)) +
+  geom_hline(yintercept = c(0.3), linetype = "dashed")
+  
+generate_scatterplot(data, "score_DMSO",    "score_EpiDMSO", paste0(loopName, "_EpiG1DMSOvsG1DMSO"))
+generate_scatterplot(data, "score_EpiDMSO",    "score_EpidTAG", paste0(loopName, "_EpiG1dTAGvsEpiG1DMSO"))
+generate_scatterplot(data, "score_DMSO",    "score_dTAG", paste0(loopName, "_G1dTAGvsG1DMSO"))
+
+
+
+```
+
 
 #### Delta score fc
 ```{r}
@@ -9584,6 +9697,7 @@ nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
 ```
 
 # [8] Async vs G1
+## Common functions
 ```{r}
 # Define a common theme to reduce code duplication
 common_theme <- theme_classic() +
@@ -9622,12 +9736,96 @@ generate_scatterplot <- function(df, x_var, y_var, name, limits = c(-0.5, 1), di
   )
 }
 
-# --- 4. GENERATE PLOTS ---
-data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
+make_table <- function(loop, name){
+  n <- nrow(loop)
+  temp <- loop %>% dplyr::select(id, Anno) %>%
+    dplyr::mutate(AnnoGroup = case_when(
+      
+      
+      Anno %in% c("P-P", "P-E", "E-E") ~ "Reg (P-P, P-E, E-E)",
+      
+      Anno %in% c("P-S", "E-S") ~ "Reg/Str mixed",
+      Anno %in% c("P-SP", "P-SE", "E-SP", "E-SE") ~ "Reg/Str mixed",
+      Anno %in% c("SP-SP", "SP-SE", "SE-SE") ~ "Reg/Str mixed",
+      Anno %in% c("SP-S", "SE-S") ~ "Reg/Str mixed",
+      
+      Anno %in% c("S-S", "S-X") ~ "Str (S-S, S-X)",
+      Anno %in% c("P-X", "E-X") ~ "Reg-Other",
+      Anno %in% c("SP-X", "SE-X") ~ "StrReg-Other",
+      Anno %in% c("X-X") ~ "Other",
+      TRUE ~ NA
+    ))
+  
+  
+  temp$AnnoGroup <- factor(temp$AnnoGroup, levels = c("Reg (P-P, P-E, E-E)",
+                                                      "Reg/Str mixed",
+                                                      "Str (S-S, S-X)",
+                                                      "Reg-Other",
+                                                      "StrReg-Other",
+                                                      "Other"))
+  
+  
+  pie_df <- temp %>%
+    as_tibble() %>%                          # if temp was a list, this will error early
+    group_by(AnnoGroup) %>%
+    summarise(n = n(), .groups = "drop")
+  colnames(pie_df) <- c("AnnoGroup", name)
+  return(pie_df)
+}
 
-generate_scatterplot(data, "score_DMSO",    "score_UT", "allLoops_AsyncUTvsG1DMSO")
-generate_scatterplot(data, "score_UT",    "score_AID", "allLoops_AsyncAIDvsAsyncUT")
-generate_scatterplot(data, "score_DMSO",    "score_dTAG", "allLoops_G1dTAGvsG1DMSO")
+make_table2 <- function(loop, name){
+  n <- nrow(loop)
+  temp <- loop %>% dplyr::select(id, Anno) %>%
+    dplyr::mutate(AnnoGroup = case_when(
+      Anno %in% c("P-P") ~ "P-P",
+      Anno %in% c("P-E") ~ "P-E",
+      Anno %in% c("E-E") ~ "E-E",
+      TRUE ~ NA
+    ))
+  
+  
+  temp$AnnoGroup <- factor(temp$AnnoGroup, levels = c("P-P",
+                                                      "P-E",
+                                                      "E-E"))
+  
+  
+  pie_df <- temp %>%
+    as_tibble() %>%                          # if temp was a list, this will error early
+    group_by(AnnoGroup) %>%
+    summarise(n = n(), .groups = "drop")
+  colnames(pie_df) <- c("AnnoGroup", name)
+  return(pie_df)
+}
+
+```
+
+## Chromosight loops
+```{r}
+# --- 4. GENERATE PLOTS ---
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+    # dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
+    # dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3))
+  dplyr::filter(Anno %in% c("P-P", "P-E", "E-E"))
+
+# loopName <- "strongLoopsG1PE"
+loopName <- "allLoopsReg"
+# Checking the distribution of scores
+dataToPlot <- data %>% dplyr::select(score_DMSO, score_UT, score_dTAG, score_AID) %>%
+  pivot_longer(everything(), names_to = "condition", values_to = "score" )
+dataToPlot$condition <- factor(dataToPlot$condition, levels = c("score_DMSO", "score_dTAG", "score_UT", "score_AID"))
+
+ggplot(dataToPlot, aes(x = condition, y = score, fill = condition)) +
+  geom_violin() +
+  scale_y_continuous(limits = c(-0.5, 1)) +
+  geom_boxplot(width = 0.4) +
+  ggtitle(paste0("Chromosight ", loopName)) +
+  theme_classic() +
+  geom_hline(yintercept = c(0)) +
+  geom_hline(yintercept = c(0.3), linetype = "dashed")
+  
+generate_scatterplot(data, "score_DMSO",    "score_UT", paste0(loopName, "_AsyncUTvsG1DMSO"))
+generate_scatterplot(data, "score_UT",    "score_AID", paste0(loopName, "_AsyncAIDvsAsyncUT"))
+generate_scatterplot(data, "score_DMSO",    "score_dTAG", paste0(loopName, "_G1dTAGvsG1DMSO"))
 
 ## Plot diff score
 plot_df_delta <- data %>%
@@ -9668,24 +9866,25 @@ generate_scatterplot2(
   df = plot_df_delta,
   x_var = "delta_G1",
   y_var = "delta_Async",
-  name = "allLoops_deltaScore_AsyncvsG1",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1"),
   limits = c(-0.75, 0.75), # Use default data limits
   diff_cutoff = 0.2
 )
 
 
-
-
 temp <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2, 
                                         abs(delta_Async) < 0.2,
                                         delta_G1 - delta_Async < -0.2)
-fwrite((temp %>% dplyr::select(seq(1, 6))), here(dataDir, "loop_deltaScore_G1specificPerturb.bedpe"), sep = "\t", col.names = FALSE)
+print(nrow(temp))
+temp1 <- make_table(temp, "G1SpecificPerturb")
+temp3 <- make_table2(temp, "G1SpecificPerturb") %>%
+  dplyr::filter(!is.na(AnnoGroup))
 
 generate_scatterplot2(
   df = temp,
   x_var = "delta_G1",
   y_var = "delta_Async",
-  name = "allLoops_deltaScore_AsyncvsG1_G1specific",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1_G1specific"),
   limits = c(-0.75, 0.75), # Use default data limits
   diff_cutoff = 0.2
 )
@@ -9693,75 +9892,23 @@ generate_scatterplot2(
 temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
                                         abs(delta_G1) < 0.2,
                                         delta_Async - delta_G1 < -0.2)
-fwrite((temp %>% dplyr::select(seq(1, 6))), here(dataDir, "loop_deltaScore_AsyncspecificPerturb.bedpe"), sep = "\t", col.names = FALSE)
+print(nrow(temp))
+temp2 <- make_table(temp, "AsyncSpecificPerturb")
+temp4 <- make_table2(temp, "AsyncSpecificPerturb") %>%
+  dplyr::filter(!is.na(AnnoGroup))
 
 generate_scatterplot2(
   df = temp,
   x_var = "delta_G1",
   y_var = "delta_Async",
-  name = "allLoops_deltaScore_AsyncvsG1_Asyncspecific",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1_Asyncspecific"),
   limits = c(-0.75, 0.75), # Use default data limits
   diff_cutoff = 0.2
 )
-
-
 ```
 
 
-
-
-
 ```{r}
-
-### classification
-make_table <- function(loop, name){
-  n <- nrow(loop)
-  temp <- loop %>% dplyr::select(id, Anno) %>%
-    dplyr::mutate(AnnoGroup = case_when(
-      
-      
-      Anno %in% c("P-P", "P-E", "E-E") ~ "Reg (P-P, P-E, E-E)",
-      
-      Anno %in% c("P-S", "E-S") ~ "Reg/Str mixed",
-      Anno %in% c("P-SP", "P-SE", "E-SP", "E-SE") ~ "Reg/Str mixed",
-      Anno %in% c("SP-SP", "SP-SE", "SE-SE") ~ "Reg/Str mixed",
-      Anno %in% c("SP-S", "SE-S") ~ "Reg/Str mixed",
-      
-      Anno %in% c("S-S", "S-X") ~ "Str (S-S, S-X)",
-      Anno %in% c("P-X", "E-X") ~ "Reg-Other",
-      Anno %in% c("SP-X", "SE-X") ~ "StrReg-Other",
-      Anno %in% c("X-X") ~ "Other",
-      TRUE ~ NA
-    ))
-  
-  
-  temp$AnnoGroup <- factor(temp$AnnoGroup, levels = c("Reg (P-P, P-E, E-E)",
-                                                      "Reg/Str mixed",
-                                                      "Str (S-S, S-X)",
-                                                      "Reg-Other",
-                                                      "StrReg-Other",
-                                                      "Other"))
-  
-  
-  pie_df <- temp %>%
-    as_tibble() %>%                          # if temp was a list, this will error early
-    group_by(AnnoGroup) %>%
-    summarise(n = n(), .groups = "drop")
-  colnames(pie_df) <- c("AnnoGroup", name)
-  return(pie_df)
-}
-
-loop.G1SpecificPerturb <- fread(here(dataDir, "loop_deltaScore_G1specificPerturb.bedpe")) %>%
-  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_")) 
-loop.AsyncSpecificPerturb <- fread(here(dataDir, "loop_deltaScore_AsyncspecificPerturb.bedpe")) %>%
-  dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
-
-loop <- data %>% dplyr::filter(id %in% loop.G1SpecificPerturb$id)
-temp1 <- make_table(loop, "G1SpecificPerturb")
-loop <- data %>% dplyr::filter(id %in% loop.AsyncSpecificPerturb$id)
-temp2 <- make_table(loop, "AsyncSpecificPerturb")
-
-
 temp <- temp1 %>% dplyr::full_join(temp2, by = "AnnoGroup")
 
 
@@ -9799,14 +9946,83 @@ p <- ggplot(data_long, aes(x = name, y = value, fill = AnnoGroup)) +
     legend.text = element_text(family = fontType, size = fontSizeS),
     legend.title = element_text(family = fontType, size = fontSizeS)
   ) + 
-guides(
+  guides(
     fill = guide_legend(
       keywidth = 0.2,  # Adjust the width of the legend keys
       keyheight = 0.2  # Adjust the height of the legend keys
     )
   )
+
+# Save the plot
+ggsave(
+  filename = here(figDir, paste0("loopClassify_", loopName, ".png")),
+  plot = p,
+  width = panelSize(2) * mmToInch,
+  height = panelSize(2.5) * mmToInch,
+  dpi = 600
+)
+
+
+
+
+temp <- temp3 %>% dplyr::full_join(temp4, by = "AnnoGroup")
+
+
+data_long <- temp %>% pivot_longer(cols = c("G1SpecificPerturb", "AsyncSpecificPerturb"))
+
+data_long$name <- factor(data_long$name, levels = c("G1SpecificPerturb", "AsyncSpecificPerturb"))
+
+p <- ggplot(data_long, aes(x = name, y = value, fill = AnnoGroup)) +
+  geom_bar(position="fill", stat="identity") +
+  labs(
+    x = NULL,         # Remove x-axis title
+    y = "Ratio"       # Change y-axis title
+  ) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1,          # Rotate x labels
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + 
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )
+  )
+
+# Save the plot
+ggsave(
+  filename = here(figDir, paste0("loopClassify_", loopName, "_Reg.png")),
+  plot = p,
+  width = panelSize(2) * mmToInch,
+  height = panelSize(2.5) * mmToInch,
+  dpi = 600
+)
+
 ```
-## Characteristics
+
+
+
+### Characteristics
 ```{r}
 data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
 
@@ -9871,7 +10087,7 @@ p_violin <- ggplot(plot_df_ooe_long, aes(x = condition, y = value, fill = condit
   )
 
 ```
-## LOLA
+### LOLA
 ##### ESC
 ```{r}
 #-------------------------------------------------------------------------------
@@ -9949,12 +10165,34 @@ tb.Async <- fread(here(lolaDir, paste0("LOLA_", name, "_ATAC.tsv"))) %>%
 ```
 ## Hansen loops
 ```{r}
-# --- 4. GENERATE PLOTS ---
-data <- fread(here(commonLoopDir, "loopScore_Hansen.tsv"))
+loopName <- "Hansen_strongLoopsG1"
 
-generate_scatterplot(data, "score_DMSO",    "score_UT", "allLoops_AsyncUTvsG1DMSO")
-generate_scatterplot(data, "score_UT",    "score_AID", "allLoops_AsyncAIDvsAsyncUT")
-generate_scatterplot(data, "score_DMSO",    "score_dTAG", "allLoops_G1dTAGvsG1DMSO")
+# --- 4. GENERATE PLOTS ---
+data <- fread(here(commonLoopDir, "loopScore_Hansen.tsv")) %>%
+ drop_na(score_DMSO, score_dTAG, score_A485, score_EpiDMSO, score_EpidTAG, score_UT, score_AID) %>%
+  dplyr::mutate(res = end1 - start1) %>%
+    # dplyr::filter(if_any(c(score_DMSO, score_dTAG, score_A485, score_EpiDMSO, score_EpidTAG, score_UT, score_AID), ~ . > 0.3))
+    dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
+    dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3))
+
+
+# Checking the distribution of scores
+dataToPlot <- data %>% dplyr::select(score_DMSO, score_UT, score_dTAG, score_AID) %>%
+  pivot_longer(everything(), names_to = "condition", values_to = "score" )
+dataToPlot$condition <- factor(dataToPlot$condition, levels = c("score_DMSO", "score_dTAG", "score_UT", "score_AID"))
+ggplot(dataToPlot, aes(x = condition, y = score, fill = condition)) +
+  geom_violin() +
+  scale_y_continuous(limits = c(-0.5, 1)) +
+  geom_boxplot(width = 0.4) +
+  ggtitle("Hansen >0.3 G1 loops") +
+  theme_classic() +
+  geom_hline(yintercept = c(0)) +
+  geom_hline(yintercept = c(0.3), linetype = "dashed")
+
+
+generate_scatterplot(data, "score_DMSO",    "score_UT", paste0(loopName, "_AsyncUTvsG1DMSO"))
+generate_scatterplot(data, "score_UT",    "score_AID", paste0(loopName, "_AsyncAIDvsAsyncUT"))
+generate_scatterplot(data, "score_DMSO",    "score_dTAG", paste0(loopName, "_G1dTAGvsG1DMSO"))
 
 ## Plot diff score
 plot_df_delta <- data %>%
@@ -9995,24 +10233,21 @@ generate_scatterplot2(
   df = plot_df_delta,
   x_var = "delta_G1",
   y_var = "delta_Async",
-  name = "allLoops_deltaScore_AsyncvsG1",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1"),
   limits = c(-0.75, 0.75), # Use default data limits
   diff_cutoff = 0.2
 )
 
 
-
-
 temp <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2, 
                                         abs(delta_Async) < 0.2,
                                         delta_G1 - delta_Async < -0.2)
-fwrite((temp %>% dplyr::select(seq(1, 6))), here(dataDir, "loop_deltaScore_G1specificPerturb.bedpe"), sep = "\t", col.names = FALSE)
-
+print(nrow(temp))
 generate_scatterplot2(
   df = temp,
   x_var = "delta_G1",
   y_var = "delta_Async",
-  name = "allLoops_deltaScore_AsyncvsG1_G1specific",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1_G1specific"),
   limits = c(-0.75, 0.75), # Use default data limits
   diff_cutoff = 0.2
 )
@@ -10020,21 +10255,242 @@ generate_scatterplot2(
 temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
                                         abs(delta_G1) < 0.2,
                                         delta_Async - delta_G1 < -0.2)
-fwrite((temp %>% dplyr::select(seq(1, 6))), here(dataDir, "loop_deltaScore_AsyncspecificPerturb.bedpe"), sep = "\t", col.names = FALSE)
-
+print(nrow(temp))
 generate_scatterplot2(
   df = temp,
   x_var = "delta_G1",
   y_var = "delta_Async",
-  name = "allLoops_deltaScore_AsyncvsG1_Asyncspecific",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1_Asyncspecific"),
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+```
+## Tjian loops
+```{r}
+# --- 4. GENERATE PLOTS ---
+data <- fread(here(commonLoopDir, "loopScore_TjianChromo.tsv")) %>%
+ drop_na(score_DMSO, score_dTAG, score_A485, score_EpiDMSO, score_EpidTAG, score_UT, score_AID) %>%
+  dplyr::mutate(res = end1 - start1) %>%
+  dplyr::filter(res >= 1000) %>%
+    dplyr::filter(if_any(c(score_DMSO, score_dTAG, score_A485, score_EpiDMSO, score_EpidTAG, score_UT, score_AID), ~ . > 0.3)) %>%
+    # dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
+    # dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3))
+    # dplyr::filter(Anno %in% c("E-E"))
+  dplyr::filter(Anno %in% c("S-S", "S-X"))
+
+
+loopName <- "TjianChromo_strongAnyStr"
+# loopName <- "TjianChromo_strongLoopsG1Async"
+
+# Checking the distribution of scores
+dataToPlot <- data %>% dplyr::select(score_DMSO, score_UT, score_dTAG, score_AID) %>%
+  pivot_longer(everything(), names_to = "condition", values_to = "score" )
+dataToPlot$condition <- factor(dataToPlot$condition, levels = c("score_DMSO", "score_dTAG", "score_UT", "score_AID"))
+ggplot(dataToPlot, aes(x = condition, y = score, fill = condition)) +
+  geom_violin() +
+  scale_y_continuous(limits = c(-0.5, 1)) +
+  geom_boxplot(width = 0.4) +
+  ggtitle("TjianChromo over1kb strongG1Async loops") +
+  theme_classic() +
+  geom_hline(yintercept = c(0)) +
+  geom_hline(yintercept = c(0.3), linetype = "dashed")
+  
+generate_scatterplot(data, "score_DMSO",    "score_UT", paste0(loopName, "_AsyncUTvsG1DMSO"))
+generate_scatterplot(data, "score_UT",    "score_AID", paste0(loopName, "_AsyncAIDvsAsyncUT"))
+generate_scatterplot(data, "score_DMSO",    "score_dTAG", paste0(loopName, "_G1dTAGvsG1DMSO"))
+
+## Plot diff score
+plot_df_delta <- data %>%
+  dplyr::mutate(
+    delta_G1 = score_dTAG - score_DMSO,
+    delta_Async = score_AID - score_UT
+  )
+
+
+# Function to generate and save scatterplots
+generate_scatterplot2 <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
+  plot_data <- df %>%
+    mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
+
+  p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
+    coord_fixed() +
+    scale_x_continuous(limits = limits) +
+    scale_y_continuous(limits = limits) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
+    geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    common_theme
+
+  # Save the plot
+  ggsave(
+    filename = here(figDir, paste0("scatterplot_", name, ".png")),
+    plot = p,
+    width = panelSize(1.5) * mmToInch,
+    height = panelSize(1.5) * mmToInch,
+    dpi = 600
+  )
+}
+generate_scatterplot2(
+  df = plot_df_delta,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1"),
   limits = c(-0.75, 0.75), # Use default data limits
   diff_cutoff = 0.2
 )
 
 
+temp <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2, 
+                                        abs(delta_Async) < 0.2,
+                                        delta_G1 - delta_Async < -0.2)
+print(nrow(temp))
+temp1 <- make_table(temp, "G1SpecificPerturb")
+temp3 <- make_table2(temp, "G1SpecificPerturb") %>%
+  dplyr::filter(!is.na(AnnoGroup))
+generate_scatterplot2(
+  df = temp,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1_G1specific"),
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
+                                        abs(delta_G1) < 0.2,
+                                        delta_Async - delta_G1 < -0.2)
+print(nrow(temp))
+temp2 <- make_table(temp, "AsyncSpecificPerturb")
+temp4 <- make_table2(temp, "AsyncSpecificPerturb") %>%
+  dplyr::filter(!is.na(AnnoGroup))
+
+generate_scatterplot2(
+  df = temp,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1_Asyncspecific"),
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
 ```
 
+```{r}
+temp <- temp1 %>% dplyr::full_join(temp2, by = "AnnoGroup")
 
+
+data_long <- temp %>% pivot_longer(cols = c("G1SpecificPerturb", "AsyncSpecificPerturb"))
+
+data_long$name <- factor(data_long$name, levels = c("G1SpecificPerturb", "AsyncSpecificPerturb"))
+
+p <- ggplot(data_long, aes(x = name, y = value, fill = AnnoGroup)) +
+  geom_bar(position="fill", stat="identity") +
+  labs(
+    x = NULL,         # Remove x-axis title
+    y = "Ratio"       # Change y-axis title
+  ) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1,          # Rotate x labels
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + 
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )
+  )
+
+# Save the plot
+ggsave(
+  filename = here(figDir, paste0("loopClassify_", loopName, ".png")),
+  plot = p,
+  width = panelSize(2) * mmToInch,
+  height = panelSize(2.5) * mmToInch,
+  dpi = 600
+)
+
+
+
+
+temp <- temp3 %>% dplyr::full_join(temp4, by = "AnnoGroup")
+
+
+data_long <- temp %>% pivot_longer(cols = c("G1SpecificPerturb", "AsyncSpecificPerturb"))
+
+data_long$name <- factor(data_long$name, levels = c("G1SpecificPerturb", "AsyncSpecificPerturb"))
+
+p <- ggplot(data_long, aes(x = name, y = value, fill = AnnoGroup)) +
+  geom_bar(position="fill", stat="identity") +
+  labs(
+    x = NULL,         # Remove x-axis title
+    y = "Ratio"       # Change y-axis title
+  ) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1,          # Rotate x labels
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + 
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )
+  )
+
+# Save the plot
+ggsave(
+  filename = here(figDir, paste0("loopClassify_", loopName, "_Reg.png")),
+  plot = p,
+  width = panelSize(2) * mmToInch,
+  height = panelSize(2.5) * mmToInch,
+  dpi = 600
+)
+
+```
 # ARCHIVE?
 ## [2.13] How to define multiconnected hub using regulatory loops?
 ```{r}

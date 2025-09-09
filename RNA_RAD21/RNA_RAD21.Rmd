@@ -1,0 +1,548 @@
+---
+title: "R Notebook"
+---
+
+# IMPORT SOURCE
+```{r Importing packages & resources, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE, results=FALSE}
+library(here)
+source(here("script", "analysis_functions.R"))
+```
+
+
+# FIGURE PARAMETERS
+```{r}
+library(colorspace)
+
+fontType <- "Helvetica"
+
+fontSizeL <- 10 # pt
+fontSizeM <- 8
+fontSizeS <- 6
+
+lineThick <- 0.75 # pt
+lineMedium <- 0.5
+lineThin <- 0.25
+
+panelUnit <- 30 # mm
+panelMargin <- 1.5
+
+mmToInch <- 0.03937007874
+mmToLineUnit <- 1/2.13
+mmToLinePlotgarden <- 1/0.75
+ptToMM <- 1/2.845
+
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+weak_red <- lighten(strong_red, amount = 0.4)   # FF7D81
+weak_blue <- lighten(strong_blue, amount = 0.4) # 8A91DD
+no_grey <- "#A8A8A8"
+
+strong_teel <- "#0892A5"
+strong_green <- "#23CE6B" # A485
+strong_darkgreen <- "#054A29"
+strong_yellow <- "#FFBA49"
+strong_orange <- "#F18F01" # dTAG
+strong_lightpurple <- "#BD93D8"
+strong_purple <- "#9E33CB" # Epi
+
+panelSize <- function(num, unit = panelUnit, margin = panelMargin){
+  return(num*unit - 2*margin)
+}
+
+genome <- "mm10"
+```
+
+```{r}
+# ENSEMBL DATABASE
+# v102 is for the latest mm10 version
+ensembl.v102 <- useMart(host = "https://nov2020.archive.ensembl.org",
+                       biomart = "ENSEMBL_MART_ENSEMBL",
+                       dataset = "mmusculus_gene_ensembl")
+```
+
+# Preprocessing
+```{r}
+# PARAMETER
+dataDir <- here("..", "data")
+figDir <- here("..", "figure", "RNA_RAD21")
+dir.create(figDir, showWarnings = FALSE, recursive = TRUE)
+```
+# Import diff matrix from Tjian
+```{r}
+diff.Async.3h <- fread(here(dataDir, "RNA_pub", "Hsieh_2022_RAD21_3h.csv")) %>% 
+  dplyr::mutate(ensembl_gene_id = str_replace(ens_gene, "\\.[0-9]*$", "")) %>%
+  dplyr::select(ensembl_gene_id, baseMean, log2FoldChange, padj)
+
+diff.Async.12h <- fread(here(dataDir, "RNA_pub", "Hsieh_2022_RAD21_12h.csv")) %>% 
+  dplyr::mutate(ensembl_gene_id = str_replace(ens_gene, "\\.[0-9]*$", "")) %>%
+  dplyr::select(ensembl_gene_id, baseMean, log2FoldChange, padj)
+
+diff.Async.24h <- fread(here(dataDir, "RNA_pub", "Hsieh_2022_RAD21_24h.csv")) %>% 
+  dplyr::mutate(ensembl_gene_id = str_replace(ens_gene, "\\.[0-9]*$", "")) %>%
+  dplyr::select(ensembl_gene_id, baseMean, log2FoldChange, padj)
+
+diff.G1.3h <- fread(here(dataDir, "RNA_diff", "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+  dplyr::select(ensembl_gene_id, baseMean, log2FoldChange, shrinked_log2FC, padj)
+
+diff.G1.Epi3h <- fread(here(dataDir, "RNA_diff", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  dplyr::select(ensembl_gene_id, baseMean, log2FoldChange, shrinked_log2FC, padj)
+
+
+
+ensembl.list <- unique(c(diff.Async.3h$ensembl_gene_id,
+                       diff.Async.12h$ensembl_gene_id,
+                       diff.Async.24h$ensembl_gene_id,
+                       diff.G1.3h$ensembl_gene_id,
+                       diff.G1.Epi3h$ensembl_gene_id))
+mm10.ensembl2gene = as_tibble(
+  getBM(
+    mart = ensembl.v102,
+    values = ensembl.list,
+    filters = "ensembl_gene_id",
+    attributes = c("ensembl_gene_id", "external_gene_name")
+  )
+)
+
+diff.Async.3h <- diff.Async.3h %>% dplyr::left_join(mm10.ensembl2gene, by = c("ensembl_gene_id"))
+diff.Async.12h <- diff.Async.12h %>% dplyr::left_join(mm10.ensembl2gene, by = c("ensembl_gene_id"))
+diff.Async.24h <- diff.Async.24h %>% dplyr::left_join(mm10.ensembl2gene, by = c("ensembl_gene_id"))
+diff.G1.3h <- diff.G1.3h %>% dplyr::left_join(mm10.ensembl2gene, by = c("ensembl_gene_id"))
+diff.G1.Epi3h <- diff.G1.Epi3h %>% dplyr::left_join(mm10.ensembl2gene, by = c("ensembl_gene_id"))
+
+
+```
+
+
+# Create volcano plots
+```{r}
+makeVolcano <- function(diff.tb, output_prefix, 
+                        alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir){
+  resLFCSort.tb <- diff.tb %>%
+  dplyr::mutate(diffExpressed = case_when(
+    log2FoldChange >= foldchange & padj < alpha ~ "UP",
+    log2FoldChange <= -foldchange & padj < alpha ~ "DOWN",
+    TRUE ~ "NO"
+  ))
+
+  resLFCSort.tb$label <- NA
+  resLFCSort.tb$label[resLFCSort.tb$diffExpressed != "NO"] <- resLFCSort.tb$external_gene_name[resLFCSort.tb$diffExpressed != "NO"]
+  resLFCSort.tb <- resLFCSort.tb %>% dplyr::filter(!is.na(padj))
+  
+  mycolors <- c("blue", "red", "grey")
+  names(mycolors) <- c("DOWN", "UP", "NO")
+  
+  down.num <- table(resLFCSort.tb$diffExpressed)["DOWN"]
+  up.num <- table(resLFCSort.tb$diffExpressed)["UP"]
+  
+  # Apply limit to log2FC
+  resLFCSort.tb <- resLFCSort.tb %>% dplyr::mutate(log2FoldChange_MAX = ifelse(abs(log2FoldChange) >= log2FC_cutoff,
+                                                                               sign(log2FoldChange)*log2FC_cutoff,
+                                                                               log2FoldChange))
+  plot <- ggplot(data = resLFCSort.tb,
+                  aes(
+                    x = log2FoldChange_MAX,
+                    y = -log10(padj),
+                    col = diffExpressed,
+                    label = label
+                  )) + xlim(-log2FC_cutoff, log2FC_cutoff) +
+    geom_point(size = 0.7,
+               alpha = 1,
+               fill = 'black',
+               shape = ifelse(abs(resLFCSort.tb$log2FoldChange) >= log2FC_cutoff, 2, 16)) +
+    geom_text_repel(
+      nudge_x = 0.1,
+      nudge_y = 0.1,
+      size = 1.5,
+      hjust = 0
+    ) +
+    geom_vline(
+      xintercept = c(-foldchange, foldchange),
+      linetype = "dashed",
+      color = "black"
+    ) +
+    geom_hline(
+      yintercept = -log10(alpha),
+      linetype = "dashed",
+      color = "black"
+    ) +
+    scale_colour_manual(values = mycolors) +
+    ggtitle(
+      paste0(
+        "[Volcano Plot]", "\n",
+        output_prefix, "\n",
+        "padj < ", alpha, ", abs(log2FC) > ", foldchange, "\n",
+        "down (", down.num, "), up (", up.num, ")"
+      )) +
+    theme_classic() +
+    theme(
+      aspect.ratio = 0.8,
+      plot.title = element_text(
+        hjust = 0.5,
+        face = "bold",
+        size = 10
+      ),
+      axis.title = element_text(size = 8),
+      text = element_text(size = 8)
+    ) + coord_cartesian(clip = "off") +
+    xlab("log2fc")
+
+  fileName = here(figDir, paste0("volcano_", output_prefix, "_", alpha, "_", foldchange, "_log2FC"))
+  
+  png(
+    paste0(fileName, ".png"),
+    width = width,
+    height = height,
+    res = 600,
+    units = "in"
+  )
+  print(plot)
+  dev.off()
+}
+
+makeMA <- function(diff.tb, output_prefix, 
+                        alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir){
+  resLFCSort.tb <- diff.tb %>%
+  dplyr::mutate(diffExpressed = case_when(
+    log2FoldChange >= foldchange & padj < alpha ~ "UP",
+    log2FoldChange <= -foldchange & padj < alpha ~ "DOWN",
+    TRUE ~ "NO"
+  ))
+
+  resLFCSort.tb$label <- NA
+  resLFCSort.tb$label[resLFCSort.tb$diffExpressed != "NO"] <- resLFCSort.tb$external_gene_name[resLFCSort.tb$diffExpressed != "NO"]
+  resLFCSort.tb <- resLFCSort.tb %>% dplyr::filter(!is.na(padj))
+  
+  mycolors <- c("blue", "red", "grey")
+  names(mycolors) <- c("DOWN", "UP", "NO")
+  
+  down.num <- table(resLFCSort.tb$diffExpressed)["DOWN"]
+  up.num <- table(resLFCSort.tb$diffExpressed)["UP"]
+  
+  # Apply limit to log2FC
+  resLFCSort.tb <- resLFCSort.tb %>% dplyr::mutate(log2FoldChange_MAX = ifelse(abs(log2FoldChange) >= log2FC_cutoff,
+                                                                               sign(log2FoldChange)*log2FC_cutoff,
+                                                                               log2FoldChange))
+  plot <- ggplot(data = resLFCSort.tb,
+                  aes(
+                    x = log2(baseMean),
+                    y = log2FoldChange_MAX,
+                    col = diffExpressed,
+                    label = label
+                  )) + 
+    # xlim(-log2FC_cutoff, log2FC_cutoff) +
+    geom_point(size = 0.7,
+               alpha = 1,
+               fill = 'black',
+               shape = ifelse(abs(resLFCSort.tb$log2FoldChange) >= log2FC_cutoff, 2, 16)) +
+    geom_text_repel(
+      nudge_x = 0.1,
+      nudge_y = 0.1,
+      size = 1.5,
+      hjust = 0
+    ) +
+    # geom_vline(
+    #   xintercept = c(-foldchange, foldchange),
+    #   linetype = "dashed",
+    #   color = "black"
+    # ) +
+    # geom_hline(
+    #   yintercept = -log10(alpha),
+    #   linetype = "dashed",
+    #   color = "black"
+    # ) +
+    scale_colour_manual(values = mycolors) +
+    ggtitle(
+      paste0(
+        "[MA Plot]", "\n",
+        output_prefix, "\n",
+        "padj < ", alpha, ", abs(log2FC) > ", foldchange, "\n",
+        "down (", down.num, "), up (", up.num, ")"
+      )) +
+    theme_classic() +
+    theme(
+      aspect.ratio = 0.8,
+      plot.title = element_text(
+        hjust = 0.5,
+        face = "bold",
+        size = 10
+      ),
+      axis.title = element_text(size = 8),
+      text = element_text(size = 8)
+    ) + coord_cartesian(clip = "off")
+    # xlab("log2fc")
+
+  fileName = here(figDir, paste0("MA_", output_prefix, "_", alpha, "_", foldchange, "_log2FC"))
+  
+  png(
+    paste0(fileName, ".png"),
+    width = width,
+    height = height,
+    res = 600,
+    units = "in"
+  )
+  print(plot)
+  dev.off()
+  }
+
+  
+makeVolcano(diff.G1.3h, "G1.3h", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+makeVolcano(diff.G1.Epi3h, "G1.Epi3h", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+makeVolcano(diff.Async.3h, "Async.3h", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+makeVolcano(diff.Async.12h, "Async.12h", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+makeVolcano(diff.Async.24h, "Async.24h", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+
+makeMA(diff.G1.3h, "G1.3h", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+makeMA(diff.G1.Epi3h, "G1.Epi3h", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+makeMA(diff.Async.3h, "Async.3h", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+makeMA(diff.Async.12h, "Async.12h", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+makeMA(diff.Async.24h, "Async.24h", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+
+temp <- diff.G1.3h %>% dplyr::select(-log2FoldChange) %>% dplyr::rename(log2FoldChange = shrinked_log2FC)
+makeMA(temp, "G1.3h_shr", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+
+temp <- diff.G1.Epi3h %>% dplyr::select(-log2FoldChange) %>% dplyr::rename(log2FoldChange = shrinked_log2FC)
+makeMA(temp, "G1.Epi3h_shr", alpha = 0.05, foldchange = 0.5, log2FC_cutoff = 5,
+                        width = 4, height = 3.5, figDir)
+```
+# Scatterplot
+```{r}
+temp <- diff.G1.3h %>% dplyr::select(-log2FoldChange) %>% dplyr::rename(log2FoldChange = shrinked_log2FC) %>%
+  dplyr::select(ensembl_gene_id, log2FoldChange)
+temp2 <- diff.Async.3h %>% dplyr::select(ensembl_gene_id, log2FoldChange)
+dataToPlot <- temp %>% left_join(temp2, by = c("ensembl_gene_id"), suffix = c(".G1.3h", ".Async.3h"))
+fcmax = 3
+ggplot(dataToPlot, aes(x = log2FoldChange.G1.3h, y = log2FoldChange.Async.3h)) + geom_point() + theme_classic() + coord_fixed(xlim = c(-fcmax, fcmax), ylim = c(-fcmax, fcmax)) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+
+temp2 <- diff.Async.12h %>% dplyr::select(ensembl_gene_id, log2FoldChange)
+dataToPlot <- temp %>% left_join(temp2, by = c("ensembl_gene_id"), suffix = c(".G1.3h", ".Async.12h"))
+fcmax = 3
+ggplot(dataToPlot, aes(x = log2FoldChange.G1.3h, y = log2FoldChange.Async.12h)) + geom_point() + theme_classic() + coord_fixed(xlim = c(-fcmax, fcmax), ylim = c(-fcmax, fcmax)) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+
+
+temp2 <- diff.Async.24h %>% dplyr::select(ensembl_gene_id, log2FoldChange)
+dataToPlot <- temp %>% left_join(temp2, by = c("ensembl_gene_id"), suffix = c(".G1.3h", ".Async.24h"))
+fcmax = 3
+ggplot(dataToPlot, aes(x = log2FoldChange.G1.3h, y = log2FoldChange.Async.24h)) + geom_point() + theme_classic() + coord_fixed(xlim = c(-fcmax, fcmax), ylim = c(-fcmax, fcmax)) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+
+
+
+temp <- diff.G1.Epi3h %>% dplyr::select(-log2FoldChange) %>% dplyr::rename(log2FoldChange = shrinked_log2FC) %>%
+  dplyr::select(ensembl_gene_id, log2FoldChange)
+temp2 <- diff.Async.3h %>% dplyr::select(ensembl_gene_id, log2FoldChange)
+dataToPlot <- temp %>% left_join(temp2, by = c("ensembl_gene_id"), suffix = c(".G1.Epi3h", ".Async.3h"))
+fcmax = 3
+ggplot(dataToPlot, aes(x = log2FoldChange.G1.Epi3h, y = log2FoldChange.Async.3h)) + geom_point() + theme_classic() + coord_fixed(xlim = c(-fcmax, fcmax), ylim = c(-fcmax, fcmax)) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+
+temp2 <- diff.Async.12h %>% dplyr::select(ensembl_gene_id, log2FoldChange)
+dataToPlot <- temp %>% left_join(temp2, by = c("ensembl_gene_id"), suffix = c(".G1.Epi3h", ".Async.12h"))
+fcmax = 3
+ggplot(dataToPlot, aes(x = log2FoldChange.G1.Epi3h, y = log2FoldChange.Async.12h)) + geom_point() + theme_classic() + coord_fixed(xlim = c(-fcmax, fcmax), ylim = c(-fcmax, fcmax)) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+
+
+temp2 <- diff.Async.24h %>% dplyr::select(ensembl_gene_id, log2FoldChange)
+dataToPlot <- temp %>% left_join(temp2, by = c("ensembl_gene_id"), suffix = c(".G1.Epi3h", ".Async.24h"))
+fcmax = 3
+ggplot(dataToPlot, aes(x = log2FoldChange.G1.Epi3h, y = log2FoldChange.Async.24h)) + geom_point() + theme_classic() + coord_fixed(xlim = c(-fcmax, fcmax), ylim = c(-fcmax, fcmax)) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed")
+
+
+
+```
+# Grouping genes
+## Our data grouping
+```{r}
+max(diff.G1.3h$shrinked_log2FC)
+# 5 grouping
+
+#1.3-1.5
+#1.5
+
+diff.G1.3h <- diff.G1.3h %>% dplyr::mutate(
+  group = case_when(
+    shrinked_log2FC > log2(1.5) ~ "HU",
+    shrinked_log2FC > log2(1.3) ~ "IU",
+    shrinked_log2FC > log2(1.1) ~  "SU",
+    shrinked_log2FC < -log2(1.5) ~ "HD",
+    shrinked_log2FC < -log2(1.3) ~ "ID",
+    shrinked_log2FC < -log2(1.1) ~ "SD",
+    TRUE ~ "NC"
+  )
+)
+
+dataToPlot <- diff.Async.3h %>%
+  dplyr::mutate(
+    group = case_when(
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "HU"))$ensembl_gene_id ~ "HU",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "IU"))$ensembl_gene_id ~ "IU",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "SU"))$ensembl_gene_id ~ "SU",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "NC"))$ensembl_gene_id ~ "NC",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "SD"))$ensembl_gene_id ~ "SD",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "ID"))$ensembl_gene_id ~ "ID",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "HD"))$ensembl_gene_id ~ "HD"
+    )
+  ) %>%
+  dplyr::filter(!is.na(group))
+
+
+dataToPlot <- dataToPlot %>% dplyr::select(group, log2FoldChange)
+dataToPlot$group <- factor(dataToPlot$group, levels = c("HD", "ID", "SD", "NC", "SU", "IU", "HU"))
+
+ggplot(data = dataToPlot, aes(x = group, y = log2FoldChange, fill = group)) +
+  geom_boxplot(width = 0.9) + theme_classic() + geom_hline(yintercept = 0) + scale_y_continuous(limits = c(-1, 1))
+
+
+
+#############
+diff.G1.Epi3h <- diff.G1.Epi3h %>% dplyr::mutate(
+  group = case_when(
+    shrinked_log2FC > log2(1.5) ~ "HU",
+    shrinked_log2FC > log2(1.3) ~ "IU",
+    shrinked_log2FC > log2(1.1) ~  "SU",
+    shrinked_log2FC < -log2(1.5) ~ "HD",
+    shrinked_log2FC < -log2(1.3) ~ "ID",
+    shrinked_log2FC < -log2(1.1) ~ "SD",
+    TRUE ~ "NC"
+  )
+)
+
+dataToPlot <- diff.Async.24h %>%
+  dplyr::mutate(
+    group = case_when(
+      ensembl_gene_id %in% (diff.G1.Epi3h %>% dplyr::filter(group == "HU"))$ensembl_gene_id ~ "HU",
+      ensembl_gene_id %in% (diff.G1.Epi3h %>% dplyr::filter(group == "IU"))$ensembl_gene_id ~ "IU",
+      ensembl_gene_id %in% (diff.G1.Epi3h %>% dplyr::filter(group == "SU"))$ensembl_gene_id ~ "SU",
+      ensembl_gene_id %in% (diff.G1.Epi3h %>% dplyr::filter(group == "NC"))$ensembl_gene_id ~ "NC",
+      ensembl_gene_id %in% (diff.G1.Epi3h %>% dplyr::filter(group == "SD"))$ensembl_gene_id ~ "SD",
+      ensembl_gene_id %in% (diff.G1.Epi3h %>% dplyr::filter(group == "ID"))$ensembl_gene_id ~ "ID",
+      ensembl_gene_id %in% (diff.G1.Epi3h %>% dplyr::filter(group == "HD"))$ensembl_gene_id ~ "HD"
+    )
+  ) %>%
+  dplyr::filter(!is.na(group))
+
+
+dataToPlot <- dataToPlot %>% dplyr::select(group, log2FoldChange)
+dataToPlot$group <- factor(dataToPlot$group, levels = c("HD", "ID", "SD", "NC", "SU", "IU", "HU"))
+
+ggplot(data = dataToPlot, aes(x = group, y = log2FoldChange, fill = group)) +
+  geom_boxplot(width = 0.9)+ theme_classic() + geom_hline(yintercept = 0)  + scale_y_continuous(limits = c(-1, 1))
+
+
+
+
+
+
+############
+temp1 <- diff.G1.3h %>% dplyr::select(ensembl_gene_id, group)
+temp2 <- diff.G1.Epi3h %>% dplyr::select(ensembl_gene_id, group)
+
+
+temp <- temp1 %>% dplyr::full_join(temp2, by = c("ensembl_gene_id"), suffix = c(".ESC", ".Epi")) %>%
+  dplyr::mutate(
+    group.ESC = tidyr::replace_na(group.ESC, "NC"),
+    group.Epi = tidyr::replace_na(group.Epi, "NC")
+  ) %>%
+  dplyr::mutate(group = case_when(
+    (group.ESC == "HD") | (group.Epi == "HD") ~ "HD",
+    (group.ESC == "ID") | (group.Epi == "ID") ~ "ID",
+    (group.ESC == "SD") | (group.Epi == "SD") ~ "SD",
+    (group.ESC == "HU") | (group.Epi == "HU") ~ "HU",
+    (group.ESC == "IU") | (group.Epi == "IU") ~ "IU",
+    (group.ESC == "SU") | (group.Epi == "SU") ~ "SU",
+    TRUE ~ "NC"
+
+  ))
+
+(temp %>% dplyr::select(c(2, 3, 4))) %>% distinct()
+
+dataToPlot <- diff.Async.24h %>%
+  dplyr::mutate(
+    group = case_when(
+      ensembl_gene_id %in% (temp %>% dplyr::filter(group == "HU"))$ensembl_gene_id ~ "HU",
+      ensembl_gene_id %in% (temp %>% dplyr::filter(group == "IU"))$ensembl_gene_id ~ "IU",
+      ensembl_gene_id %in% (temp %>% dplyr::filter(group == "SU"))$ensembl_gene_id ~ "SU",
+      ensembl_gene_id %in% (temp %>% dplyr::filter(group == "NC"))$ensembl_gene_id ~ "NC",
+      ensembl_gene_id %in% (temp %>% dplyr::filter(group == "SD"))$ensembl_gene_id ~ "SD",
+      ensembl_gene_id %in% (temp %>% dplyr::filter(group == "ID"))$ensembl_gene_id ~ "ID",
+      ensembl_gene_id %in% (temp %>% dplyr::filter(group == "HD"))$ensembl_gene_id ~ "HD"
+    )
+  ) %>%
+  dplyr::filter(!is.na(group))
+
+
+dataToPlot <- dataToPlot %>% dplyr::select(group, log2FoldChange)
+dataToPlot$group <- factor(dataToPlot$group, levels = c("HD", "ID", "SD", "NC", "SU", "IU", "HU"))
+
+ggplot(data = dataToPlot, aes(x = group, y = log2FoldChange, fill = group)) +
+  geom_boxplot(width = 0.9) + theme_classic() + geom_hline(yintercept = 0) + scale_y_continuous(limits = c(-1, 1))
+
+```
+## Tjian grouping
+```{r}
+
+diff.Async.3h <- diff.Async.3h %>% dplyr::mutate(
+  group = case_when(
+    log2FoldChange > log2(3) ~ "HU",
+    log2FoldChange > log2(2) ~ "IU",
+    log2FoldChange > log2(1.5) ~  "SU",
+    log2FoldChange < -log2(3) ~ "HD",
+    log2FoldChange < -log2(2) ~ "ID",
+    log2FoldChange < -log2(1.5) ~ "SD",
+    TRUE ~ "NC"
+  )
+)
+
+dataToPlot <- diff.G1.3h %>%
+  dplyr::mutate(
+    group = case_when(
+      ensembl_gene_id %in% (diff.Async.3h %>% dplyr::filter(group == "HU"))$ensembl_gene_id ~ "HU",
+      ensembl_gene_id %in% (diff.Async.3h %>% dplyr::filter(group == "IU"))$ensembl_gene_id ~ "IU",
+      ensembl_gene_id %in% (diff.Async.3h %>% dplyr::filter(group == "SU"))$ensembl_gene_id ~ "SU",
+      ensembl_gene_id %in% (diff.Async.3h %>% dplyr::filter(group == "NC"))$ensembl_gene_id ~ "NC",
+      ensembl_gene_id %in% (diff.Async.3h %>% dplyr::filter(group == "SD"))$ensembl_gene_id ~ "SD",
+      ensembl_gene_id %in% (diff.Async.3h %>% dplyr::filter(group == "ID"))$ensembl_gene_id ~ "ID",
+      ensembl_gene_id %in% (diff.Async.3h %>% dplyr::filter(group == "HD"))$ensembl_gene_id ~ "HD"
+    )
+  ) %>%
+  dplyr::filter(!is.na(group))
+
+
+dataToPlot <- dataToPlot %>% dplyr::select(group, shrinked_log2FC)
+dataToPlot$group <- factor(dataToPlot$group, levels = c("HD", "ID", "SD", "NC", "SU", "IU", "HU"))
+
+ggplot(data = dataToPlot, aes(x = group, y = shrinked_log2FC, fill = group)) +
+  geom_violin(width = 0.9) + theme_classic() + geom_hline(yintercept = 0)
+
+
+```
+
