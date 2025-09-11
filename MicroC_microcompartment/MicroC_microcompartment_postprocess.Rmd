@@ -1,0 +1,1168 @@
+---
+title: "R Notebook"
+---
+# LOADING REQUIREMENTS
+## PACKAGES
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# LIST OF PACKAGES
+pkgs = c("tidyverse", "here", "svglite", "ggplot2", "ggrepel",
+         "stringr", "BiocManager", "RColorBrewer", "viridis", "magick",
+         "nlme", "factoextra", "devtools", "beepr", "remotes",
+         "cowplot", "data.table", "strawr", "rtracklayer", "utils",
+         "reshape2", "VennDiagram","gridExtra", "eulerr", "scales",
+         "InteractionSet", "gplots", "locfdr", "future", "ggbeeswarm", "glossary", "ggalluvial", "UpSetR")
+bio_pkgs = c("biomaRt", "DESeq2", "ComplexHeatmap", "apeglm", "vsn",
+             "rhdf5", "InteractionSet", "plotgardener", "HiCDCPlus",
+             "GenomicInteractions", "LOLA", "AnnotationHub",
+             "org.Mm.eg.db", "enrichplot", "DOSE", "clusterProfiler",
+             "HiCExperiment", "HiCool", "HiContacts", "HiContactsData", "fourDNData", "DNAZooData",
+             "MotifDb", "Biostrings")
+
+# INSTALL PACKAGES
+# install.packages(pkgs)
+# BiocManager::install(bio_pkgs)
+
+# INSTALL HiC related packages
+# remotes::install_github("robinweide/GENOVA")
+# devtools::install_github("thomasp85/scico")
+# devtools::install_github("psyteachr/introdataviz")
+
+# LOAD PACKAGES
+lapply(pkgs, require, character.only = TRUE)
+lapply(bio_pkgs, require, character.only = TRUE)
+require(GENOVA)
+require(scico)
+require(introdataviz)
+require(igraph)
+# CLEANING
+rm(pkgs, bio_pkgs)
+
+options(scipen=999)
+
+
+
+```
+## ENSEMBL
+```{r}
+# ENSEMBL DATABASE
+# v102 is for the latest mm10 version
+# ensembl.v102 <- useMart(host = "https://nov2020.archive.ensembl.org",
+#                        biomart = "ENSEMBL_MART_ENSEMBL",
+#                        dataset = "mmusculus_gene_ensembl")
+```
+## COLOR PALETTE
+```{r}
+palette_1 = list(red = "#E9002D",
+                 amber = "#FFAA00",
+                 green = "#00B000")
+palette_2 = list(red = "#FF1F5B",
+                 green = "#00CD6C",
+                 blue = "#009ADE",
+                 purple = "#AF58BA",
+                 yellow = "#FFC61E",
+                 orange = "#F28522",
+                 grey = "#A0B1BA",
+                 brown = "#A6761D")
+palette_3 = list(grey1 = "#a0b1ba",
+                 grey2 = "#c5d0d5",
+                 grey3 = "#eceff1")
+
+colorListLoop <-  c(palette_3[["grey3"]], palette_3[["grey2"]], palette_3[["grey1"]],
+                     "#C5E1EF", "#6CB0D6", "#226E9C",
+                     "#06592A", 
+                     "#FED976", "#FD8D3C", "#E31A1C")
+colorListPromoter <- c(palette_3[["grey3"]],"#E88587", "#E31A1C")
+colorListEnhancer <- c(palette_3[["grey3"]],"#87AFC7", "#226E9C")
+colorListStructure <- c(palette_3[["grey3"]], palette_3[["grey2"]], palette_3[["grey1"]])
+```
+
+## DIR LIST
+```{r}
+loopDir <- "/Volumes/UKJIN_SSD/data/microcompartment"
+figDir <- "/Volumes/UKJIN_SSD/figure/microcompartment"
+
+dir.create(figDir, showWarnings = FALSE)
+```
+
+## FIGURE PARAMETERS
+```{r}
+library(colorspace)
+
+fontType <- "Helvetica"
+
+fontSizeL <- 10 # pt
+fontSizeM <- 8
+fontSizeS <- 6
+
+lineThick <- 0.75 # pt
+lineMedium <- 0.5
+lineThin <- 0.25
+
+panelUnit <- 30 # mm
+panelMargin <- 1.5
+
+mmToInch <- 0.03937007874
+mmToLineUnit <- 1/2.13
+mmToLinePlotgarden <- 1/0.75
+ptToMM <- 1/2.845
+
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+weak_red <- lighten(strong_red, amount = 0.4)   # FF7D81
+weak_blue <- lighten(strong_blue, amount = 0.4) # 8A91DD
+no_grey <- "#A8A8A8"
+
+strong_teel <- "#0892A5"
+strong_green <- "#23CE6B" # A485
+strong_darkgreen <- "#054A29"
+strong_yellow <- "#FFBA49"
+strong_orange <- "#F18F01" # dTAG
+strong_lightpurple <- "#BD93D8"
+strong_purple <- "#9E33CB" # Epi
+
+panelSize <- function(num, unit = panelUnit, margin = panelMargin){
+  return(num*unit - 2*margin)
+}
+
+```
+
+## FUNCTIONS
+```{r}
+importBedpe = function(bedpe){
+  a1 = makeGRangesFromDataFrame(data.frame(
+    chr = bedpe$V1,
+    start = bedpe$V2 +1,
+    end = bedpe$V3))
+  a2 = makeGRangesFromDataFrame(data.frame(
+    chr = bedpe$V4,
+    start = bedpe$V5 +1,
+    end = bedpe$V6))
+  GInteractions(a1, a2)
+}
+
+get_density <- function(x, y, ...) {
+  dens <- MASS::kde2d(x, y, ...)
+  ix <- findInterval(x, dens$x)
+  iy <- findInterval(y, dens$y)
+  ii <- cbind(ix, iy)
+  return(dens$z[ii])
+}
+label_kb_mb <- function(x) {
+  ifelse(x >= 1000000, paste0(x / 1000000, "Mb"), paste0(x / 1000, "kb"))
+}
+
+importPeak = function(fileName){
+  df = fread(fileName)
+  gr = makeGRangesFromDataFrame(data.frame(
+    chr = df$V1, start = df$V2, end = df$V3
+  ))
+}
+```
+
+
+# [v] Make filtered bedpe
+```{r}
+# Importing & filtering loops
+filterLoopBedpe = function(sample, note, cutoff.score, cutoff.qvalue,
+                           inputDir, outputDir){
+  temp = as_tibble(fread(here(inputDir, 
+                              paste0(sample, "_chromosight_", note, ".tsv"))))
+  temp.filtered = temp %>% dplyr::filter(score > cutoff.score, qvalue < cutoff.qvalue)
+  fwrite(temp.filtered, here(outputDir, paste0(sample, "_microcompartment_", note, ".bedpe")), 
+         col.names = FALSE,row.names = FALSE, sep = "\t")  
+}
+
+for(sample in c("G1DMSO_pooled", "G1dTAG_pooled")){
+
+  for(note in c("25000bp")){
+    filterLoopBedpe(sample = sample, note = note,
+                    cutoff.score = 0.3, cutoff.qvalue = 1e-5,
+                    inputDir = loopDir, outputDir = loopDir)
+  }
+}
+```
+# Post-processing called loops
+Step 2) Post-processing: Synchronizing loops across conditions. 3x3 bin window used to determine whether the loops are same. 
+Step 3) Post-processing: Merging over resolutions.
+Merge 25kb to lower resolution by checking 25kb 3x3 bin window. If there are 25kb loop that has lower resolution loop within 3x3 window, discard the 25kb called loop. After that, repeat for 10 kb.
+## Step 2
+```{r}
+################################################################################
+# Step 2
+################################################################################
+# Merge loops across condition
+for (res in c(25000)){
+  
+  loop1 <- fread(here(loopDir, paste0("G1DMSO_pooled_chromosight_", res, "bp.tsv"))) %>% dplyr::select(seq(1, 6))
+  loop2 <- fread(here(loopDir, paste0("G1dTAG_pooled_chromosight_", res, "bp.tsv"))) %>% dplyr::select(seq(1, 6))
+
+  
+  loop.merged <- bind_rows(loop1, loop2) %>% distinct()
+  fwrite(loop.merged, here(loopDir, paste0("microcompartment_union_", res, "bp.bedpe")), 
+         sep = '\t', col.names = FALSE, row.names = FALSE)
+}
+
+# Run "chromosight quantify" with union loops in all condition
+
+# Merge loops across conditions for each resolution. 3x3 bin window used to determine whether the loops are same. 
+for (res in c(25000, 10000, 5000)){
+  score.DMSO.tb <- fread(here(loopDir, paste0("G1DMSO_pooled_union_", res, "bp_pu100pz100.tsv"))) %>%
+    dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_")) %>%
+    dplyr::filter(start2 - start1 <= 2e6) %>%
+    dplyr::select(c("chrom1", "start1", "end1", "chrom2", "start2", "end2", "bin1", "bin2",
+                    "id", "score", "pvalue", "qvalue")) %>%
+    dplyr::rename(score_DMSO = score,
+                  pvalue_DMSO = pvalue,
+                  qvalue_DMSO = qvalue) 
+  score.dTAG.tb <- fread(here(loopDir, paste0("G1dTAG_pooled_union_", res, "bp_pu100pz100.tsv"))) %>%
+    dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_")) %>%
+    dplyr::filter(start2 - start1 <= 2e6) %>%
+    dplyr::select(c("chrom1", "start1", "end1", "chrom2", "start2", "end2", "bin1", "bin2",
+                    "id", "score", "pvalue", "qvalue")) %>%
+    dplyr::rename(score_dTAG = score,
+                  pvalue_dTAG = pvalue,
+                  qvalue_dTAG = qvalue) 
+  score.A485.tb <- fread(here(loopDir, paste0("G1A485_pooled_union_", res, "bp_pu100pz100.tsv"))) %>%
+    dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_")) %>%
+    dplyr::filter(start2 - start1 <= 2e6) %>%
+    dplyr::select(c("chrom1", "start1", "end1", "chrom2", "start2", "end2", "bin1", "bin2",
+                    "id", "score", "pvalue", "qvalue")) %>%
+    dplyr::rename(score_A485 = score,
+                  pvalue_A485 = pvalue,
+                  qvalue_A485 = qvalue) 
+  score.EpiDMSO.tb <- fread(here(loopDir, paste0("EpiG1DMSO_pooled_union_", res, "bp_pu100pz100.tsv"))) %>%
+    dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_")) %>%
+    dplyr::filter(start2 - start1 <= 2e6) %>%
+    dplyr::select(c("chrom1", "start1", "end1", "chrom2", "start2", "end2", "bin1", "bin2",
+                    "id", "score", "pvalue", "qvalue")) %>%
+    dplyr::rename(score_EpiDMSO = score,
+                  pvalue_EpiDMSO = pvalue,
+                  qvalue_EpiDMSO = qvalue) 
+  score.EpidTAG.tb <- fread(here(loopDir, paste0("EpiG1dTAG_pooled_union_", res, "bp_pu100pz100.tsv"))) %>%
+    dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_")) %>%
+    dplyr::filter(start2 - start1 <= 2e6) %>%
+    dplyr::select(c("chrom1", "start1", "end1", "chrom2", "start2", "end2", "bin1", "bin2",
+                    "id", "score", "pvalue", "qvalue")) %>%
+    dplyr::rename(score_EpidTAG = score,
+                  pvalue_EpidTAG = pvalue,
+                  qvalue_EpidTAG = qvalue) 
+  
+  # Annotate whether the loop was called in each conditions
+  loop.DMSO <- fread(here(loopDir, paste0("G1DMSO_pooled_chromosight_", res, "bp.tsv"))) %>% 
+    dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_"))
+  loop.dTAG <- fread(here(loopDir, paste0("G1dTAG_pooled_chromosight_", res, "bp.tsv"))) %>% 
+    dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_"))
+  loop.A485 <- fread(here(loopDir, paste0("G1A485_pooled_chromosight_", res, "bp.tsv"))) %>% 
+    dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_"))
+  loop.EpiDMSO <- fread(here(loopDir, paste0("EpiG1DMSO_pooled_chromosight_", res, "bp.tsv"))) %>% 
+    dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_"))
+  loop.EpidTAG <- fread(here(loopDir, paste0("EpiG1dTAG_pooled_chromosight_", res, "bp.tsv"))) %>% 
+    dplyr::mutate(id = paste(chrom1, start1, end1,
+                             chrom2, start2, end2, sep="_"))
+  
+  score.tb <- full_join(score.DMSO.tb, score.dTAG.tb,
+                        by = c("chrom1", "start1", "end1",
+                               "chrom2", "start2", "end2",
+                               "bin1", "bin2", "id")) %>%
+    full_join(score.A485.tb,
+              by = c("chrom1", "start1", "end1",
+                     "chrom2", "start2", "end2",
+                     "bin1", "bin2", "id")) %>%
+    full_join(score.EpiDMSO.tb,
+              by = c("chrom1", "start1", "end1",
+                     "chrom2", "start2", "end2",
+                     "bin1", "bin2", "id")) %>%
+    full_join(score.EpidTAG.tb,
+              by = c("chrom1", "start1", "end1",
+                     "chrom2", "start2", "end2",
+                     "bin1", "bin2", "id")) %>%
+    dplyr::mutate(DMSOcalled = id %in% loop.DMSO$id,
+                  dTAGcalled = id %in% loop.dTAG$id,
+                  A485called = id %in% loop.A485$id,
+                  EpiDMSOcalled = id %in% loop.EpiDMSO$id,
+                  EpidTAGcalled = id %in% loop.EpidTAG$id) %>%
+    dplyr::mutate(
+      score = pmax(score_DMSO, score_dTAG, score_A485, score_EpiDMSO, score_EpidTAG),
+      .row_id   = row_number()           # temporary ID for graph nodes
+    )
+  
+  # 1) Build neighbor‐edges: all pairs (i, j) with |bin1[i] - bin1[j]| ≤1 AND |bin2[i] - bin2[j]| ≤1
+  coords <- score.tb %>% select(bin1, bin2)
+  n <- nrow(score.tb)
+  
+  # 2) Create all (i,j) pairs with i < j, then filter
+  pairs <- expand.grid(i = 1:n, j = 1:n) %>%
+    filter(i < j) %>%
+    filter(
+      abs(coords$bin1[i] - coords$bin1[j]) <= 1,
+      abs(coords$bin2[i] - coords$bin2[j]) <= 1
+    )
+  
+  # 3) Turn into an undirected graph and extract components
+  g <- graph_from_data_frame(pairs, directed = FALSE, vertices = data.frame(name = 1:n))
+  comps <- components(g)$membership
+  
+  # 4) Annotate your tibble with “group” and “is_best”
+  score.tb <- score.tb %>%
+    mutate(group = comps[.row_id]) %>%
+    group_by(group) %>%
+    mutate(
+      is_best               = score == max(score),
+      DMSOcalledProcessed   = any(DMSOcalled),
+      dTAGcalledProcessed   = any(dTAGcalled),
+      A485calledProcessed   = any(A485called),
+      EpiDMSOcalledProcessed = any(EpiDMSOcalled),
+      EpidTAGcalledProcessed = any(EpidTAGcalled)
+    ) %>%
+    ungroup() %>%
+    dplyr::select(-.row_id)
+  
+  temp <- score.tb %>% dplyr::filter(is_best)
+  
+  
+  
+  ##############################################################################
+  raw_sets <- list(
+    DMSO    = which(score.tb$DMSOcalled),
+    dTAG    = which(score.tb$dTAGcalled),
+    A485    = which(score.tb$A485called),
+    EpiDMSO = which(score.tb$EpiDMSOcalled),
+    EpidTAG = which(score.tb$EpidTAGcalled)
+  )
+  
+  svglite(here(figDir, paste0("upset_raw_", res, ".svg")), width = 6, height = 4)
+  print(upset(
+    fromList(raw_sets),
+    nsets = 5,
+    order.by = "freq",
+    mb.ratio = c(0.6, 0.4),
+    point.size = 3,
+    line.size = 1,
+    main.bar.color = "steelblue",
+    matrix.color = "firebrick"
+  ))
+  dev.off()
+  
+  
+  # 2) PROCESSED calls
+  proc_sets <- list(
+    DMSO    = which(temp$DMSOcalledProcessed),
+    dTAG    = which(temp$dTAGcalledProcessed),
+    A485    = which(temp$A485calledProcessed),
+    EpiDMSO = which(temp$EpiDMSOcalledProcessed),
+    EpidTAG = which(temp$EpidTAGcalledProcessed)
+  )
+  
+  svglite(here(figDir, paste0("upset_processed_", res, ".svg")), width = 6, height = 4)
+  print(upset(
+    fromList(proc_sets),
+    nsets = 5,
+    order.by = "freq",
+    mb.ratio = c(0.6, 0.4),
+    point.size = 3,
+    line.size = 1,
+    main.bar.color = "steelblue",
+    matrix.color = "firebrick"
+  ))
+  dev.off()
+  
+  
+  
+  # Export bedpe
+  temp <- score.tb %>% dplyr::filter(is_best) %>% dplyr::select(seq(1, 6))
+  fwrite(temp, here(loopDir, paste0("chromo_union_", res, "bp_postprocessed.bedpe")), sep = "\t", col.names = FALSE)
+  
+  out.tb <- score.tb %>% dplyr::filter(is_best) %>% dplyr::select(-group, -is_best, -DMSOcalled, -dTAGcalled, -A485called)
+  fwrite(out.tb, here(loopDir, paste0("chromo_union_", res, "bp_postprocessed.tsv")), sep = "\t")
+}
+
+
+```
+
+## Step 3
+```{r}
+score.tb.25kb <- fread(here(loopDir, "chromo_union_25000bp_postprocessed.tsv")) %>% dplyr::mutate(res = 25)
+score.tb.10kb <- fread(here(loopDir, "chromo_union_10000bp_postprocessed.tsv")) %>% dplyr::mutate(res = 10)
+score.tb.5kb <- fread(here(loopDir, "chromo_union_5000bp_postprocessed.tsv")) %>% dplyr::mutate(res = 5)
+
+score.tb <- bind_rows(score.tb.25kb, score.tb.10kb, score.tb.5kb) %>% dplyr::select(-bin1, -bin2)
+
+
+
+################
+
+# Convert to data.table
+score.tb <- as.data.table(score.tb)
+
+
+#### Round 1
+# Split into reference and comparison sets
+loops_25 <- score.tb[res == 25][, .(id, chrom1, start1, chrom2, start2)]
+loops_small <- score.tb[res %in% c(5, 10)][, .(id, chrom1, start1, chrom2, start2)]
+
+# Bin resolution in basepairs (same for all since we're using Chebyshev distance of 1 in 25kb)
+bin_size <- 25000
+
+# Compute bin coordinates
+loops_25[, `:=`(bin1 = start1 %/% bin_size, bin2 = start2 %/% bin_size)]
+loops_small[, `:=`(bin1 = start1 %/% bin_size, bin2 = start2 %/% bin_size)]
+
+# Set keys for fast join
+setkey(loops_small, chrom1, chrom2, bin1, bin2)
+
+# Initialize a flag column
+score.tb[, has_fine_neighbor25 := FALSE]
+
+# Loop over each 25kb loop and check for nearby smaller-res loops
+for (i in seq_len(nrow(loops_25))) {
+  loop <- loops_25[i]
+  nearby <- loops_small[
+    chrom1 == loop$chrom1 & chrom2 == loop$chrom2 &
+    abs(bin1 - loop$bin1) <= 1 &
+    abs(bin2 - loop$bin2) <= 1
+  ]
+  if (nrow(nearby) > 0) {
+    score.tb[res == 25 & id == loop$id, has_fine_neighbor25 := TRUE]
+  }
+}
+
+#### Round 2
+# Split into reference and comparison sets
+loops_10 <- score.tb[res == 10][, .(id, chrom1, start1, chrom2, start2)]
+loops_small <- score.tb[res %in% c(5)][, .(id, chrom1, start1, chrom2, start2)]
+
+# Bin resolution in basepairs (same for all since we're using Chebyshev distance of 1 in 25kb)
+bin_size <- 10000
+
+# Compute bin coordinates
+loops_10[, `:=`(bin1 = start1 %/% bin_size, bin2 = start2 %/% bin_size)]
+loops_small[, `:=`(bin1 = start1 %/% bin_size, bin2 = start2 %/% bin_size)]
+
+# Set keys for fast join
+setkey(loops_small, chrom1, chrom2, bin1, bin2)
+
+# Initialize a flag column
+score.tb[, has_fine_neighbor10 := FALSE]
+
+# Loop over each 25kb loop and check for nearby smaller-res loops
+for (i in seq_len(nrow(loops_10))) {
+  loop <- loops_10[i]
+  nearby <- loops_small[
+    chrom1 == loop$chrom1 & chrom2 == loop$chrom2 &
+    abs(bin1 - loop$bin1) <= 1 &
+    abs(bin2 - loop$bin2) <= 1
+  ]
+  if (nrow(nearby) > 0) {
+    score.tb[res == 10 & id == loop$id, has_fine_neighbor10 := TRUE]
+  }
+}
+
+
+####### Final loops
+score.final.tb <- score.tb %>% dplyr::filter(has_fine_neighbor25==FALSE) %>% dplyr::filter(has_fine_neighbor10==FALSE)
+fwrite(score.final.tb, here(loopDir, paste0("chromo_union_allRes_postprocessed.tsv")), sep = "\t")
+fwrite(score.tb, here(loopDir, paste0("chromo_union_allRes_beforePostprocessed.tsv")), sep = "\t")
+
+
+
+fwrite(score.final.tb %>% dplyr::select(seq(1, 6)), here(loopDir, paste0("chromo_union_allRes_postprocessed.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(score.final.tb %>% dplyr::filter(DMSOcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_G1DMSO.bedpe")), sep = "\t",
+       col.names = FALSE)
+fwrite(score.final.tb %>% dplyr::filter(dTAGcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_G1dTAG.bedpe")), sep = "\t",
+       col.names = FALSE)
+fwrite(score.final.tb %>% dplyr::filter(A485calledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_G1A485.bedpe")), sep = "\t",
+       col.names = FALSE)
+fwrite(score.final.tb %>% dplyr::filter(EpiDMSOcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_EpiG1DMSO.bedpe")), sep = "\t",
+       col.names = FALSE)
+fwrite(score.final.tb %>% dplyr::filter(EpidTAGcalledProcessed) %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_EpiG1dTAG.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+# Upset plot
+
+proc_sets <- list(
+    DMSO    = which(score.tb$DMSOcalledProcessed),
+    dTAG    = which(score.tb$dTAGcalledProcessed),
+    A485    = which(score.tb$A485calledProcessed),
+    EpiDMSO = which(score.tb$EpiDMSOcalledProcessed),
+    EpidTAG = which(score.tb$EpidTAGcalledProcessed)
+  )
+  
+  svglite(here(figDir, paste0("upset_processedHalf_allRes.svg")), width = 6, height = 4)
+  print(upset(
+    fromList(proc_sets),
+    nsets = 5,
+    order.by = "freq",
+    mb.ratio = c(0.6, 0.4),
+    point.size = 3,
+    line.size = 1,
+    main.bar.color = "steelblue",
+    matrix.color = "firebrick"
+  ))
+  dev.off()
+
+
+proc_sets <- list(
+    DMSO    = which(score.final.tb$DMSOcalledProcessed),
+    dTAG    = which(score.final.tb$dTAGcalledProcessed),
+    A485    = which(score.final.tb$A485calledProcessed),
+    EpiDMSO = which(score.final.tb$EpiDMSOcalledProcessed),
+    EpidTAG = which(score.final.tb$EpidTAGcalledProcessed)
+  )
+  
+  svglite(here(figDir, paste0("upset_processed_allRes.svg")), width = 6, height = 4)
+  print(upset(
+    fromList(proc_sets),
+    nsets = 5,
+    order.by = "freq",
+    mb.ratio = c(0.6, 0.4),
+    point.size = 3,
+    line.size = 1,
+    main.bar.color = "steelblue",
+    matrix.color = "firebrick"
+  ))
+  dev.off()
+
+
+
+```
+
+Splitting final loops into resolutions for obs/exp calculation
+```{r}
+loops <- fread(here(loopDir, "chromo_union_allRes_postprocessed.bedpe"))
+colnames(loops) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+
+loops <- loops %>% dplyr::mutate(size = end1 - start1)
+
+loops.25kb <- loops %>% dplyr::filter(size == 25000)
+loops.10kb <- loops %>% dplyr::filter(size == 10000)
+loops.5kb <- loops %>% dplyr::filter(size == 5000)
+
+
+fwrite(loops.25kb %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_25000bp.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(loops.10kb %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_10000bp.bedpe")), sep = "\t",
+       col.names = FALSE)
+
+fwrite(loops.5kb %>% dplyr::select(seq(1, 6)), 
+       here(loopDir, paste0("chromo_union_allRes_postprocessed_5000bp.bedpe")), sep = "\t",
+       col.names = FALSE)
+```
+
+
+# Annotating loop
+
+## ChromHMM based annotation
+### Functions
+```{r}
+createLoopAnnotation <- function(bedpe.loop.anno, name, figDir){
+  temp = bedpe.loop.anno %>%
+    dplyr::mutate(sample = name)
+  
+  # num = nrow(temp)
+  # p7 = ggplot(temp, aes(x = sample, fill = Anno2)) +
+  #   geom_bar(color = "black") +
+  #   theme_bw() +
+  #   labs(title = paste0(num, " loops"),
+  #        x = "", y = "Counts") +
+  #   scale_y_continuous(labels = comma_format()) +
+  #   theme(plot.title = element_text(hjust = 0.5),
+  #         aspect.ratio = 5,
+  #         legend.position = "right",
+  #         legend.direction  = "vertical")
+  # +
+  # scale_fill_manual(values = colorList)
+  
+  pie_df <- temp %>%
+    as_tibble() %>%                          # if temp was a list, this will error early
+    group_by(Anno2) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    mutate(label = paste0(Anno2, " (", n, ")"))
+  
+  
+  p7 <- ggplot(pie_df, aes(x = "", y = n, fill = Anno2)) +
+    geom_col(color = "black", width = 1) +
+    coord_polar(theta = "y") +
+    geom_text(aes(label = label),
+              position = position_stack(vjust = 0.5),
+              size = 3) +
+    theme_void() +   theme(legend.position = "none")
+  
+  width = 3
+  height = 3
+  svglite(here(figDir,
+               paste0("loopClassify_", name, ".svg")),
+          width = width, height = height)
+  plot(p7)
+  invisible(dev.off())
+  png(here(figDir,
+           paste0("loopClassify_", name, ".png")),
+      width = width, height = height, res = 600, units = "in")
+  plot(p7)
+  invisible(dev.off())
+
+  
+  }
+
+```
+
+### Group ChromHMM + RAD21 peaks
+```{r}
+refDir <- here("../reference")
+
+# 1) Read your full‐stack segments
+segments <- fread(
+  "/Volumes/UKJIN_SSD/reference/chromHMM_fullstack/mm10_100_segments_segments.bed",
+  col.names = c("chr","start","end","state")
+)
+
+# 2) Read the RAD21 peaks
+rad21 <- fread(here(refDir, "ChIP", "RAD21-HA", "RAD21_ESC-DMSO_unionPeaks.bed"),
+  col.names = c("chr","start","end")
+)
+
+# 3) Tag every segment with an index so we can mark overlaps
+segments[, seg_id := .I]
+
+# 4) Prepare for foverlaps: set keys on chr, start, end
+setkey(segments, chr, start, end)
+setkey(rad21,    chr, start, end)
+
+# 5) Find all overlaps (type = "any") — nomatch=0L drops non‐overlapping
+ov <- foverlaps(segments, rad21, type = "any", nomatch = 0L)
+
+# 6) In the original table, mark any seg_id that showed up in ov as insulator
+segments[, V5 := NA_character_]
+segments[ seg_id %in% unique(ov$seg_id), V5 := "insulator" ]
+
+# 7) Now do your regex‐based assignment *only* for those still NA
+segments <- segments %>%
+  mutate(
+    annot = case_when(
+      (V5 == "insulator") & str_detect(state, regex("mBivProm|mPromF|mTSS|mTxEx3", ignore_case = TRUE)) ~ "SP",
+      (V5 == "insulator") & str_detect(state, regex("mEnhA|mEnhWk|mTxEnh", ignore_case = TRUE)) ~ "SE",
+      V5 == "insulator" ~ "S",
+      str_detect(state, regex("mOpenC6|mOpenC7",     ignore_case = TRUE)) ~ "S",
+      str_detect(state, regex("mBivProm|mPromF|mTSS|mTxEx3", ignore_case = TRUE)) ~ "P",
+      str_detect(state, regex("mEnhA|mEnhWk|mTxEnh", ignore_case = TRUE)) ~ "E",
+      str_detect(state, regex("mHet",                ignore_case = TRUE)) ~ "H",
+      str_detect(state, regex("mReprPC",             ignore_case = TRUE)) ~ "R",
+      str_detect(state, regex("mTx1|mTx2|mTx3|mTx4|mTx5|mTx6|mTx7|mTx8|mTxEx1|mTxEx2|mTxWk1|mTxWk2", ignore_case = TRUE)) ~ "T",
+      TRUE                                           ~ NA_character_
+    )
+  )
+
+# 8) Select only chr,start,end,V5 and drop any leftover NAs
+outtemp <- segments %>%
+  select(chr, start, end, annot) %>%
+  filter(!is.na(annot))
+
+# 9) Write it out
+fwrite(
+  outtemp,
+  "/Volumes/UKJIN_SSD/reference/chromHMM_fullstack/mm10_100_segments_segments_grouped_ChIP.bed",
+  sep = "\t",
+  col.names = FALSE
+)
+```
+
+
+### Annotate anchors
+```{r}
+consensus.loop.tb <- fread(here(loopDir, "chromo_union_allRes_postprocessed.tsv"))
+
+loop <- as_tibble(consensus.loop.tb)
+anchor1.tb <- as_tibble(loop) %>% dplyr::select(chrom1, start1, end1)
+colnames(anchor1.tb) <- c("chr", "start", "end")
+anchor2.tb <- as_tibble(loop) %>% dplyr::select(chrom2, start2, end2)
+colnames(anchor2.tb) <- c("chr", "start", "end")
+anchor.tb <- bind_rows(anchor1.tb, anchor2.tb) %>% 
+  distinct()
+
+anchor <- makeGRangesFromDataFrame(data.frame(anchor.tb))
+chromHMM <- fread(here(refDir, "chromHMM_fullstack", "mm10_100_segments_segments_grouped_ChIP.bed"))
+colnames(chromHMM) <- c("chr", "start", "end", "state")
+chromHMM <- makeGRangesFromDataFrame(data.frame(chromHMM), keep.extra.columns = TRUE)
+
+hits <- findOverlaps(anchor, chromHMM, minoverlap = 2)
+ov <- as.data.frame(hits)
+collapsed <- ov %>%
+  group_by(queryHits) %>%
+  summarize(annot = paste(unique(mcols(chromHMM)$state[subjectHits]), collapse=";"))
+
+anchor.tb$annot <- NA_character_
+anchor.tb$annot[collapsed$queryHits] <- collapsed$annot
+
+anchor.tb <- anchor.tb %>% dplyr::mutate(annotSingle = case_when(
+  str_detect(annot, regex("SP",     ignore_case = TRUE)) ~ "SP",
+  str_detect(annot, regex("SE",     ignore_case = TRUE)) ~ "SE",
+  str_detect(annot, regex("S",     ignore_case = TRUE)) ~ "S",
+  str_detect(annot, regex("P",     ignore_case = TRUE)) ~ "P",
+  str_detect(annot, regex("E",     ignore_case = TRUE)) ~ "E",
+  TRUE ~ "X",
+))
+
+fwrite(anchor.tb, here(loopDir, "chromo_union_allRes_postprocessed_anchor.bed"), sep = "\t", col.names = FALSE)
+
+# Visualize anchor classification
+colorList <- rev(c(colorListPromoter[3], colorListEnhancer[3], colorListPromoter[2], colorListEnhancer[2], colorListStructure[3], colorListStructure[1]))
+anchor.tb$annotSingle <- factor(anchor.tb$annotSingle, rev(c("P", "E", "SP", "SE", "S", "X")))
+temp <- anchor.tb %>% dplyr::mutate(name = "anchor")
+num <- nrow(temp)
+p <- ggplot(temp, aes(x = name, fill = annotSingle)) +
+  geom_bar(color = "black") +
+  theme_bw() +
+  labs(title = paste0(num, " anchors"),
+       x = "", y = "Counts") +
+  scale_y_continuous(labels = comma_format()) +
+  theme(plot.title = element_text(hjust = 0.5),
+        aspect.ratio = 5,
+        legend.position = "right",
+        legend.direction  = "vertical") +
+    scale_fill_manual(values = colorList)
+
+svglite(here(figDir, "anchorClassify_chromo_union_allRes_postprocessed_chromHMMRAD21.svg"), width = 3, height = 5)
+print(p)
+dev.off()
+```
+
+### Annotate loops
+```{r}
+anchor.tb <- fread(here(loopDir, "chromo_union_allRes_postprocessed_anchor.bed")) %>%
+  dplyr::mutate(anchor_id = paste(V1, V2, V3, sep = "_")) %>%
+  rename(annot = V5)
+
+# Merging with ChIP annotation
+name <- "chromo_union_allRes_postprocessed"
+consensus.loop.anno.tb <- fread(here(loopDir, paste0(name, ".tsv")))
+
+consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
+  dplyr::mutate(anchor_id_1 = paste(chrom1, start1, end1, sep = "_"),
+                anchor_id_2 = paste(chrom2, start2, end2, sep = "_"))
+
+
+consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
+  left_join(
+    anchor.tb %>% select(anchor_id, annot),
+    by = c("anchor_id_1" = "anchor_id")
+  ) %>%
+  rename(A1 = annot) %>%
+  left_join(
+    anchor.tb %>% select(anchor_id, annot),
+    by = c("anchor_id_2" = "anchor_id")
+  ) %>%
+  rename(A2 = annot) %>%
+  dplyr::mutate(A1_simple = recode(A1,
+                                   "SE" = "S",
+                                   "SP" = "S"),
+                A2_simple = recode(
+                  A2,
+                  "SE" = "S",
+                  "SP" = "S"
+                ))
+
+order_lvls <- c("P","E","SP","SE","S","X")
+rank_map   <- setNames(seq_along(order_lvls), order_lvls)
+consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
+  mutate(
+    r1 = rank_map[A1],           # map A1 → 1..6
+    r2 = rank_map[A2],           # map A2 → 1..6
+    first  = if_else(r1 <= r2, A1, A2),
+    second = if_else(r1 <= r2, A2, A1),
+    Anno  = paste(first, second, sep = "-")
+  ) %>%
+  select(-r1, -r2, -first, -second)
+
+
+order_lvls <- c("P","E","S","X")
+rank_map   <- setNames(seq_along(order_lvls), order_lvls)
+consensus.loop.anno.tb <- consensus.loop.anno.tb %>%
+  mutate(
+    r1 = rank_map[A1_simple],           # map A1 → 1..6
+    r2 = rank_map[A2_simple],           # map A2 → 1..6
+    first  = if_else(r1 <= r2, A1_simple, A2_simple),
+    second = if_else(r1 <= r2, A2_simple, A1_simple),
+    Anno_simple  = paste(first, second, sep = "-")
+  ) %>%
+  select(-r1, -r2, -first, -second)
+
+
+
+fwrite(consensus.loop.anno.tb, here(loopDir, paste0(name, "_annotated.tsv")), 
+       sep = "\t", col.names = TRUE)
+
+temp <- consensus.loop.anno.tb %>% rename(Anno2 = Anno_simple)
+temp$Anno2 <- factor(temp$Anno2, levels = rev(c("P-P", "P-E", "E-E",
+                                                "P-S", "E-S",
+                                                "P-X", "E-X", "S-X",
+                                                "X-X",
+                                                "S-S")))
+createLoopAnnotation(temp, paste0(name, "_annotated_simple"), figDir)
+
+
+temp <- consensus.loop.anno.tb %>% rename(Anno2 = Anno)
+temp$Anno2 <- factor(temp$Anno2, levels = rev(c("P-P", "P-E", "E-E",
+                                                "P-SP", "P-SE", "P-S", "E-SP", "E-SE", "E-S",
+                                                "P-X", "E-X", "SP-X", "SE-X", "S-X",
+                                                "X-X",
+                                                "SP-SP", "SP-SE", "SP-S", "SE-SE", "SE-S", "S-S")))
+
+createLoopAnnotation(temp, paste0(name, "_annotated_complex"), figDir)
+```
+
+## ChIP-based annotation
+```{r}
+refDir <- here("../reference")
+peak.H3K4me3 <- importPeak(here(refDir, "ChIP", "H3K4me3", "H3K4me3_ESC_unionPeaks.bed"))
+
+# Filtering H3K4me3 peaks near TSS
+flankSize <- 2500
+gene.tb <- fread(here(refDir, "mm10", "gencode.vM25.mm10.GRCm38.p6_gene_sorted.bed")) %>%
+  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
+                TSSstart = TSS - flankSize,
+                TSSend = TSS + flankSize) %>%
+  dplyr::select(V1, TSSstart, TSSend)
+colnames(gene.tb) <- c("chr", "start", "end")
+TSSflank.gr <- makeGRangesFromDataFrame(gene.tb)
+temp <- peak.H3K4me3[unique(queryHits(findOverlaps(peak.H3K4me3, TSSflank.gr)))]
+fwrite(as_tibble(temp), here(refDir, "ChIP", "H3K4me3", 
+                             paste0("H3K4me3_ESC_unionPeaks_", 
+                                    flankSize/1000, "kbTSS.bed")), sep = "\t", col.names = FALSE)
+```
+#### (ARCHIVED) Import ChIP peaks
+```{r}
+#### Importing ChIP-exo peaks
+refDir <- here("../reference")
+peak.H3K27ac <- importPeak(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_unionPeaks.bed"))
+peak.H3K4me3TSS <- importPeak(here(refDir, "ChIP", "H3K4me3", "H3K4me3_ESC_unionPeaks_2.5kbTSS.bed"))
+peak.CTCF <- importPeak(here(refDir, "ChIP", "CTCF", "CTCF_ESC_unionPeaks.bed"))
+peak.RAD21 <- importPeak(here(refDir, "ChIP", "RAD21-HA", "RAD21_ESC-DMSO_unionPeaks.bed"))
+peak.Whyte.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Whyte_ESC_mm10.bed"))
+peak.Dylan.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Dylan_ESC.bed"))
+```
+#### (ARCHIVED) Functions
+```{r}
+createLoopAnnotation <- function(bedpe.loop.anno, name, figDir, colorList){
+  temp = bedpe.loop.anno %>%
+    dplyr::mutate(sample = name)
+  
+  num = nrow(temp)
+  p7 = ggplot(temp, aes(x = sample, fill = Anno2)) +
+    geom_bar(color = "black") +
+    theme_bw() +
+    labs(title = paste0(num, " loops"),
+         x = "", y = "Counts") +
+    scale_y_continuous(labels = comma_format()) +
+    theme(plot.title = element_text(hjust = 0.5),
+          aspect.ratio = 5,
+          legend.position = "right",
+          legend.direction  = "vertical") +
+    scale_fill_manual(values = colorList)
+  
+  width = 3
+  height = 5
+  svglite(here(figDir,
+               paste0("loopClassify_", name, ".svg")),
+          width = width, height = height)
+  plot(p7)
+  invisible(dev.off())
+  png(here(figDir,
+           paste0("loopClassify_", name, ".png")),
+      width = width, height = height, res = 600, units = "in")
+  plot(p7)
+  invisible(dev.off())
+}
+
+
+annotateLoopRelaxedTSS <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_H3K4me3TSS), "P", 
+                   if_else((A1_H3K27ac), "E",
+                           if_else((A1_CTCF|A1_RAD21), "S", "X"))),
+      A2 = if_else((A2_H3K4me3TSS), "P", 
+                   if_else((A2_H3K27ac), "E",
+                           if_else((A2_CTCF|A2_RAD21), "S", "X")))
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "E-P", "P-E", 
+                                  if_else(Anno == "S-P", "P-S",
+                                          if_else(Anno == "X-P", "P-X",
+                                                  if_else(Anno == "S-E", "E-S",
+                                                          if_else(Anno == "X-E", "E-X",
+                                                                  if_else(Anno == "X-S", "S-X",
+                                                                          Anno)))))),
+    )
+  
+  temp$Anno2 = factor(temp$Anno2, level = c("X-X",
+                                            "S-X", "S-S",
+                                            "E-X","E-S","E-E",
+                                            "P-E","P-X", "P-S", "P-P"))
+  
+  # Checking the precense of super enhancer
+  temp <- temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(AnnoSE = ifelse(A1_Whyte.SE | A2_Whyte.SE, "SE", "NO"))
+  temp$AnnoSE <- factor(temp$AnnoSE, level = c("SE", "NO"))
+  
+  return(temp)
+}
+
+annotateLoopPromoterTSS <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_H3K4me3TSS), "P", "N"),
+      A2 = if_else((A2_H3K4me3TSS), "P", "N")
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "N-P", "P-N", Anno))
+  
+  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "P-N", "P-P"))
+  
+  return(temp)
+}
+
+annotateLoopEnhancer <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_H3K27ac), "E", "N"),
+      A2 = if_else((A2_H3K27ac), "E", "N")
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "N-E", "E-N", Anno))
+  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "E-N", "E-E"))
+  
+  return(temp)
+}
+
+annotateLoopStructure <- function(bedpe.anno){
+  temp = bedpe.anno %>% dplyr::rowwise() %>%
+    dplyr::mutate(
+      A1 = if_else((A1_CTCF|A1_RAD21), "S", "N"),
+      A2 = if_else((A2_CTCF|A2_RAD21), "S", "N")
+    )
+  temp = temp %>% dplyr::rowwise() %>%
+    dplyr::mutate(Anno = paste0(A1, "-", A2),
+                  Anno2 = if_else(Anno == "N-S", "S-N", Anno))
+  temp$Anno2 = factor(temp$Anno2, level = c("N-N", "S-N", "S-S"))
+  return(temp)
+}
+
+
+annotateAnchorTSS <- function(bedpe){
+  tb.loop = 
+    setOverlapColumn("Whyte.SE",
+                     setOverlapColumn("CTCF",
+                                      setOverlapColumn("RAD21",
+                                                       setOverlapColumn("H3K27ac",
+                                                                        setOverlapColumn("H3K4me3TSS", bedpe)))))
+  return(tb.loop)
+}
+
+setOverlapColumn <- function(peakName, loop){
+  tb.loop = as_tibble(loop)
+  overlap = returnOverlapIndexLixt(get(paste0("peak.", peakName)), tb.loop)
+  tb.loop[[paste0("A1_", peakName)]] = FALSE
+  tb.loop[[paste0("A1_", peakName)]][overlap[[1]]] = TRUE
+  tb.loop[[paste0("A2_", peakName)]] = FALSE
+  tb.loop[[paste0("A2_", peakName)]][overlap[[2]]] = TRUE
+  return(tb.loop)
+}
+
+returnOverlapIndexLixt <- function(peak, loop){
+  anchor1.tb = as_tibble(loop) %>% dplyr::select(chrom1, start1, end1)
+  anchor1 = makeGRangesFromDataFrame(data.frame(
+    chr = anchor1.tb$chrom1,
+    start = anchor1.tb$start1,
+    end = anchor1.tb$end1
+  ))
+  
+  anchor2.tb = as_tibble(loop) %>% dplyr::select(chrom2, start2, end2)
+  anchor2 = makeGRangesFromDataFrame(data.frame(
+    chr = anchor2.tb$chrom2,
+    start = anchor2.tb$start2,
+    end = anchor2.tb$end2
+  ))
+  
+  overlap = list(overlap1 = unique(queryHits(findOverlaps(anchor1, peak))),
+                 overlap2 = unique(queryHits(findOverlaps(anchor2, peak))))
+  return(overlap)
+}
+
+saveAnnoGroupBedpe <- function(temp, anno.list, name, annoName, ouDir){
+  loop = temp %>% dplyr::filter(Anno2 %in% anno.list) %>%
+    dplyr::select(c("chrom1", "start1", "end1", "chrom2", "start2", "end2"))
+  fwrite(loop, here(outDir, paste0(name, "_", annoName, ".bedpe")), sep = "\t", col.names = FALSE)
+}
+
+annotateAnchorTSSAnchor <- function(bed){
+  tb.anchor = 
+    setOverlapColumnAnchor("Whyte.SE",
+                     setOverlapColumnAnchor("CTCF",
+                                      setOverlapColumnAnchor("RAD21",
+                                                       setOverlapColumnAnchor("H3K27ac",
+                                                                        setOverlapColumnAnchor("H3K4me3TSS", bed)))))
+  return(tb.anchor)
+}
+
+setOverlapColumnAnchor <- function(peakName, anchor){
+  tb.anchor = as_tibble(anchor)
+  overlap = returnOverlapIndexListAnchor(get(paste0("peak.", peakName)), tb.anchor)
+  tb.anchor[[paste0("A1_", peakName)]] = FALSE
+  tb.anchor[[paste0("A1_", peakName)]][overlap] = TRUE
+  return(tb.anchor)
+}
+
+returnOverlapIndexListAnchor <- function(peak, anchor){
+  anchor1.tb = as_tibble(anchor) %>% dplyr::select(chr, start, end)
+  anchor1 = makeGRangesFromDataFrame(data.frame(
+    chr = anchor1.tb$chr,
+    start = anchor1.tb$start,
+    end = anchor1.tb$end
+  ))
+  
+  overlap = unique(queryHits(findOverlaps(anchor1, peak)))
+  return(overlap)
+}
+
+```
+
+#### (ARCHIVED) Annotation with ChIP
+```{r}
+consensus.loop.tb <- fread(here(loopDir, "chromo_union_allRes_postprocessed.tsv"))
+
+################################################################################
+# Annotating with strict priority (P-TSS > E > S)
+temp.anno.TSS <- annotateAnchorTSS(consensus.loop.tb)
+consensus.loop.anno.tb <- annotateLoopRelaxedTSS(temp.anno.TSS)
+
+
+
+loop <- as_tibble(consensus.loop.anno.tb)
+anchor1.tb <- as_tibble(loop) %>% dplyr::select(chrom1, start1, end1, A1)
+colnames(anchor1.tb) <- c("chr", "start", "end", "Anno_ChIP")
+anchor2.tb <- as_tibble(loop) %>% dplyr::select(chrom2, start2, end2, A2)
+colnames(anchor2.tb) <- c("chr", "start", "end", "Anno_ChIP")
+anchor.tb <- bind_rows(anchor1.tb, anchor2.tb) %>% 
+  distinct() %>%
+  dplyr::mutate(id = paste(chr, start, end, sep = "_"))
+
+
+################################################################################
+# Comparing with ChromHMM based annotation
+
+temp <- fread(here(loopDir, "chromo_union_allRes_postprocessed_anchor.bed")) %>% dplyr::select(V1, V2, V3, V5)
+colnames(temp) <- c("chr", "start", "end", "Anno_chromHMM")
+temp <- temp %>%
+  dplyr::mutate(id = paste(chr, start, end, sep = "_")) %>%
+  dplyr::select(id, Anno_chromHMM)
+
+anchor.tb <- anchor.tb %>% left_join(temp, by = c("id")) %>% dplyr::select(id, Anno_ChIP, Anno_chromHMM)
+
+anchor.tb$Anno_ChIP <- factor(anchor.tb$Anno_ChIP, levels = (c("P", "E", "S", "X")))
+anchor.tb$Anno_chromHMM <- factor(anchor.tb$Anno_chromHMM, levels = (c("P", "E", "SP", "SE", "S", "X")))
+
+
+flow_df <- anchor.tb %>%
+  dplyr::count(Anno_ChIP, Anno_chromHMM, name = "freq")
+
+lodes_df <- flow_df %>%
+  mutate(fill_group = Anno_ChIP) %>%
+  mutate(alluvium_id = row_number()) %>%
+  pivot_longer(cols = c(Anno_ChIP, Anno_chromHMM),
+               names_to = "x",
+               values_to = "stratum")
+
+# 2. Set the factor levels for the stratum and axis (x) columns
+#    This is the key step that enforces the correct display order.
+unified_levels <- c("P", "E", "SP", "SE", "S", "X")
+lodes_df$stratum <- factor(lodes_df$stratum, levels = unified_levels)
+lodes_df$x <- factor(lodes_df$x, levels = c("Anno_ChIP", "Anno_chromHMM"))
+# Ensure the fill variable is also a factor with the correct levels
+lodes_df$fill_group <- factor(lodes_df$fill_group, levels = c("P", "E", "S", "X"))
+
+
+# 3. Plot using the new long-format data frame and aesthetics
+p <- ggplot(data = lodes_df,
+       aes(x = x, stratum = stratum, alluvium = alluvium_id,
+           y = freq)) +
+  geom_flow(aes(fill = fill_group), width = 1/4,
+            reverse = FALSE) +
+  geom_stratum(width = 1/4, color = "black",
+               reverse = FALSE) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)), reverse = FALSE,
+            size = fontSizeM*ptToMM) +
+  labs(x = NULL,
+       y = "Number of anchors") +
+  theme_minimal() +  scale_x_discrete(expand = expansion(add = 0.25)) +
+  theme(legend.position = "none") +
+  # theme_classic() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+    )
+
+
+name <- "alluvial_loopAnnoComparison"
+width <- panelSize(1.5)*mmToInch
+height <- panelSize(1.75)*mmToInch  
+svglite(here(figDir,
+             paste0(name, ".svg")),
+        width = width, height = height)
+plot(p)
+invisible(dev.off())
+png(here(figDir,
+         paste0(name, ".png")),
+    width = width, height = height, res = 600, units = "in")
+plot(p)
+invisible(dev.off())
+
+```
+
+
