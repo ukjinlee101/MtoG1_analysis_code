@@ -17,7 +17,16 @@ else
     echo "Missing input files"
 fi
 
+# Filtering union peaks that are present in each condition
+out1="${chipDir}/UnionPeaks_RAD21_ESC-DMSO_and_dTAG__ESC-DMSO.bed"
+bedtools intersect -wa -a ${out} -b ${peak1} > ${out1}
+out2="${chipDir}/UnionPeaks_RAD21_ESC-DMSO_and_dTAG__ESC-dTAG.bed"
+bedtools intersect -wa -a ${out} -b ${peak2} > ${out2}
+out3="${chipDir}/UnionPeaks_RAD21_ESC-DMSO_and_dTAG__common.bed"
+bedtools intersect -wa -a ${out1} -b ${out2} > ${out3}
 
+############################################################################################
+# Drawing tornado plot
 dataDir="/Volumes/UKJIN_SSD/data/deeptools"
 figDir="/Volumes/UKJIN_SSD/figure/deeptools"
 mkdir -p $dataDir
@@ -52,6 +61,34 @@ plotHeatmap \
 
 
 
+name="UnionPeaks_RAD21_ESC-DMSO_and_dTAG__common"
+computeMatrix reference-point \
+    --referencePoint center \
+    -R ${chipDir}/UnionPeaks_RAD21_ESC-DMSO_and_dTAG__common.bed \
+    -S ${chipDir}/RAD21_ESC-DMSO_Rep1_spikeNorm_inputNorm.bw ${chipDir}/RAD21_ESC-DMSO_Rep2_spikeNorm_inputNorm.bw ${chipDir}/RAD21_ESC-dTAG_Rep1_spikeNorm_inputNorm.bw ${chipDir}/RAD21_ESC-dTAG_Rep2_spikeNorm_inputNorm.bw \
+    --beforeRegionStartLength 2000 \
+    --afterRegionStartLength 2000 \
+    --binSize 25 \
+    --missingDataAsZero \
+    -p 8 \
+    -o ${dataDir}/matrix_${name}.gz
+
+
+plotHeatmap \
+-m ${dataDir}/matrix_${name}.gz \
+--heatmapHeight 0.5 \
+--heatmapWidth 1.5 \
+--colorMap Blues -max 1 \
+-T $name --refPointLabel "" \
+--samplesLabel "DMSO1" "DMSO2" "dTAG1" "dTAG2" \
+--legendLocation none \
+--yAxisLabel "spikeInputNorm" \
+--xAxisLabel "peak center" \
+--plotFileFormat svg \
+-o ${figDir}/heatmap_${name}.svg
+
+
+############################################################################################
 # Merge peaks from HA and RAD21 for ESC and EpiLC
 peak1="${chipDir}/RAD21_ESC-DMSO_unionPeaks.bed"
 peak2="${chipDir}/HA_ESC-DMSO_unionPeaks.bed"
@@ -88,6 +125,20 @@ if [[ -f ${peak1} && -f ${peak2} ]]; then
 else
     echo "Missing input files"
 fi
+
+# Filtering union peaks that are present in each condition
+out="${chipDir}/UnionPeaks_RAD21-HA_ESC-DMSO_and_EpiLC.bed"
+peak1="${chipDir}/UnionPeaks_RAD21-HA_ESC-DMSO.bed"
+peak2="${chipDir}/UnionPeaks_RAD21-HA_EpiLC.bed"
+out1="${chipDir}/UnionPeaks_RAD21-HA_ESC-DMSO_and_EpiLC__ESC-DMSO.bed"
+bedtools intersect -wa -a ${out} -b ${peak1} > ${out1}
+out2="${chipDir}/UnionPeaks_RAD21-HA_ESC-DMSO_and_EpiLC__EpiLC.bed"
+bedtools intersect -wa -a ${out} -b ${peak2} > ${out2}
+out3="${chipDir}/UnionPeaks_RAD21-HA_ESC-DMSO_and_EpiLC__common.bed"
+bedtools intersect -wa -a ${out1} -b ${out2} > ${out3}
+
+
+############################################################################################
 
 dataDir="/Volumes/UKJIN_SSD/data/deeptools"
 figDir="/Volumes/UKJIN_SSD/figure/deeptools"

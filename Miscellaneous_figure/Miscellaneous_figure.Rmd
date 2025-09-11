@@ -669,8 +669,8 @@ dev.off()
 ### RAD21 DMSO vs dTAG
 ```{r}
 chipDir <- here("../reference", "ChIP", "RAD21-HA")
-bed1 <- import(here(chipDir, "RAD21_ESC-DMSO_unionPeaks.bed"), format="BED")
-bed2 <- import(here(chipDir, "RAD21_ESC-dTAG_unionPeaks.bed"), format="BED")
+bed1 <- import(here(chipDir, "UnionPeaks_RAD21_ESC-DMSO_and_dTAG__ESC-DMSO.bed"), format="BED")
+bed2 <- import(here(chipDir, "UnionPeaks_RAD21_ESC-DMSO_and_dTAG__ESC-dTAG.bed"), format="BED")
 
 # compute overlaps and uniques
 ov1 <- overlapsAny(bed1, bed2)
@@ -729,8 +729,8 @@ dev.off()
 ### RAD21/HA ESC vs EpiLC
 ```{r}
 chipDir <- here("../reference", "ChIP", "RAD21-HA")
-bed1 <- import(here(chipDir, "UnionPeaks_RAD21-HA_ESC-DMSO.bed"), format="BED")
-bed2 <- import(here(chipDir, "UnionPeaks_RAD21-HA_EpiLC.bed"), format="BED")
+bed1 <- import(here(chipDir, "UnionPeaks_RAD21-HA_ESC-DMSO_and_EpiLC__ESC-DMSO.bed"), format="BED")
+bed2 <- import(here(chipDir, "UnionPeaks_RAD21-HA_ESC-DMSO_and_EpiLC__EpiLC.bed"), format="BED")
 
 # compute overlaps and uniques
 ov1 <- overlapsAny(bed1, bed2)

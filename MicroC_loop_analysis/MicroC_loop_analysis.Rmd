@@ -1005,9 +1005,70 @@ draw_donut <- function(loop, name){
   dev.off()
 }
 
+draw_donut2 <- function(loop, name){
+  n <- nrow(loop)
+  temp <- loop %>% dplyr::select(id, Anno) %>%
+    dplyr::mutate(AnnoGroup = case_when(
+      Anno %in% c("P-P", "P-E", "E-E") ~ "Reg (P-P, P-E, E-E)",
+      Anno %in% c("P-S", "E-S") ~ "Reg/Str mixed",
+      Anno %in% c("P-SP", "P-SE", "E-SP", "E-SE") ~ "Reg/Str mixed",
+      Anno %in% c("SP-SP", "SP-SE", "SE-SE") ~ "Reg/Str mixed",
+      Anno %in% c("SP-S", "SE-S") ~ "Reg/Str mixed",
+      Anno %in% c("S-S", "S-X") ~ "Str (S-S, S-X)",
+      Anno %in% c("P-X", "E-X") ~ "Reg-Other",
+      Anno %in% c("SP-X", "SE-X") ~ "StrReg-Other",
+      Anno %in% c("X-X") ~ "Other",
+      TRUE ~ NA
+    ))
+  
+  
+  temp$AnnoGroup <- factor(temp$AnnoGroup, levels = c("Reg (P-P, P-E, E-E)",
+                                                      "Reg/Str mixed",
+                                                      "Str (S-S, S-X)",
+                                                      "Reg-Other",
+                                                      "StrReg-Other",
+                                                      "Other"))
+  
+  
+  pie_df <- temp %>%
+    as_tibble() %>%                          # if temp was a list, this will error early
+    group_by(AnnoGroup) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    mutate(label = paste0(AnnoGroup, "\n(", n, ")"))
+  
+  p <- ggplot(pie_df, aes(x = 2, y = n, fill = AnnoGroup)) +
+    geom_col(color = "black", width = 1) +
+    coord_polar(theta = "y") +
+    xlim(0.5, 2.5) +                # <- creates the “hole” by clipping the center
+    geom_text(aes(label = label),
+              position = position_stack(vjust = 0.5),
+              size = 3) +
+    theme_void() +
+    theme(legend.position = "none",
+          plot.title = element_text(hjust = 0.5)
+    ) +
+    ggtitle(paste0(name, "\n", n, " loops"))
+  
+  
+  width = 3
+  height = 3
+  svglite(here(figDir,
+               paste0("donut_loopAnno2_", name, ".svg")),
+          width = width, height = height)
+  plot(p)
+  dev.off()
+  
+  
+  
+}
+
 draw_donut(loop_chromo, "chromosight")
 draw_donut(loop_hicdcp, "hicdcp")
 draw_donut(loop_Hansen, "Hansen")
+
+draw_donut2(loop_chromo, "chromosight")
+draw_donut2(loop_hicdcp, "hicdcp")
+draw_donut2(loop_Hansen, "Hansen")
 
 ```
 ### [FIG] Loop Anno stacked barplot
@@ -1118,6 +1179,52 @@ print(p)
 dev.off()
 
 
+### Single barplot
+data <- make_table(loop_chromo, "chromosight")
+data_long <- data %>% pivot_longer(cols = c("chromosight"))
+
+p <- ggplot(data_long, aes(x = name, y = value, fill = AnnoGroup)) +
+  geom_bar(position="stack", stat="identity") +
+  labs(
+    x = NULL,         # Remove x-axis title
+    y = "Counts"       # Change y-axis title
+  ) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1,          # Rotate x labels
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text.y = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) +   guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )
+  )
+
+fileName <- paste0("Barplot_loopAnno_Chromosight")
+width <- panelSize(1.75)*mmToInch
+height <- panelSize(1.75)*mmToInch
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
 ```
 
 
@@ -1368,7 +1475,8 @@ plot_loop_scores_and_save_bedpe <- function(df, col_x, col_y,
   plot_df_ooe$updown <- factor(plot_df_ooe$updown, levels = c("UP", "NO", "DOWN"))
   
   p3 <- ggplot(plot_df_ooe, aes(x = updown, y = fc, fill = updown)) +
-    geom_violin(linewidth = lineThick * mmToLineUnit, lineend = "square", alpha = .4, show.legend = FALSE) + 
+    geom_violin(linewidth = lineThick * mmToLineUnit, lineend = "square", alpha = .4, show.legend = FALSE,
+                color = "black") + 
     geom_boxplot(width = 0.3, color = "black",
                  linewidth = lineThick * mmToLineUnit, lineend = "square",
                  outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + 
@@ -1424,7 +1532,7 @@ plot_loop_scores_and_save_bedpe <- function(df, col_x, col_y,
                lineend = "square", linetype = "dashed")
   
   
-  width <- panelSize(1.5)*mmToInch
+  width <- panelSize(1.1)*mmToInch
   height <- panelSize(1.5)*mmToInch
   fileName <- paste0("violin_", name)
   svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
@@ -1647,6 +1755,10 @@ lolaDB = loadRegionDB("/Volumes/UKJIN_SSD/reference/LOLACore_cached/mm10")
 atac <- fread(here(refDir, "mm10", "GSM3106257_ATAC_ESC_1.bed")) %>% dplyr::select(V1, V2, V3)
 colnames(atac) <- c("chr", "start", "end")
 atac.gr <- makeGRangesFromDataFrame(atac)
+
+lolaDir <- here(commonLoopDir, "LOLA")
+dir.create(lolaDir, showWarnings = FALSE, recursive = TRUE)
+
 ```
 ###### All loops
 ```{r}
@@ -1688,10 +1800,6 @@ anchor.down <- pintersect(anchor.down[queryHits(overlaps)], atac.gr[subjectHits(
 #-------------------------------------------------------------------------------
 # RUNNING LOLA
 # UP
-lolaDir <- here(commonLoopDir, "LOLA")
-dir.create(lolaDir, showWarnings = FALSE, recursive = TRUE)
-
-
 name <- "chromosight_score_all_dTAGvsDMSO_diffCutoff0.2"
 result <- runLOLA(anchor.up, anchor.all, lolaDB)
 tb <- as_tibble(result)
@@ -1755,6 +1863,12 @@ fwrite(tb.down %>% dplyr::select(c(24, 16, 20,
                                    7, 8, 9, 10, 11,
                                    12, 13, 14)), here(lolaDir, paste0("LOLA_", name, "DOWN_ATAC__pub.tsv")), sep = "\t")
 
+### For replotting without calculation
+name <- "chromosight_score_all_dTAGvsDMSO_diffCutoff0.2"
+tb.upno <- fread(here(lolaDir, paste0("LOLA_", name, "UPNO_ATAC_pub.tsv"))) %>%
+  dplyr::mutate(group = "UP/NO")
+tb.down <- fread(here(lolaDir, paste0("LOLA_", name, "DOWN_ATAC__pub.tsv"))) %>%
+  dplyr::mutate(group = "DOWN")
 
 temp.upno <- tb.upno %>% dplyr::select(target, oddsRatio, qValueLog, group)
 temp.down <- tb.down %>% dplyr::select(target, oddsRatio, qValueLog, group)
@@ -8156,8 +8270,9 @@ print(p)
 dev.off()
 ```
 
-## [6] Visualization of heatmaps
+# [6] Visualization of heatmaps
 https://bioconductor.org/books/devel/OHCA/pages/visualization.html
+## Loops
 ```{r}
 # Drawing parameters
 hicDir <- here("../data/hic_pooled")
@@ -8443,6 +8558,49 @@ for(i in seq(1, nrow(temp))){
 }
 
 ```
+## Microcompartments
+```{r}
+# Drawing parameters
+hicDir <- here("../data/hic_pooled")
+windowSize <- 1*1e6
+
+# Importing loops
+microcompartment <- importBedpe(fread(here("..", "reference", "microcompartment", "MicrocompartmentLoops_PlusMin1kb.bedpe")))
+
+comparison <- "microcompartment"
+note <- "Gopel"
+# Visualization
+# for(i in seq(1, nrow(temp))){
+for(i in seq(1, 3)){
+  ## Loading hic and plotting
+  cf.G1DMSO <- HicFile(path = here(hicDir, "G1DMSO_pooled_allRes.hic"))
+  cf.G1dTAG <- HicFile(path = here(hicDir, "G1dTAG_pooled_allRes.hic"))
+
+  width <- panelSize(20/5)*mmToInch
+  height <- panelSize(10/5)*mmToInch
+
+  chr <- as_tibble(microcompartment[i])$seqnames1
+  center <- (as_tibble(microcompartment[i])$start1 + as_tibble(microcompartment[i])$end2)/2
+  start <- floor(center - 0.5*windowSize)
+  end <- floor(center + 0.5*windowSize)
+  # Resolution 5kb
+  for(resolution in c(5, 10)){
+    res <- resolution*1000
+    zmax <- 2.5
+
+    hic1 <- import(cf.G1DMSO, focus = paste0(chr, ":", start, "-", end), resolution = res)
+    hic2 <- import(cf.G1dTAG, focus = paste0(chr, ":", start, "-", end), resolution = res)
+    p1 <- plotMatrix(hic1, dpi = 1000, limits = c(0, zmax), loop = microcompartment)
+    p2 <- plotMatrix(hic2, dpi = 1000, limits = c(0, zmax), loop = microcompartment)
+
+    fileName <- here(figDir, sprintf("visuzliation_%s_%s_%05d_%dkb", comparison, note, i, resolution))
+    png(paste0(fileName, ".png"), res = 600, units = "in", width = width, height = height)
+    print(cowplot::plot_grid(p1, p2, nrow = 1, align = "h"))
+    dev.off()
+  }
+}
+```
+
 
 # [7] EpiLC Micro-C & ChIP-seq analysis
 ## Gene-centric approach
@@ -8756,6 +8914,61 @@ ggplot(diff.RNA %>% dplyr::filter(padj < alpha) %>% mutate(flag = if_else(ensemb
 
 
 
+```
+### H3K27ac gene with different strategy
+```{r}
+# 1. Link peaks to genes by distance (within 10, 50, 100 or 250kb from TSS) or by looping (present in any direct loop from their promoters), 2. Focus on the cosehin sensitive DEGs (from acute or prolonged teratment (either nipbl or rad21) and calculate the percentages that have at least one new H3K27ac peak.
+
+for(flankSize in c(10000, 50000, 100000, 250000, 500000)){
+  
+# flankSize <- 10000
+# Link peaks to gene by distance from TSS
+gene.tb <- fread(here(refDir, "mm10", "gencode.vM25.mm10.GRCm38.p6_gene_sorted.bed")) %>%
+  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
+                TSSstart = TSS - flankSize,
+                TSSend = TSS + flankSize)
+gene.gr <- makeGRangesFromDataFrame(gene.tb %>%
+                                      dplyr::rename(
+                                        seqnames = V1,
+                                        start = TSSstart,
+                                        end = TSSend
+                                      ) %>%
+                                      dplyr::select(seqnames, start, end))
+
+overlaps <- findOverlaps(gene.gr, peak.H3K27ac.EpiLC)
+geneList <- (gene.tb[queryHits(overlaps)])$V5
+
+# Check how many of the genes are cohesin sensitive
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < 0)
+n1 <- nrow(diff.tb)
+n2 <- nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < -0.5)
+n3 <- nrow(diff.tb)
+n4 <- nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+print(paste0("Flank size: ", flankSize/1000, "kb"))
+print(paste0("EpiLC down DEG (", n2, "/", n1, ", ", round(n2/n1*100, digits = 1), "%), strong down deg (", n4, "/", n3, ", ", round(n2/n1*100, digits = 1), "%)"))
+
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < 0)
+n1 <- nrow(diff.tb)
+n2 <- nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < -0.5)
+n3 <- nrow(diff.tb)
+n4 <- nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+print(paste0("ESC down DEG (", n2, "/", n1, ", ", round(n2/n1*100, digits = 1), "%), strong down deg (", n4, "/", n3, ", ", round(n2/n1*100, digits = 1), "%)"))
+
+# Long term perturbed
+geneListPerturbed <- c((fread(here("..", "RNA_241223_H202SC24124443_RAD21_EpiRecovery", "pub_EpiUP_DEGfiltered_kmeans_group2.tsv" )) %>%
+                 dplyr::filter(group == "K1"))$gene,
+              (fread(here("..", "RNA_241223_H202SC24124443_RAD21_EpiRecovery", "pub_EpiDOWN_DEGfiltered_kmeans_group2.tsv" )) %>%
+                  dplyr::filter(group == "K1"))$gene)
+n1 <- length(geneListPerturbed)      
+n2 <- length(geneListPerturbed[geneListPerturbed %in% geneList])
+print(paste0("Long term DOWN DEG (", n2, "/", n1, ", ", round(n2/n1*100, digits = 1), "%)"))
+}
 ```
 
 ## Loop-centric approach
@@ -9682,17 +9895,62 @@ nrow(diff.tb)
 diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList.hasP.EpiLC)
 
 
-### Checking how many of the down DEGs has any perturbed loops
+### Checking how many of the down DEGs from EpiLC has any perturbed loops from EpiLC
 data_to_plot <- fread(here(commonLoopDir, "loopScore_chromosight_extra.tsv"))
-
 plot_df_delta <- data_to_plot %>%
   dplyr::mutate(
     delta_ESC = score_dTAG - score_DMSO,
     delta_EpiLC = score_EpidTAG - score_EpiDMSO
   )
-
 geneList <- unlist((geneAnnoData %>% dplyr::filter(id %in% (plot_df_delta %>% dplyr::filter(delta_EpiLC < -0.2))$id))$gene)
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < 0)
+nrow(diff.tb)
 nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < -0.5)
+nrow(diff.tb)
+nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+
+
+### Checking how many of the down DEG from ESC has any perturbed loops from ESC
+geneList <- unlist((geneAnnoData %>% dplyr::filter(id %in% (plot_df_delta %>% dplyr::filter(delta_ESC < -0.2))$id))$gene)
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < 0)
+nrow(diff.tb)
+nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < -0.5)
+nrow(diff.tb)
+nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+
+
+### Checking how many of the down DEG from ESC or EpiLC has any perturbed loops from ESC
+geneList <- unlist((geneAnnoData %>% dplyr::filter(id %in% (plot_df_delta %>% dplyr::filter((delta_EpiLC < -0.2) | (delta_ESC < -0.2)))$id))$gene)
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < 0)
+nrow(diff.tb)
+nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < -0.5)
+nrow(diff.tb)
+nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < 0)
+nrow(diff.tb)
+nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+diff.tb <- fread(here(extDir, "data", "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+  dplyr::filter(padj < 0.05, shrinked_log2FC < -0.5)
+nrow(diff.tb)
+nrow(diff.tb %>% dplyr::filter(ensembl_gene_id %in% geneList))
+
+# Long term perturbed
+geneListPerturbed <- c((fread(here("..", "RNA_241223_H202SC24124443_RAD21_EpiRecovery", "pub_EpiUP_DEGfiltered_kmeans_group2.tsv" )) %>%
+                 dplyr::filter(group == "K1"))$gene,
+              (fread(here("..", "RNA_241223_H202SC24124443_RAD21_EpiRecovery", "pub_EpiDOWN_DEGfiltered_kmeans_group2.tsv" )) %>%
+                  dplyr::filter(group == "K1"))$gene)
+length(geneListPerturbed)      
+length(geneListPerturbed[geneListPerturbed %in% geneList])
 
 ```
 
@@ -9803,108 +10061,124 @@ make_table2 <- function(loop, name){
 ```{r}
 # --- 4. GENERATE PLOTS ---
 data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
-    # dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
-    # dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3))
+  # dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
+  # dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3)) %>%
   dplyr::filter(Anno %in% c("P-P", "P-E", "E-E"))
+  # dplyr::filter(Anno %in% c("S-S", "S-X"))
 
-# loopName <- "strongLoopsG1PE"
+# loopName <- "strongLoopsBothStr"
 loopName <- "allLoopsReg"
 # Checking the distribution of scores
-dataToPlot <- data %>% dplyr::select(score_DMSO, score_UT, score_dTAG, score_AID) %>%
-  pivot_longer(everything(), names_to = "condition", values_to = "score" )
-dataToPlot$condition <- factor(dataToPlot$condition, levels = c("score_DMSO", "score_dTAG", "score_UT", "score_AID"))
+# dataToPlot <- data %>% dplyr::select(score_DMSO, score_UT, score_dTAG, score_AID) %>%
+#   pivot_longer(everything(), names_to = "condition", values_to = "score" )
+# dataToPlot$condition <- factor(dataToPlot$condition, levels = c("score_DMSO", "score_dTAG", "score_UT", "score_AID"))
+# 
+# ggplot(dataToPlot, aes(x = condition, y = score, fill = condition)) +
+#   geom_violin() +
+#   scale_y_continuous(limits = c(-0.5, 1)) +
+#   geom_boxplot(width = 0.4) +
+#   ggtitle(paste0("Chromosight ", loopName)) +
+#   theme_classic() +
+#   geom_hline(yintercept = c(0)) +
+#   geom_hline(yintercept = c(0.3), linetype = "dashed")
 
-ggplot(dataToPlot, aes(x = condition, y = score, fill = condition)) +
-  geom_violin() +
-  scale_y_continuous(limits = c(-0.5, 1)) +
-  geom_boxplot(width = 0.4) +
-  ggtitle(paste0("Chromosight ", loopName)) +
-  theme_classic() +
-  geom_hline(yintercept = c(0)) +
-  geom_hline(yintercept = c(0.3), linetype = "dashed")
-  
-generate_scatterplot(data, "score_DMSO",    "score_UT", paste0(loopName, "_AsyncUTvsG1DMSO"))
-generate_scatterplot(data, "score_UT",    "score_AID", paste0(loopName, "_AsyncAIDvsAsyncUT"))
-generate_scatterplot(data, "score_DMSO",    "score_dTAG", paste0(loopName, "_G1dTAGvsG1DMSO"))
-
-## Plot diff score
+# Differential
+# dataToPlot2 <- data %>% dplyr::mutate(diffScore_G1 = score_dTAG - score_DMSO,
+#                                       diffScore_Async = score_AID - score_UT) %>%
+#   dplyr::select(diffScore_G1, diffScore_Async) %>%
+#   pivot_longer(everything(), names_to = "condition", values_to = "score")
+# dataToPlot2$condition <- factor(dataToPlot2$condition, levels = c("diffScore_G1", "diffScore_Async"))
+# ggplot(dataToPlot2, aes(x = condition, y = score, fill = condition)) +
+#   geom_violin() +
+#   scale_y_continuous(limits = c(-1, 1)) +
+#   geom_boxplot(width = 0.4) +
+#   ggtitle(paste0("Chromosight ", loopName)) +
+#   theme_classic() +
+#   geom_hline(yintercept = c(0)) +
+#   geom_hline(yintercept = c(0.3), linetype = "dashed")
+#   
+# generate_scatterplot(data, "score_DMSO",    "score_UT", paste0(loopName, "_AsyncUTvsG1DMSO"))
+# generate_scatterplot(data, "score_UT",    "score_AID", paste0(loopName, "_AsyncAIDvsAsyncUT"))
+# generate_scatterplot(data, "score_DMSO",    "score_dTAG", paste0(loopName, "_G1dTAGvsG1DMSO"))
+# 
+# ## Plot diff score
 plot_df_delta <- data %>%
   dplyr::mutate(
     delta_G1 = score_dTAG - score_DMSO,
     delta_Async = score_AID - score_UT
   )
-
-
-# Function to generate and save scatterplots
-generate_scatterplot2 <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
-  plot_data <- df %>%
-    mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
-
-  p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
-    geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
-    coord_fixed() +
-    scale_x_continuous(limits = limits) +
-    scale_y_continuous(limits = limits) +
-    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
-    geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
-    geom_hline(yintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
-    geom_vline(xintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
-    geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
-    geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
-    common_theme
-
-  # Save the plot
-  ggsave(
-    filename = here(figDir, paste0("scatterplot_", name, ".png")),
-    plot = p,
-    width = panelSize(1.5) * mmToInch,
-    height = panelSize(1.5) * mmToInch,
-    dpi = 600
-  )
-}
-generate_scatterplot2(
-  df = plot_df_delta,
-  x_var = "delta_G1",
-  y_var = "delta_Async",
-  name = paste0(loopName, "_deltaScore_AsyncvsG1"),
-  limits = c(-0.75, 0.75), # Use default data limits
-  diff_cutoff = 0.2
-)
+# 
+# 
+# # Function to generate and save scatterplots
+# generate_scatterplot2 <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
+#   plot_data <- df %>%
+#     mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
+# 
+#   p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+#     geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
+#     coord_fixed() +
+#     scale_x_continuous(limits = limits) +
+#     scale_y_continuous(limits = limits) +
+#     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
+#     geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+#     geom_hline(yintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+#     geom_vline(xintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+#     geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+#     geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+#     common_theme
+# 
+#   # Save the plot
+#   ggsave(
+#     filename = here(figDir, paste0("scatterplot_", name, ".png")),
+#     plot = p,
+#     width = panelSize(1.5) * mmToInch,
+#     height = panelSize(1.5) * mmToInch,
+#     dpi = 600
+#   )
+# }
+# generate_scatterplot2(
+#   df = plot_df_delta,
+#   x_var = "delta_G1",
+#   y_var = "delta_Async",
+#   name = paste0(loopName, "_deltaScore_AsyncvsG1"),
+#   limits = c(-0.75, 0.75), # Use default data limits
+#   diff_cutoff = 0.2
+# )
 
 
 temp <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2, 
                                         abs(delta_Async) < 0.2,
                                         delta_G1 - delta_Async < -0.2)
-print(nrow(temp))
-temp1 <- make_table(temp, "G1SpecificPerturb")
-temp3 <- make_table2(temp, "G1SpecificPerturb") %>%
-  dplyr::filter(!is.na(AnnoGroup))
-
-generate_scatterplot2(
-  df = temp,
-  x_var = "delta_G1",
-  y_var = "delta_Async",
-  name = paste0(loopName, "_deltaScore_AsyncvsG1_G1specific"),
-  limits = c(-0.75, 0.75), # Use default data limits
-  diff_cutoff = 0.2
-)
+# print(nrow(temp))
+# temp1 <- make_table(temp, "G1SpecificPerturb")
+# temp3 <- make_table2(temp, "G1SpecificPerturb") %>%
+#   dplyr::filter(!is.na(AnnoGroup))
+# 
+# generate_scatterplot2(
+#   df = temp,
+#   x_var = "delta_G1",
+#   y_var = "delta_Async",
+#   name = paste0(loopName, "_deltaScore_AsyncvsG1_G1specific"),
+#   limits = c(-0.75, 0.75), # Use default data limits
+#   diff_cutoff = 0.2
+# )
 
 temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
                                         abs(delta_G1) < 0.2,
                                         delta_Async - delta_G1 < -0.2)
 print(nrow(temp))
-temp2 <- make_table(temp, "AsyncSpecificPerturb")
-temp4 <- make_table2(temp, "AsyncSpecificPerturb") %>%
-  dplyr::filter(!is.na(AnnoGroup))
-
-generate_scatterplot2(
-  df = temp,
-  x_var = "delta_G1",
-  y_var = "delta_Async",
-  name = paste0(loopName, "_deltaScore_AsyncvsG1_Asyncspecific"),
-  limits = c(-0.75, 0.75), # Use default data limits
-  diff_cutoff = 0.2
-)
+# temp2 <- make_table(temp, "AsyncSpecificPerturb")
+# temp4 <- make_table2(temp, "AsyncSpecificPerturb") %>%
+#   dplyr::filter(!is.na(AnnoGroup))
+# 
+# generate_scatterplot2(
+#   df = temp,
+#   x_var = "delta_G1",
+#   y_var = "delta_Async",
+#   name = paste0(loopName, "_deltaScore_AsyncvsG1_Asyncspecific"),
+#   limits = c(-0.75, 0.75), # Use default data limits
+#   diff_cutoff = 0.2
+# )
 ```
 
 
@@ -10019,7 +10293,303 @@ ggsave(
 )
 
 ```
+###Bookmarking
+```{r}
+background.gr <- extractAnchor(data)
 
+temp <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2, 
+                                        abs(delta_Async) < 0.2,
+                                        delta_G1 - delta_Async < -0.2)
+
+G1specific.gr <- extractAnchor(temp)
+
+temp <- plot_df_delta %>% dplyr::filter(
+                                        abs(delta_G1) < 0.2)
+
+G1noChange.gr <- extractAnchor(temp)
+
+temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
+                                        abs(delta_G1) < 0.2,
+                                        delta_Async - delta_G1 < -0.2)
+Asyncspecific.gr <- extractAnchor(temp)
+
+####
+targetName <- "H3K27ac_effie"
+# RETAINED loop
+retained <- fread(here(refDir, "TF_bookmarking", targetName, "am_a.bed")) %>% dplyr::select(c(1, 2, 3))
+colnames(retained) <- c("chr", "start", "end")
+retained.gr <- makeGRangesFromDataFrame(retained)
+# LOST loop
+lost <- fread(here(refDir, "TF_bookmarking", targetName, "oa.bed")) %>% dplyr::select(c(1, 2, 3))
+colnames(lost) <- c("chr", "start", "end")
+lost.gr <- makeGRangesFromDataFrame(lost)
+
+
+
+
+# SEEDING
+interestName <- "ChromoAllReg"
+temp <- runFisherExact(G1specific.gr, background.gr, retained.gr)
+result.tb <- tibble(interest = paste0(interestName, "_G1"),
+                    target = paste0(targetName, "_retained"),
+                    pvalue = temp$p.value,
+                    oddsRatio = temp$estimate)
+# ADDING ROWS
+temp <- runFisherExact(Asyncspecific.gr, background.gr, retained.gr)
+result.tb <- result.tb %>% 
+  add_row(interest = paste0(interestName, "_Async"),
+          target = paste0(targetName, "_retained"),
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+# ADDING ROWS
+temp <- runFisherExact(G1specific.gr, background.gr, lost.gr)
+result.tb <- result.tb %>% 
+add_row(interest = paste0(interestName, "_G1"),
+          target = paste0(targetName, "_lost"),
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+# ADDING ROWS
+temp <- runFisherExact(Asyncspecific.gr, background.gr, lost.gr)
+result.tb <- result.tb %>% 
+  add_row(interest = paste0(interestName, "_Async"),
+          target = paste0(targetName, "_lost"),
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+
+result.tb <- result.tb %>%
+  mutate(
+         target = recode(target,
+                         "H3K27ac_effie_retained" = "Retained",
+                         "H3K27ac_effie_lost" = "Lost"))
+
+# result.tb$interest <- factor(result.tb$interest, levels = c("UP/NO", "DOWN"))
+
+p <- ggplot(result.tb, aes(x = interest, y = target, size = -log10(pvalue), fill = oddsRatio)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 0.5*ptToMM      # Line width for the border
+  ) + theme_bw() + 
+  scale_size_continuous(range = c(1, 3)) +  # Set min and max point sizes here
+  scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
+                       values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
+                       #low = "white", high = "#CB333A",
+                       #                  limits = c(1, 3),
+                       oob = scales::squish, # Define gradient colors
+                       guide = guide_colorbar(
+                         barwidth = 1.5/5.08,  # Adjust width of the color bar
+                         barheight = 15/5.08   # Adjust height of the color bar
+                       )
+  ) +
+  labs(x = NULL, y = NULL)  +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+
+
+
+
+# SEEDING
+interestName <- "ChromoAllReg"
+temp <- runFisherExact(G1specific.gr, background.gr, retained.gr)
+result.tb <- tibble(interest = paste0(interestName, "_G1"),
+                    target = paste0(targetName, "_retained"),
+                    pvalue = temp$p.value,
+                    oddsRatio = temp$estimate)
+# ADDING ROWS
+temp <- runFisherExact(G1noChange.gr, background.gr, retained.gr)
+result.tb <- result.tb %>% 
+  add_row(interest = paste0(interestName, "_G1nochange"),
+          target = paste0(targetName, "_retained"),
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+# ADDING ROWS
+temp <- runFisherExact(G1specific.gr, background.gr, lost.gr)
+result.tb <- result.tb %>% 
+add_row(interest = paste0(interestName, "_G1"),
+          target = paste0(targetName, "_lost"),
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+# ADDING ROWS
+temp <- runFisherExact(G1noChange.gr, background.gr, lost.gr)
+result.tb <- result.tb %>% 
+  add_row(interest = paste0(interestName, "_G1nochange"),
+          target = paste0(targetName, "_lost"),
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+
+result.tb <- result.tb %>%
+  mutate(
+         target = recode(target,
+                         "H3K27ac_effie_retained" = "Retained",
+                         "H3K27ac_effie_lost" = "Lost"))
+
+# result.tb$interest <- factor(result.tb$interest, levels = c("UP/NO", "DOWN"))
+
+p <- ggplot(result.tb, aes(x = interest, y = target, size = -log10(pvalue), fill = oddsRatio)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 0.5*ptToMM      # Line width for the border
+  ) + theme_bw() + 
+  scale_size_continuous(range = c(1, 3)) +  # Set min and max point sizes here
+  scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
+                       values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
+                       #low = "white", high = "#CB333A",
+                       #                  limits = c(1, 3),
+                       oob = scales::squish, # Define gradient colors
+                       guide = guide_colorbar(
+                         barwidth = 1.5/5.08,  # Adjust width of the color bar
+                         barheight = 15/5.08   # Adjust height of the color bar
+                       )
+  ) +
+  labs(x = NULL, y = NULL)  +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+```
+
+### Level
+```{r}
+
+plotSumScoresBinary <- function(track, peak, name, note = "", anchor.upno, anchor.down, loopName1, loopName2){
+  peakTrack <- track[unique(queryHits(findOverlaps(track, peak)))]
+  b <- getSumScores(peakTrack, anchor.upno)
+  c <- getSumScores(peakTrack, anchor.down)
+  b.tb <- tibble(loop = loopName1,
+                 sumScore = b)
+  c.tb <- tibble(loop = loopName2,
+                 sumScore = c)
+  data <- bind_rows(b.tb, c.tb) %>% drop_na()
+  data$loop <- factor(data$loop, levels = c(loopName1, loopName2))
+  
+  p12 <- getPvalWilcox(data, loopName1, loopName2)
+  p <-  ggplot(data, aes(x = name, fill = loop, y = sumScore)) + 
+    labs(x = NULL, y = paste0("Average ChIP peak score at anchor)")) +
+    introdataviz::geom_split_violin(linewidth = lineThick * mmToLineUnit, lineend = "square",
+                                    alpha = .4) +
+    geom_boxplot(width = 0.3, color = "black",
+                 linewidth = lineThick * mmToLineUnit, lineend = "square",
+                 outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + theme_classic() +
+    scale_fill_manual(
+      name = "Reg loop type",
+      values = c("grey30", strong_blue)
+    ) +
+    stat_summary(
+      aes(group = loop), fun = mean,
+      geom = "point", shape = 21, size = 0.5,
+      fill = "black", color = "black", position = position_dodge(.3)
+    ) + theme(
+      axis.title = element_text(
+        size = fontSizeM, family = fontType, color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeM, family = fontType, color = "#000000"
+      ),
+      axis.text.x = element_text(
+        angle = 0,
+      ),
+      axis.text.y = element_text(
+        size = fontSizeS,
+      ),
+      axis.line = element_line(
+        color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+      legend.text = element_text(family = fontType, size = fontSizeS),
+      legend.title = element_text(family = fontType, size = fontSizeS)
+    ) + 
+    coord_cartesian(ylim = c(quantile(data$sumScore, 0.0), quantile(data$sumScore, 0.95))) + 
+    annotate(
+      "text", x = 1, y = quantile(data$sumScore, 0.5),
+      label = paste0("p12: ", convPvalue(p12)),
+      color = "black", hjust = 0, size = 1
+    ) +   guides(
+      fill = guide_legend(
+        keywidth = 0.2,  # Adjust the width of the legend keys
+        keyheight = 0.2  # Adjust the height of the legend keys
+      )
+    )
+  
+  fileName <- paste0("ChIP_peak_avgPeakScore_", name, note)
+  width <- panelSize(1.5)*mmToInch
+  height <- panelSize(1.2)*mmToInch
+  png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+  print(p)
+  dev.off()
+  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+  print(p)
+  dev.off()
+}
+
+
+track <- import(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_avg_depthNorm.bw"), format = "BigWig")
+peak <- importPeak(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_unionPeaks.bed"))
+plotSumScoresBinary(track, peak, "H3K27ac", "_G1vsAsync", G1specific.gr, Asyncspecific.gr, "G1specific", "Asyncspecific")
+plotSumScoresBinary(track, peak, "H3K27ac", "_G1_specificvsnochange", G1specific.gr, G1noChange.gr, "G1specific", "G1nochange")
+
+
+```
 
 
 ### Characteristics
@@ -10275,27 +10845,44 @@ data <- fread(here(commonLoopDir, "loopScore_TjianChromo.tsv")) %>%
   dplyr::filter(res >= 1000) %>%
     dplyr::filter(if_any(c(score_DMSO, score_dTAG, score_A485, score_EpiDMSO, score_EpidTAG, score_UT, score_AID), ~ . > 0.3)) %>%
     # dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
-    # dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3))
-    # dplyr::filter(Anno %in% c("E-E"))
-  dplyr::filter(Anno %in% c("S-S", "S-X"))
+    # dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3)) %>%
+    dplyr::filter(Anno %in% c("P-P", "P-E", "E-E"))
+  # dplyr::filter(Anno %in% c("S-S", "S-X"))
 
 
-loopName <- "TjianChromo_strongAnyStr"
+# loopName <- "TjianChromo_strongAnyEE"
 # loopName <- "TjianChromo_strongLoopsG1Async"
 
 # Checking the distribution of scores
-dataToPlot <- data %>% dplyr::select(score_DMSO, score_UT, score_dTAG, score_AID) %>%
-  pivot_longer(everything(), names_to = "condition", values_to = "score" )
-dataToPlot$condition <- factor(dataToPlot$condition, levels = c("score_DMSO", "score_dTAG", "score_UT", "score_AID"))
-ggplot(dataToPlot, aes(x = condition, y = score, fill = condition)) +
+# dataToPlot <- data %>% dplyr::select(score_DMSO, score_UT, score_dTAG, score_AID) %>%
+#   pivot_longer(everything(), names_to = "condition", values_to = "score" )
+# dataToPlot$condition <- factor(dataToPlot$condition, levels = c("score_DMSO", "score_dTAG", "score_UT", "score_AID"))
+# ggplot(dataToPlot, aes(x = condition, y = score, fill = condition)) +
+#   geom_violin() +
+#   scale_y_continuous(limits = c(-0.5, 1)) +
+#   geom_boxplot(width = 0.4) +
+#   ggtitle("TjianChromo over1kb strongG1Async loops") +
+#   theme_classic() +
+#   geom_hline(yintercept = c(0)) +
+#   geom_hline(yintercept = c(0.3), linetype = "dashed")
+
+
+# Differential
+dataToPlot2 <- data %>% dplyr::mutate(diffScore_G1 = score_dTAG - score_DMSO,
+                                      diffScore_Async = score_AID - score_UT) %>%
+  dplyr::select(diffScore_G1, diffScore_Async) %>%
+  pivot_longer(everything(), names_to = "condition", values_to = "score")
+dataToPlot2$condition <- factor(dataToPlot2$condition, levels = c("diffScore_G1", "diffScore_Async"))
+ggplot(dataToPlot2, aes(x = condition, y = score, fill = condition)) +
   geom_violin() +
-  scale_y_continuous(limits = c(-0.5, 1)) +
+  scale_y_continuous(limits = c(-1, 1)) +
   geom_boxplot(width = 0.4) +
-  ggtitle("TjianChromo over1kb strongG1Async loops") +
+  ggtitle(paste0("Chromosight ", loopName)) +
   theme_classic() +
   geom_hline(yintercept = c(0)) +
-  geom_hline(yintercept = c(0.3), linetype = "dashed")
-  
+  geom_hline(yintercept = c(0.3), linetype = "dashed")  
+
+
 generate_scatterplot(data, "score_DMSO",    "score_UT", paste0(loopName, "_AsyncUTvsG1DMSO"))
 generate_scatterplot(data, "score_UT",    "score_AID", paste0(loopName, "_AsyncAIDvsAsyncUT"))
 generate_scatterplot(data, "score_DMSO",    "score_dTAG", paste0(loopName, "_G1dTAGvsG1DMSO"))
@@ -10491,299 +11078,392 @@ ggsave(
 )
 
 ```
-# ARCHIVE?
-## [2.13] How to define multiconnected hub using regulatory loops?
+# [9] A485 dual
 ```{r}
-# IMPORTING GENE ANNO DATA FOR P-N LOOPS
-name <- "chromo_cons_annoHierarchy"
+# Import gene grouping
+geneGroup.dual <- fread(here("..", "RNA_250508_H202SC25035068_G1RAD21A485dual", "geneList_synergy.tsv"))
+```
 
-geneAnnoData <- loadLoopAnnoData(here(consensusDir, paste0(name, "_p-n_ensemblList.tsv")),
-                                 diffCutoff = 0.2,
-                                 annoList = c("P-P", "P-E", "P-S", "P-X")) %>% dplyr::select(c(1, 2, 3, 4, 5, 6, 11, 12, 13, 22, 23, 24, 25, 27, 28))
+#### H3K4me3 peak number per 10kb
+```{r}
+process_group <- function(group_name, gene_data, bins) {
+  # Filter for the specific group
+  TSS_group <- makeGRangesFromDataFrame(
+    gene_data %>% filter(ensembl %in% get(group_name)), 
+    keep.extra.columns = TRUE
+  )
+  
+  # Process each TSS in the group
+  all_results <- map_dfr(seq_len(length(TSS_group)), function(i) {
+    # Find overlapping bins
+    overlapping_bins <- findOverlaps(TSS_group[i], bins)
+    bins_near_tss <- as_tibble(bins[subjectHits(overlapping_bins)])
+    
+    # Calculate distance bin
+    TSScenter <- (as_tibble(TSS_group[i]) %>%
+                    mutate(center = (start + end) / 2))$center
+    centerBinStart <- floor(TSScenter / 10e3) * 10e3 + 1
+    bins_near_tss <- bins_near_tss %>%
+      mutate(distanceBin = abs((start - centerBinStart)) / 10e3)
+    
+    # Summarize results
+    result <- bins_near_tss %>%
+      group_by(distanceBin) %>%
+      summarise(mean_peak_counts = mean(peak_counts, na.rm = TRUE), .groups = "drop") %>%
+      mutate(gene = TSS_group[i]$ensembl)
+    return(result)
+  })
+  
+  # Calculate mean and SD for the group
+  mean_data <- all_results %>%
+    group_by(distanceBin) %>%
+    summarise(mean_peak_counts = mean(mean_peak_counts, na.rm = TRUE))
+  
+  sd_data <- all_results %>%
+    group_by(distanceBin) %>%
+    summarise(sd_peak_counts = sd(mean_peak_counts, na.rm = TRUE))
+  
+  # Join and add group name
+  summary_data <- left_join(mean_data, sd_data, by = "distanceBin") %>%
+    mutate(group = group_name)
+  
+  return(summary_data)
+}
 
-data <- fread(here(consensusDir, paste0(name, ".tsv"))) %>% dplyr::select(c(1, 2, 3, 4, 5, 6, 11, 12, 13, 22, 23, 24, 25, 27)) %>%
-  dplyr::mutate(binSize = end1 - start1,
-                adj_start1 = ifelse(binSize == 5000, start1,
-                                    ifelse(binSize == 10000, start1,
-                                           start1 + 10000)),
-                adj_end1 = adj_start1 + 5000,
-                adj_start2 = ifelse(binSize == 5000, start2,
-                                    ifelse(binSize == 10000, start2,
-                                           start2 + 10000)),
-                adj_end2 = adj_start2 + 5000,
-                anchor1 = paste(chrom1, adj_start1, adj_end1, sep = "_"),
-                anchor2 = paste(chrom2, adj_start2, adj_end2, sep = "_"))
+##########################################################
 
-# data <- fread(here(consensusDir, paste0(name, ".tsv"))) %>% dplyr::select(c(1, 2, 3, 4, 5, 6, 11, 12, 13, 22, 23, 24, 25, 27)) %>% 
-#   dplyr::mutate(binSize = end1 - start1,
-#                 adj_start1 = ifelse(binSize == 5000, start1,
-#                                     ifelse(binSize == 10000, start1+5000,
-#                                            start1 + 10000)),
-#                 adj_end1 = adj_start1 + 5000,
-#                 adj_start2 = ifelse(binSize == 5000, start2,
-#                                     ifelse(binSize == 10000, start2 + 5000,
-#                                            start2 + 10000)),
-#                 adj_end2 = adj_start2 + 5000,
-#                 anchor1 = paste(chrom1, adj_start1, adj_end1, sep = "_"),
-#                 anchor2 = paste(chrom2, adj_start2, adj_end2, sep = "_"))
 
-data.reg <- data %>% dplyr::filter(Anno2 %in% c("P-P", "P-E", "P-S", "P-X", "E-E", "E-S", "E-X"))
+## Import peak
+peak <- importPeak(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_unionPeaks.bed"))
 
-## Graph
-#install.packages("igraph")
-library(igraph)
+## Import 10kb bin
+temp <- fread(here(refDir, "mm10", "mm10.bin.10kb.bed")) %>% dplyr::select(c(1, 2, 3))
+colnames(temp) <- c("chr", "start", "end")
+temp <- temp %>% dplyr::mutate(start = start+1)
+bins.10kb <- makeGRangesFromDataFrame(temp)
 
-# To be able to construct a graph, each anchor need to have same resolution.
-# Shink the size to 10 kb
-# If the anchor is 25kb, choose the middle 5kb bin
-# If the anchor is 10kb, choose the left 5kb bin
+## Count overlap
+counts <- countOverlaps(bins.10kb, peak)
+mcols(bins.10kb)$peak_counts <- counts
 
-graph <- graph_from_data_frame(data.reg %>% dplyr::select(anchor1, anchor2))
-components <- components(graph)
-data.reg$hub <- components$membership[data.reg$anchor1]
+## Getting TSS
+flankSize <- 1e6
+gene.tb <- fread(here(refDir, "mm10", "mm10_GRCm38.p6_gene_sorted.bed")) %>%
+  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
+                TSSstart = TSS - flankSize,
+                TSSend = TSS + flankSize) %>%
+  dplyr::select(V1, TSSstart, TSSend, V6)
+colnames(gene.tb) <- c("chr", "start", "end", "ensembl")
 
-temp.bedpe <- data.reg %>% dplyr::select(chrom1, adj_start1, adj_end1, chrom2, adj_start2, adj_end2)
-fwrite(temp.bedpe, here(consensusDir, paste0(name, "_regulatory_5kbAdj.bedpe")), 
-       col.names = FALSE,row.names = FALSE, sep = "\t")  
 
-hubNum <- data.reg %>% group_by(hub) %>% summarise(count = n())
+group.down_syn <- (geneGroup.dual %>% dplyr::filter(group == "DOWN_syn"))$ensembl
+group.down_ant <- (geneGroup.dual %>% dplyr::filter(group == "DOWN_ant"))$ensembl
+group.down_noInt <- (geneGroup.dual %>% dplyr::filter(group == "DOWN_noInt"))$ensembl
 
-# Hub size distribution
-p <- ggplot(hubNum, aes(x = count)) + geom_histogram(binwidth  = 1) + theme_classic() + 
-  scale_y_log10()
 
-svglite(here(figDir, "hub_size_distribution.svg"), height = 2, width = 2)
+##########################################################
+# List of groups to process
+groups <- c("group.down_syn", "group.down_ant", "group.down_noInt")
+
+# Process each group and combine results
+summary_data <- map_dfr(groups, ~ process_group(.x, gene.tb, bins.10kb))
+
+n1 <- length(group1)
+n2 <- length(group2)
+n3 <- length(group3)
+
+
+
+# Plot the results
+p <- ggplot(summary_data, aes(x = distanceBin, y = mean_peak_counts, fill = group, color = group, group = group)) + 
+  geom_smooth(
+    linewidth = lineMedium,
+    method = "loess", 
+    formula = y ~ x, 
+    span   = 0.2,    # smaller = wigglier, larger = smoother
+    se     = TRUE,   # show confidence band
+    alpha  = 0.2, 
+  ) +
+  labs(
+    x = "Distance bin (10kb)",
+    y = "H3K27ac peak count"
+  ) +
+  theme_classic() +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    # legend.text = element_text(family = fontType, size = fontSizeS),
+    # legend.title = element_text(family = fontType, size = fontSizeS),
+    # legend.position = "none"  # Moves legend inside the plot (x, y relative coordinates)
+  ) +
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )) +
+  # scale_x_continuous(limits = c(0, 50))
+  scale_color_manual(values = rev(c("red", "darkgreen", "blue" ))) +
+  scale_fill_manual(values = rev(c("red", "darkgreen", "blue")))
+
+
+summary_data2 <- summary_data %>% dplyr::filter(group != "group.down_noInt")
+
+
+# Plot the results
+p2 <- ggplot(summary_data2, aes(x = distanceBin, y = mean_peak_counts, fill = group, color = group, group = group)) + 
+  geom_smooth(
+    linewidth = lineMedium,
+    method = "loess", 
+    formula = y ~ x, 
+    span   = 0.2,    # smaller = wigglier, larger = smoother
+    se     = TRUE,   # show confidence band
+    alpha  = 0.2, 
+  ) +
+  labs(
+    x = "Distance bin (10kb)",
+    y = "H3K27ac peak count"
+  ) +
+  theme_classic() +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    # legend.text = element_text(family = fontType, size = fontSizeS),
+    # legend.title = element_text(family = fontType, size = fontSizeS),
+    # legend.position = "none"  # Moves legend inside the plot (x, y relative coordinates)
+  ) +
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )) +
+  # scale_x_continuous(limits = c(0, 50))
+  scale_color_manual(values = rev(c("red", "blue"))) +
+  scale_fill_manual(values = rev(c("red", "blue")))
+
+
+# 
+# ##########################################################
+# 
+# fileName <- paste0("binPeakDensity_H3K4me3_binaryGroup")
+# width <- 38*mmToInch
+# height <- 35*mmToInch
+# png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+# print(p)
+# dev.off()
+# svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+# print(p)
+# dev.off()
+```
+
+
+### Loop analysis per gene group
+```{r}
+commonLoopDir <- here("../data/loop_analysis")
+diffDir <- here("../data/RNA_diff")
+name <- "chromosight"
+
+geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_complex_ensemblList.tsv"))) %>%
+  dplyr::mutate(distance = start2 - start1,
+                loopID = paste(chrom1, start1, start2, sep = "_"))
+```
+
+##### Loop number per gene: P-N
+```{r}
+dataDir <- here("../data")
+
+group.down_syn <- (geneGroup.dual %>% dplyr::filter(group == "DOWN_syn"))$ensembl
+group.down_ant <- (geneGroup.dual %>% dplyr::filter(group == "DOWN_ant"))$ensembl
+group.down_noInt <- (geneGroup.dual %>% dplyr::filter(group == "DOWN_noInt"))$ensembl
+
+
+# Counting number of loop per genes
+tempSum <- geneAnnoData %>% dplyr::select(loopID, gene, Anno) %>% unnest(gene) %>% group_by(gene) %>%  summarize(
+  loop = list(loopID),
+  anno = list(Anno),
+  count = n())
+
+tempSum <- tempSum %>% dplyr::mutate(
+  group = ifelse(gene %in% group.down_syn, "down_syn",
+                 ifelse(gene %in% group.down_ant, "down_ant", 
+                        ifelse(gene %in% group.down_noInt, "down_noInt", NA)))
+) %>% dplyr::filter(!is.na(group))
+
+# # 
+# getPvalWilcox <- function(data, group1, group2){
+#   distance1 <- (data %>% dplyr::filter(group ==group1) )$count
+#   distance2 <- (data %>% dplyr::filter(group ==group2) )$count
+#   wil <- wilcox.test(distance1, distance2)
+#   return(wil$p.value)
+# }
+
+
+# pv12 <- round(getPvalWilcox(tempSum,"group1", "group2"), 5)
+
+
+p <- ggplot(tempSum, aes(x = group, y = count, fill = group)) + 
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "black", alpha = 0.6,
+               linewidth = lineThick * mmToLineUnit, lineend = "square", show.legend = FALSE) + theme_classic() +       
+  scale_y_continuous(breaks = seq(0, 10, by = 2)) + 
+  labs(x = NULL, y = "# of P-N loops per gene") +
+  coord_cartesian(ylim = c(0, 8)) +
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black"
+  )+
+  # annotate("text", x = 1, y = 3, label = paste0("pv12: ", convPvalue(pv12)),
+  #          color = "black", hjust = 0, size = 1) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + scale_fill_manual(values = (c("blue", "darkgreen", "red")))
+
+fileName <- paste0("count_barplot_diffGroup_EpidTAG_vs_EpiDMSO_binaryGroup")
+width <- panelSize(0.8)*mmToInch
+height <- panelSize(1.5)*mmToInch
+png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
 print(p)
 dev.off()
+svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+```
 
-data.reg <- data.reg %>% dplyr::left_join(hubNum, by = "hub") 
-data.reg <- data.reg %>% dplyr::mutate(peakID = paste(chrom1, start1, start2, sep = "_"))
-
-# Exporting regulatory loops with specific hub size
-temp.bedpe <- data.reg %>% dplyr::filter(count >= 3) %>% dplyr::select(chrom1, adj_start1, adj_end1, chrom2, adj_start2, adj_end2)
-fwrite(temp.bedpe, here(consensusDir, paste0(name, "_regulatory_5kbAdj_hub3.bedpe")), 
-       col.names = FALSE,row.names = FALSE, sep = "\t")  
-
-temp.bedpe <- data.reg %>% dplyr::filter(count >= 5) %>% dplyr::select(chrom1, adj_start1, adj_end1, chrom2, adj_start2, adj_end2)
-fwrite(temp.bedpe, here(consensusDir, paste0(name, "_regulatory_5kbAdj_hub5.bedpe")), 
-       col.names = FALSE,row.names = FALSE, sep = "\t")
-
-temp.bedpe <- data.reg %>% dplyr::filter(count >= 10) %>% dplyr::select(chrom1, adj_start1, adj_end1, chrom2, adj_start2, adj_end2)
-fwrite(temp.bedpe, here(consensusDir, paste0(name, "_regulatory_5kbAdj_hub10.bedpe")), 
-       col.names = FALSE,row.names = FALSE, sep = "\t")
-
-
-# Adding gene annotation to hubs
-genePeakPair <- geneAnnoData %>% dplyr::mutate(peakID = paste(chrom1, start1, start2, sep = "_")) %>% dplyr::select(peakID, gene)
-data.reg <- data.reg %>% dplyr::left_join(genePeakPair, by = "peakID")
-
-# During unnesting, E-N loops without gene annotated are removed
-data.reg <- data.reg %>% unnest(gene) %>% dplyr::mutate(
-  group = ifelse(gene %in% gene.group1, "group1",
-                 ifelse(gene %in% gene.group2, "group2",
-                        ifelse(gene %in% gene.group3, "group3",
-                               ifelse(gene %in% gene.group4, "group4",
-                                      ifelse(gene %in% gene.group5, "group5",
-                                             ifelse(gene %in% gene.group6, "group6",
-                                                    ifelse(gene %in% gene.group7, "group7",
-                                                           ifelse(gene %in% gene.group8, "group8",
-                                                                  ifelse(gene %in% gene.group9, "group9", NA)))))))))
+##### Counting loop types
+```{r}
+#######
+temp2 <- tempSum %>% rowwise() %>% mutate(total = length(anno),
+                                          num_pp = sum(anno == "P-P"),
+                                          num_pe = sum(anno == "P-E"),
+                                          num_px = sum(anno == "P-X"),
+                                          num_ps = sum(anno %in% c("P-S", "P-SP", "P-SE")),
+                                          num_sps = sum(anno %in% c("SP-SP", "SP-SE", "SP-S")),
+                                          num_spn = sum(anno %in% c("E-SP", "SP-X")),
+                                          num_str = num_ps + num_sps + num_spn
 )
 
 
-temp <- data.reg %>% dplyr::select(gene, hub, count, group) %>%
-  group_by(gene) %>% slice_max(count, with_ties = FALSE) %>%
-  dplyr::filter(group %in% c("group1", "group2", "group5", "group8"))
+loopType <- temp2 %>% group_by(group) %>% summarise(num_pp = sum(num_pp),
+                                                    num_pe = sum(num_pe),
+                                                    # num_str = sum(num_str),
+                                                    num_ps = sum(num_ps),
+                                                    num_sps = sum(num_sps),
+                                                    num_spn = sum(num_spn),
+                                                    num_px = sum(num_px))
 
 
-# TEMP START
-# TEMP START
-geneList.group1 <- fread(here(refDir, "geneList_dTAG_vs_DMSO_RNA_loop_group1.tsv"))
-geneList.group1.temp <- geneList.group1 %>% dplyr::left_join(temp, by = c("gene"))
-# TEMP END
+loopTypeLong <- loopType %>% pivot_longer(-group, names_to = "type", values_to = "count")
 
-getPvalWilcox <- function(data, group1, group2){
-  distance1 <- (data %>% dplyr::filter(group ==group1) )$count
-  distance2 <- (data %>% dplyr::filter(group ==group2) )$count
-  wil <- wilcox.test(distance1, distance2)
-  return(wil$p.value)
-}
+loopTypeLong$type <- factor(loopTypeLong$type, levels = c("num_pp", "num_pe", "num_px",
+                                                          "num_ps", "num_spn", 
+                                                          "num_sps" ))
 
+# Plotting
+p <- ggplot(loopTypeLong, aes(fill=type, y=count, x=group)) + 
+  geom_bar(position="fill", stat="identity") + theme_classic() +
+  scale_fill_manual(values = c(strong_red, strong_orange, strong_yellow, strong_blue, "grey30", "grey10")) +theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )+   
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    ))
 
-pv12 <- round(getPvalWilcox(tempSum,"group1", "group2"), 5)
-pv15 <- round(getPvalWilcox(tempSum,"group1", "group5"), 5)
-pv18 <- round(getPvalWilcox(tempSum,"group1", "group8"), 5)
-pv25 <- round(getPvalWilcox(tempSum,"group2", "group5"), 5)
-pv28 <- round(getPvalWilcox(tempSum,"group2", "group8"), 5)
-pv58 <- round(getPvalWilcox(tempSum,"group5", "group8"), 5)
-
-
-p <- ggplot(temp, aes(x = group, y = count, fill = group)) + 
-  geom_boxplot(width = 0.5, outlier.shape = NA) + theme_classic() + 
-    scale_y_continuous(breaks = seq(0, 30, by = 5), limits = c(0, 30)) + 
-
-  stat_summary(aes(group = group), fun = mean, geom = "point", shape = 21, size = 2, fill = "red", color = "black")  +
-  annotate("text", x = 1, y = 3, label = paste0("pv12: ", pv12, "\n",
-                                                "pv15: ", pv15, "\n",
-                                                "pv18: ", pv18, "\n",
-                                                "pv25: ", pv25, "\n",
-                                                "pv28: ", pv28, "\n",
-                                                "pv58: ", pv58, "\n"), 
-           color = "black", hjust = 0, size = 1) +  theme(legend.position = "none")
-
-
-fileName <- paste0("countHub_barplot_diffGroup_dTAG_vs_DMSO")
-height <- 3
-width <- 3
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-
-
-
-```
-
-
-
-### Chromosight scores
-#### Scatterplots
-```{r}
-
-
-
-
-plot_loop_scores(data, score_DMSO, score_dTAG, c("S-S"),
-                 name = "chromosight_score_str_dTAGvDMSO",
-                 title = "chromo_score_str_dTAGvDMSO", figDir)
-plot_loop_scores(data, score_DMSO, score_dTAG, c("S-S", "S-X"),
-                 name = "chromosight_score_str2_dTAGvDMSO",
-                 title = "chromo_score_str2_dTAGvDMSO", figDir)
-plot_loop_scores(data, score_DMSO, score_dTAG, c("P-P", "P-E", "E-E"),
-                 name = "chromosight_score_reg_dTAGvDMSO",
-                 title = "chromo_score_reg_dTAGvDMSO", figDir)
-plot_loop_scores(data, score_DMSO, score_dTAG, c("P-S", "E-S"),
-                 name = "chromosight_score_regStr_dTAGvDMSO",
-                 title = "chromo_score_regStr_dTAGvDMSO", figDir)
-
-plot_loop_scores(data, score_DMSO, score_A485, c("P-P", "P-E", "P-S", "P-X",
-                                                 "E-E", "E-S", "E-X",
-                                                 "S-S", "S-X",
-                                                 "X-X"),
-                 name = "chromosight_score_all_A485vDMSO",
-                 title = "chromo_score_all_A485vDMSO", figDir)
-plot_loop_scores(data, score_DMSO, score_A485, c("S-S"),
-                 name = "chromosight_score_str_A485vDMSO",
-                 title = "chromo_score_str_A485vDMSO", figDir)
-plot_loop_scores(data, score_DMSO, score_A485, c("S-S", "S-X"),
-                 name = "chromosight_score_str2_A485vDMSO",
-                 title = "chromo_score_str2_A485vDMSO", figDir)
-plot_loop_scores(data, score_DMSO, score_A485, c("P-P", "P-E", "E-E"),
-                 name = "chromosight_score_reg_A485vDMSO",
-                 title = "chromo_score_reg_A485vDMSO", figDir)
-plot_loop_scores(data, score_DMSO, score_A485, c("P-S", "E-S"),
-                 name = "chromosight_score_regStr_A485vDMSO",
-                 title = "chromo_score_regStr_A485vDMSO", figDir)
-
-
-plot_loop_scores(data, score_EpiDMSO, score_EpidTAG, c("P-P", "P-E", "P-S", "P-X",
-                                                       "E-E", "E-S", "E-X",
-                                                       "S-S", "S-X",
-                                                       "X-X"),
-                 name = "chromosight_score_all_EpidTAGvEpiDMSO",
-                 title = "chromo_score_all_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, score_EpiDMSO, score_EpidTAG, c("S-S"),
-                 name = "chromosight_score_str_EpidTAGvEpiDMSO",
-                 title = "chromo_score_str_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, score_EpiDMSO, score_EpidTAG, c("S-S", "S-X"),
-                 name = "chromosight_score_str2_EpidTAGvEpiDMSO",
-                 title = "chromo_score_str2_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, score_EpiDMSO, score_EpidTAG, c("P-P", "P-E", "E-E"),
-                 name = "chromosight_score_reg_EpidTAGvEpiDMSO",
-                 title = "chromo_score_reg_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, score_EpiDMSO, score_EpidTAG, c("P-S", "E-S"),
-                 name = "chromosight_score_regStr_EpidTAGvEpiDMSO",
-                 title = "chromo_score_regStr_EpidTAGvEpiDMSO", figDir)
-
-
-plot_loop_scores(data, score_UT, score_AID, c("P-P", "P-E", "P-S", "P-X",
-                                              "E-E", "E-S", "E-X",
-                                              "S-S", "S-X",
-                                              "X-X"),
-                 name = "chromosight_score_all_AIDvUT",
-                 title = "chromo_score_all_AIDvUT", figDir)
-plot_loop_scores(data, score_UT, score_AID, c("S-S"),
-                 name = "chromosight_score_str_AIDvUT",
-                 title = "chromo_score_str_AIDvUT", figDir)
-plot_loop_scores(data, score_UT, score_AID, c("S-S", "S-X"),
-                 name = "chromosight_score_str2_AIDvUT",
-                 title = "chromo_score_str2_AIDvUT", figDir)
-plot_loop_scores(data, score_UT, score_AID, c("P-P", "P-E", "E-E"),
-                 name = "chromosight_score_reg_AIDvUT",
-                 title = "chromo_score_reg_AIDvUT", figDir)
-plot_loop_scores(data, score_UT, score_AID, c("P-S", "E-S"),
-                 name = "chromosight_score_regStr_AIDvUT",
-                 title = "chromo_score_regStr_AIDvUT", figDir)
-
-
-```
-#### RNA-seq loopscore scatterplot
-```{r}
-loadLoopAnnoData <- function(fileName){
-  data <- as_tibble(fread(fileName)) %>%
-    dplyr::mutate(gene = strsplit(gene, '\\|'))
-  return(data)
-}
-```
-
-```{r}
-alpha <- 0.05
-fcCutoff <- 0.5
-
-commonLoopDir <- here("../data/loop_analysis")
-diffDir <- here("../data/RNA_diff")
-name <- "chromosight"
-geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_simple_ensemblList.tsv"))) %>%
-  dplyr::mutate(diff = score_dTAG - score_DMSO)
-
-diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
-geneList.down.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
-geneList.up.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
-
-
-maxLog2FC <- 2
-
-temp <- geneAnnoData %>% dplyr::select(diff, gene) %>% 
-  unnest(gene) %>% group_by(gene) %>%
-  summarize(mean_diff_score = mean(diff), .groups = 'drop')
-
-temp <- left_join(temp, diff.RNA, by = c("gene" = "ensembl_gene_id")) %>% 
-  dplyr::mutate(flag = ifelse(gene %in% geneList.down.RNA, "2DOWN",
-                              ifelse(gene %in% geneList.up.RNA, "1UP", "0NO")),
-                maxFlag = (abs(shrinked_log2FC) > maxLog2FC),
-                shrlog2fcMax = pmax(pmin(shrinked_log2FC, maxLog2FC), -maxLog2FC)) %>% 
-  dplyr::arrange(flag)
-
-p <- ggplot(temp, aes(x = shrlog2fcMax, y = mean_diff_score, color = flag,
-                      label = ifelse(flag != "0NO", external_gene_name, NA),
-                      shape = as.factor(maxFlag))) +
-  geom_point() + geom_text_repel() + theme_classic() +
-  ggtitle(paste0(name, "_score_simpleAnno")) +
-  geom_hline(yintercept = 0) +
-  geom_hline(yintercept = diffCutoff, linetype = "dashed") +
-  geom_hline(yintercept = - diffCutoff, linetype = "dashed") +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = fcCutoff, linetype = "dashed") +
-  geom_vline(xintercept = -fcCutoff, linetype = "dashed") +
-  scale_color_manual(values = c("0NO" = "grey", "1UP" = "red", "2DOWN" = "blue")) +  # Corrected color mapping
-  scale_shape_manual(values = c("TRUE" = 2, "FALSE" = 19))
-
-fileName <- paste0("RNAvsLoop_", name, "_score_simpleAnno")
-height <- 4
-width <- 7
+fileName <- paste0("count_barplot_diffGroup_EpidTAG_vs_EpiDMSO_binaryGroup_alltypes")
+width <- panelSize(1.5)*mmToInch
+height <- panelSize(1.5)*mmToInch
 png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
 print(p)
 dev.off()
@@ -10792,897 +11472,229 @@ print(p)
 dev.off()
 ```
 
+##### Loop number per gene: structural
 ```{r}
-alpha <- 0.05
-fcCutoff <- 0.5
+########
+data <- temp2 %>% dplyr::select(group, num_str)
+colnames(data) <- c("group", "count")
+# pv12 <- round(getPvalWilcox(data,"group1", "group2"), 5)
 
-commonLoopDir <- here("../data/loop_analysis")
-diffDir <- here("../data/RNA_diff")
-name <- "chromosight"
-geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_complex_ensemblList.tsv"))) %>%
-  dplyr::mutate(diff = score_dTAG - score_DMSO)
+p <- ggplot(data, aes(x = group, y = count, fill = group)) + 
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "black", alpha = 0.6,
+               linewidth = lineThick * mmToLineUnit, lineend = "square", show.legend = FALSE) + theme_classic() +       
+  scale_y_continuous(breaks = seq(0, 10, by = 2)) + 
+  labs(x = NULL, y = "# of PromStr loops per gene") +
+  coord_cartesian(ylim = c(0, 4)) +
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black"
+  )+
+  # annotate("text", x = 1, y = 3, label = paste0("pv12: ", convPvalue(pv12)),
+  #          color = "black", hjust = 0, size = 1) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + scale_fill_manual(values = (c("blue", "darkgreen", "red")))
 
-diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
-geneList.down.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
-geneList.up.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
-
-
-maxLog2FC <- 2
-
-temp <- geneAnnoData %>% dplyr::select(diff, gene) %>% 
-  unnest(gene) %>% group_by(gene) %>%
-  summarize(mean_diff_score = mean(diff), .groups = 'drop')
-
-temp <- left_join(temp, diff.RNA, by = c("gene" = "ensembl_gene_id")) %>% 
-  dplyr::mutate(flag = ifelse(gene %in% geneList.down.RNA, "2DOWN",
-                              ifelse(gene %in% geneList.up.RNA, "1UP", "0NO")),
-                maxFlag = (abs(shrinked_log2FC) > maxLog2FC),
-                shrlog2fcMax = pmax(pmin(shrinked_log2FC, maxLog2FC), -maxLog2FC)) %>% 
-  dplyr::arrange(flag)
-
-p <- ggplot(temp, aes(x = shrlog2fcMax, y = mean_diff_score, color = flag,
-                      label = ifelse(flag != "0NO", external_gene_name, NA),
-                      shape = as.factor(maxFlag))) +
-  geom_point() + geom_text_repel() + theme_classic() +
-  ggtitle(paste0(name, "_score_complexAnno")) +
-  geom_hline(yintercept = 0) +
-  geom_hline(yintercept = diffCutoff, linetype = "dashed") +
-  geom_hline(yintercept = - diffCutoff, linetype = "dashed") +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = fcCutoff, linetype = "dashed") +
-  geom_vline(xintercept = -fcCutoff, linetype = "dashed") +
-  scale_color_manual(values = c("0NO" = "grey", "1UP" = "red", "2DOWN" = "blue")) +  # Corrected color mapping
-  scale_shape_manual(values = c("TRUE" = 2, "FALSE" = 19))
-
-fileName <- paste0("RNAvsLoop_", name, "_score_complexAnno")
-height <- 4
-width <- 7
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
+# fileName <- paste0("count_barplot_diffGroup_EpidTAG_vs_EpiDMSO_str_binaryGroup")
+# width <- panelSize(0.8)*mmToInch
+# height <- panelSize(1.5)*mmToInch
+# png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+# print(p)
+# dev.off()
+# svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+# print(p)
+# dev.off()
 ```
 
-### Obs/exp score
-#### Scatterplot - Chromosight
+
+##### Loop number per gene: P-P
 ```{r}
-plot_loop_scores <- function(df, col_x, col_y, annoList,
-                             name, title, figDir,
-                             diffCutoff = 0.5, density_n = 200,
-                             xmin = -0.5, xmax = 1,
-                             ymin = -0.5, ymax = 1) {
-  col_x_q <- enquo(col_x)
-  col_y_q <- enquo(col_y)
-  
-  # Scatterplot
-  df2 <- df %>%
-    filter(Anno_simple %in% annoList) %>%
-    select(id, x = !!col_x_q, y = !!col_y_q) %>%
-    mutate(
-      minpos = min(c(x, y)[c(x, y) > 0], na.rm = TRUE),
-      eps    = minpos * 0.1,
-      lx     = log2(x + eps),
-      ly     = log2(y + eps),
-      density = get_density(lx, ly, n = density_n)
-    ) %>%
-    arrange(density)
-  
-  p1 <- ggplot(df2, aes(x = lx, y = ly, color = density)) +
-    geom_point() +
-    scale_color_viridis() +
-    scale_x_continuous(
-      name   = paste0("log2(", quo_name(col_x_q), ")")
-    ) +
-    scale_y_continuous(
-      name   = paste0("log2(", quo_name(col_y_q), ")")
-    ) +
-    coord_fixed() +
-    geom_abline(slope = 1, intercept = 0,
-                colour = "grey50", linetype = "dashed") +
-    geom_hline(yintercept = 0, alpha = 0.5, colour = "grey") +
-    geom_vline(xintercept = 0, alpha = 0.5, colour = "grey") +
-    geom_abline(slope = 1, intercept = -(2**diffCutoff),
-                colour = "grey", linetype = "dotted") +
-    geom_abline(slope = 1, intercept = (2**diffCutoff),
-                colour = "grey", linetype = "dotted") +
-    theme_classic() +
-    labs(x = quo_name(col_x_q),
-         y = quo_name(col_y_q)) +
-    ggtitle(title)
-  
-  fileName <- paste0("scatterplot_", name)
-  svglite(here(figDir, paste0(fileName, ".svg")), 
-          width = 3.5, height = 3)
-  print(p1)
-  dev.off()
-  
-  png(here(figDir, paste0(fileName, ".png")), 
-      width = 3.5, height = 3, units = "in", res = 600)
-  print(p1)
-  dev.off()
-  
-  # Pie chart
-  df3 <- df %>%
-    filter(Anno_simple %in% annoList) %>%
-    select(id, x = !!col_x_q, y = !!col_y_q) %>%
-    mutate(
-      minpos = min(c(x, y)[c(x, y) > 0], na.rm = TRUE),
-      eps    = minpos * 0.1,
-      lx     = log2(x + eps),
-      ly     = log2(y + eps)
-    ) %>%
-    mutate(diff = ly - lx) %>%
-    mutate(updown = ifelse(diff > diffCutoff, "UP",
-                           ifelse(diff < -diffCutoff, "DOWN", "NO")))
-  df3$updown <- factor(df3$updown, c("UP", "NO", "DOWN"))
-  
-  pie_df <- df3 %>%
-    dplyr::count(updown) %>%
-    mutate(pct   = n / sum(n) * 100,
-           label = paste0(updown, "\n", n, "\n(", round(pct,1), "%)"))
-  
-  p2 <- ggplot(pie_df, aes(x = "", y = n, fill = updown)) +
-    geom_col(color = "white") +
-    coord_polar(theta = "y") +
-    geom_text(aes(label = label),
-              position = position_stack(vjust = 0.5),
-              size     = fontSizeM/2) +
-    theme_void() +   theme(legend.position = "none") +
-    scale_fill_manual(values = c(strong_red, no_grey, strong_blue))
-  fileName <- here(figDir, paste0("piechart_", name))
-  width <- panelSize(2)*mmToInch
-  height <- panelSize(2)*mmToInch
-  svglite(paste0(fileName, ".svg"), width = width, height = height)
-  print(p2)
-  dev.off()
-}
+########
+data <- temp2 %>% dplyr::select(group, num_pp)
+colnames(data) <- c("group", "count")
+# pv12 <- round(getPvalWilcox(data,"group1", "group2"), 5)
 
+p <- ggplot(data, aes(x = group, y = count, fill = group)) + 
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "black", alpha = 0.6,
+               linewidth = lineThick * mmToLineUnit, lineend = "square", show.legend = FALSE) + theme_classic() +       
+  scale_y_continuous(breaks = seq(0, 10, by = 2)) + 
+  labs(x = NULL, y = "# of P-P loops per gene") +
+  coord_cartesian(ylim = c(0, 4)) +
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black"
+  )+
+  # annotate("text", x = 1, y = 3, label = paste0("pv12: ", convPvalue(pv12)),
+  #          color = "black", hjust = 0, size = 1) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + scale_fill_manual(values = (c("blue", "darkgreen", "red")))
 
-commonLoopDir <- here("../data/loop_analysis")
-figDir <- here("../figure/loop_analysis")
-dir.create(figDir, showWarnings = FALSE, recursive = TRUE)
-
-data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
-
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("P-P", "P-E", "P-S", "P-X",
-                                             "E-E", "E-S", "E-X",
-                                             "S-S", "S-X",
-                                             "X-X"),
-                 name = "chromosight_ooe_all_dTAGvDMSO",
-                 title = "chromo_ooe_all_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("S-S"),
-                 name = "chromosight_ooe_str_dTAGvDMSO",
-                 title = "chromo_ooe_str_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("S-S", "S-X"),
-                 name = "chromosight_ooe_str2_dTAGvDMSO",
-                 title = "chromo_ooe_str2_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("P-P", "P-E", "E-E"),
-                 name = "chromosight_ooe_reg_dTAGvDMSO",
-                 title = "chromo_ooe_reg_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("P-S", "E-S"),
-                 name = "chromosight_ooe_regStr_dTAGvDMSO",
-                 title = "chromo_ooe_regStr_dTAGvDMSO", figDir)
-
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("P-P", "P-E", "P-S", "P-X",
-                                             "E-E", "E-S", "E-X",
-                                             "S-S", "S-X",
-                                             "X-X"),
-                 name = "chromosight_ooe_all_A485vDMSO",
-                 title = "chromo_ooe_all_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("S-S"),
-                 name = "chromosight_ooe_str_A485vDMSO",
-                 title = "chromo_ooe_str_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("S-S", "S-X"),
-                 name = "chromosight_ooe_str2_A485vDMSO",
-                 title = "chromo_ooe_str2_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("P-P", "P-E", "E-E"),
-                 name = "chromosight_ooe_reg_A485vDMSO",
-                 title = "chromo_ooe_reg_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("P-S", "E-S"),
-                 name = "chromosight_ooe_regStr_A485vDMSO",
-                 title = "chromo_ooe_regStr_A485vDMSO", figDir)
-
-
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("P-P", "P-E", "P-S", "P-X",
-                                                   "E-E", "E-S", "E-X",
-                                                   "S-S", "S-X",
-                                                   "X-X"),
-                 name = "chromosight_ooe_all_EpidTAGvEpiDMSO",
-                 title = "chromo_ooe_all_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("S-S"),
-                 name = "chromosight_ooe_str_EpidTAGvEpiDMSO",
-                 title = "chromo_ooe_str_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("S-S", "S-X"),
-                 name = "chromosight_ooe_str2_EpidTAGvEpiDMSO",
-                 title = "chromo_ooe_str2_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("P-P", "P-E", "E-E"),
-                 name = "chromosight_ooe_reg_EpidTAGvEpiDMSO",
-                 title = "chromo_ooe_reg_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("P-S", "E-S"),
-                 name = "chromosight_ooe_regStr_EpidTAGvEpiDMSO",
-                 title = "chromo_ooe_regStr_EpidTAGvEpiDMSO", figDir)
-
-
-plot_loop_scores(data, ooe_UT, ooe_AID, c("P-P", "P-E", "P-S", "P-X",
-                                          "E-E", "E-S", "E-X",
-                                          "S-S", "S-X",
-                                          "X-X"),
-                 name = "chromosight_ooe_all_AIDvUT",
-                 title = "chromo_ooe_all_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("S-S"),
-                 name = "chromosight_ooe_str_AIDvUT",
-                 title = "chromo_ooe_str_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("S-S", "S-X"),
-                 name = "chromosight_ooe_str2_AIDvUT",
-                 title = "chromo_ooe_str2_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("P-P", "P-E", "E-E"),
-                 name = "chromosight_ooe_reg_AIDvUT",
-                 title = "chromo_ooe_reg_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("P-S", "E-S"),
-                 name = "chromosight_ooe_regStr_AIDvUT",
-                 title = "chromo_ooe_regStr_AIDvUT", figDir)
-
-
+# fileName <- paste0("count_barplot_diffGroup_EpidTAG_vs_EpiDMSO_pp_binaryGroup")
+# width <- panelSize(0.8)*mmToInch
+# height <- panelSize(1.5)*mmToInch
+# png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+# print(p)
+# dev.off()
+# svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+# print(p)
+# dev.off()
 ```
 
-#### RNA-seq loopscore scatterplot
+####### Loop number per gene: P-E
 ```{r}
-loadLoopAnnoData <- function(fileName){
-  data <- as_tibble(fread(fileName)) %>%
-    dplyr::mutate(gene = strsplit(gene, '\\|'))
-  return(data)
-}
+########
+data <- temp2 %>% dplyr::select(group, num_pe)
+colnames(data) <- c("group", "count")
+# pv12 <- round(getPvalWilcox(data,"group1", "group2"), 5)
+
+p <- ggplot(data, aes(x = group, y = count, fill = group)) + 
+  geom_boxplot(width = 0.5, outlier.shape = NA, color = "black", alpha = 0.6,
+               linewidth = lineThick * mmToLineUnit, lineend = "square", show.legend = FALSE) + theme_classic() +       
+  scale_y_continuous(breaks = seq(0, 10, by = 2)) + 
+  labs(x = NULL, y = "# of P-E loops per gene") +
+  coord_cartesian(ylim = c(0, 4)) +
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black"
+  )+
+  # annotate("text", x = 1, y = 3, label = paste0("pv12: ", convPvalue(pv12)),
+  #          color = "black", hjust = 0, size = 1) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1        # Adjust vertical justification
+    ),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + scale_fill_manual(values = (c("blue", "darkgreen", "red")))
+
+# fileName <- paste0("count_barplot_diffGroup_EpidTAG_vs_EpiDMSO_pe_binaryGroup")
+# width <- panelSize(0.8)*mmToInch
+# height <- panelSize(1.5)*mmToInch
+# png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+# print(p)
+# dev.off()
+# svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+# print(p)
+# dev.off()
+```
+##### Finding Enhancer distance
+```{r}
+group.down_syn <- (geneGroup.dual %>% dplyr::filter(group == "DOWN_syn"))$ensembl
+group.down_ant <- (geneGroup.dual %>% dplyr::filter(group == "DOWN_ant"))$ensembl
+group.down_noInt <- (geneGroup.dual %>% dplyr::filter(group == "DOWN_noInt"))$ensembl
+
+
+dataToPlot <- geneAnnoData %>% dplyr::mutate(size = start2 - start1) %>%
+  dplyr::select(loopID, gene, Anno, size) %>% unnest(gene) %>% dplyr::filter(Anno %in% c("E-SP", "P-E", "P-SE", "SP-SE")) %>%
+  group_by(gene) %>%
+  summarize(
+    loop = list(loopID),
+    sizes = list(size),
+    count = n(),
+        min_size = min(size),
+    max_size = max(size),
+    avg_size = mean(size)
+  ) 
+
+dataToPlot <- dataToPlot %>% dplyr::mutate(
+  group = ifelse(gene %in% group.down_syn, "down_syn",
+                 ifelse(gene %in% group.down_ant, "down_ant", 
+                        ifelse(gene %in% group.down_noInt, "down_noInt", NA)))
+) %>% dplyr::filter(!is.na(group))
+
+
+ggplot(dataToPlot, aes(x = group, y = min_size, fill = group)) + geom_violin() + geom_boxplot(width = 0.3) + coord_cartesian(ylim = c(0, 1000000)) + 
+  theme_classic() + scale_fill_manual(values = (c(lighten("blue", amount = 0.3),
+                                                  lighten("darkgreen", amount = 0.3),
+                                                  lighten("red", amount = 0.3))))
+ggplot(dataToPlot, aes(x = group, y = avg_size, fill = group)) + geom_violin() + geom_boxplot(width = 0.3) + coord_cartesian(ylim = c(0, 1000000)) + 
+  theme_classic() + scale_fill_manual(values = (c(lighten("blue", amount = 0.3),
+                                                  lighten("darkgreen", amount = 0.3),
+                                                  lighten("red", amount = 0.3))))
+ggplot(dataToPlot, aes(x = group, y = max_size, fill = group)) + geom_violin() + geom_boxplot(width = 0.3) + coord_cartesian(ylim = c(0, 1000000)) + 
+  theme_classic() + scale_fill_manual(values = (c(lighten("blue", amount = 0.3),
+                                                  lighten("darkgreen", amount = 0.3),
+                                                  lighten("red", amount = 0.3))))
 ```
 
-```{r}
-alpha <- 0.05
-fcCutoff <- 0.5
-diffCutoff <- 0.5
-commonLoopDir <- here("../data/loop_analysis")
-diffDir <- here("../data/RNA_diff")
-name <- "chromosight"
-geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_simple_ensemblList.tsv"))) %>%
-  rowwise() %>%                                # work one row at a time
-  mutate(
-    minpos = min(c(ooe_dTAG, ooe_DMSO)[c(ooe_dTAG, ooe_DMSO) > 0], na.rm = TRUE),
-    eps    = ifelse(is.finite(minpos), minpos * 0.1, 0.01),      # fallback if both are 0
-    diff   = log2((ooe_dTAG + eps) / (ooe_DMSO + eps))
-  ) %>% 
-  ungroup() %>% 
-  select(-minpos, -eps) 
-#dplyr::mutate(diff = log2(ooe_dTAG) - log2(ooe_DMSO))
-
-diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
-geneList.down.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
-geneList.up.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
-
-
-maxLog2FC <- 2
-
-temp <- geneAnnoData %>% dplyr::select(diff, gene) %>% 
-  unnest(gene) %>% group_by(gene) %>%
-  summarize(mean_diff_score = mean(diff), .groups = 'drop')
-
-temp <- left_join(temp, diff.RNA, by = c("gene" = "ensembl_gene_id")) %>% 
-  dplyr::mutate(flag = ifelse(gene %in% geneList.down.RNA, "2DOWN",
-                              ifelse(gene %in% geneList.up.RNA, "1UP", "0NO")),
-                maxFlag = (abs(shrinked_log2FC) > maxLog2FC),
-                shrlog2fcMax = pmax(pmin(shrinked_log2FC, maxLog2FC), -maxLog2FC)) %>% 
-  dplyr::arrange(flag)
-
-p <- ggplot(temp, aes(x = shrlog2fcMax, y = mean_diff_score, color = flag,
-                      label = ifelse(flag != "0NO", external_gene_name, NA),
-                      shape = as.factor(maxFlag))) +
-  geom_point() + geom_text_repel() + theme_classic() +
-  ggtitle(paste0(name, "_ooe_simpleAnno")) +
-  geom_hline(yintercept = 0) +
-  geom_hline(yintercept = diffCutoff, linetype = "dashed") +
-  geom_hline(yintercept = - diffCutoff, linetype = "dashed") +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = fcCutoff, linetype = "dashed") +
-  geom_vline(xintercept = -fcCutoff, linetype = "dashed") +
-  scale_color_manual(values = c("0NO" = "grey", "1UP" = "red", "2DOWN" = "blue")) +  # Corrected color mapping
-  scale_shape_manual(values = c("TRUE" = 2, "FALSE" = 19))
-
-fileName <- paste0("RNAvsLoop_", name, "_ooe_simpleAnno")
-height <- 4
-width <- 7
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-```
-
-```{r}
-alpha <- 0.05
-fcCutoff <- 0.5
-diffCutoff <- 0.5
-commonLoopDir <- here("../data/loop_analysis")
-diffDir <- here("../data/RNA_diff")
-name <- "chromosight"
-geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_complex_ensemblList.tsv"))) %>%
-  rowwise() %>%                                # work one row at a time
-  mutate(
-    minpos = min(c(ooe_dTAG, ooe_DMSO)[c(ooe_dTAG, ooe_DMSO) > 0], na.rm = TRUE),
-    eps    = ifelse(is.finite(minpos), minpos * 0.1, 0.01),      # fallback if both are 0
-    diff   = log2((ooe_dTAG + eps) / (ooe_DMSO + eps))
-  ) %>% 
-  ungroup() %>% 
-  select(-minpos, -eps) 
-#dplyr::mutate(diff = log2(ooe_dTAG) - log2(ooe_DMSO))
-
-diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
-geneList.down.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
-geneList.up.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
-
-
-maxLog2FC <- 2
-
-temp <- geneAnnoData %>% dplyr::select(diff, gene) %>% 
-  unnest(gene) %>% group_by(gene) %>%
-  summarize(mean_diff_score = mean(diff), .groups = 'drop')
-
-temp <- left_join(temp, diff.RNA, by = c("gene" = "ensembl_gene_id")) %>% 
-  dplyr::mutate(flag = ifelse(gene %in% geneList.down.RNA, "2DOWN",
-                              ifelse(gene %in% geneList.up.RNA, "1UP", "0NO")),
-                maxFlag = (abs(shrinked_log2FC) > maxLog2FC),
-                shrlog2fcMax = pmax(pmin(shrinked_log2FC, maxLog2FC), -maxLog2FC)) %>% 
-  dplyr::arrange(flag)
-
-p <- ggplot(temp, aes(x = shrlog2fcMax, y = mean_diff_score, color = flag,
-                      label = ifelse(flag != "0NO", external_gene_name, NA),
-                      shape = as.factor(maxFlag))) +
-  geom_point() + geom_text_repel() + theme_classic() +
-  ggtitle(paste0(name, "_ooe_complexAnno")) +
-  geom_hline(yintercept = 0) +
-  geom_hline(yintercept = diffCutoff, linetype = "dashed") +
-  geom_hline(yintercept = - diffCutoff, linetype = "dashed") +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = fcCutoff, linetype = "dashed") +
-  geom_vline(xintercept = -fcCutoff, linetype = "dashed") +
-  scale_color_manual(values = c("0NO" = "grey", "1UP" = "red", "2DOWN" = "blue")) +  # Corrected color mapping
-  scale_shape_manual(values = c("TRUE" = 2, "FALSE" = 19))
-
-fileName <- paste0("RNAvsLoop_", name, "_ooe_complexAnno")
-height <- 4
-width <- 7
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-```
-
-#### Scatterplot - HiCDC+
-```{r}
-commonLoopDir <- here("../data/loop_analysis")
-figDir <- here("../figure/loop_analysis")
-dir.create(figDir, showWarnings = FALSE, recursive = TRUE)
-
-data <- fread(here(commonLoopDir, "loopScore_hicdcp.tsv"))
-
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("P-P", "P-E", "P-S", "P-X",
-                                             "E-E", "E-S", "E-X",
-                                             "S-S", "S-X",
-                                             "X-X"),
-                 name = "hicdcp_ooe_all_dTAGvDMSO",
-                 title = "hicdcp_ooe_all_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("S-S"),
-                 name = "hicdcp_ooe_str_dTAGvDMSO",
-                 title = "hicdcp_ooe_str_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("S-S", "S-X"),
-                 name = "hicdcp_ooe_str2_dTAGvDMSO",
-                 title = "hicdcp_ooe_str2_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("P-P", "P-E", "E-E"),
-                 name = "hicdcp_ooe_reg_dTAGvDMSO",
-                 title = "hicdcp_ooe_reg_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("P-S", "E-S"),
-                 name = "hicdcp_ooe_regStr_dTAGvDMSO",
-                 title = "hicdcp_ooe_regStr_dTAGvDMSO", figDir)
-
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("P-P", "P-E", "P-S", "P-X",
-                                             "E-E", "E-S", "E-X",
-                                             "S-S", "S-X",
-                                             "X-X"),
-                 name = "hicdcp_ooe_all_A485vDMSO",
-                 title = "hicdcp_ooe_all_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("S-S"),
-                 name = "hicdcp_ooe_str_A485vDMSO",
-                 title = "hicdcp_ooe_str_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("S-S", "S-X"),
-                 name = "hicdcp_ooe_str2_A485vDMSO",
-                 title = "hicdcp_ooe_str2_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("P-P", "P-E", "E-E"),
-                 name = "hicdcp_ooe_reg_A485vDMSO",
-                 title = "hicdcp_ooe_reg_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("P-S", "E-S"),
-                 name = "hicdcp_ooe_regStr_A485vDMSO",
-                 title = "hicdcp_ooe_regStr_A485vDMSO", figDir)
-
-
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("P-P", "P-E", "P-S", "P-X",
-                                                   "E-E", "E-S", "E-X",
-                                                   "S-S", "S-X",
-                                                   "X-X"),
-                 name = "hicdcp_ooe_all_EpidTAGvEpiDMSO",
-                 title = "hicdcp_ooe_all_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("S-S"),
-                 name = "hicdcp_ooe_str_EpidTAGvEpiDMSO",
-                 title = "hicdcp_ooe_str_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("S-S", "S-X"),
-                 name = "hicdcp_ooe_str2_EpidTAGvEpiDMSO",
-                 title = "hicdcp_ooe_str2_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("P-P", "P-E", "E-E"),
-                 name = "hicdcp_ooe_reg_EpidTAGvEpiDMSO",
-                 title = "hicdcp_ooe_reg_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("P-S", "E-S"),
-                 name = "hicdcp_ooe_regStr_EpidTAGvEpiDMSO",
-                 title = "hicdcp_ooe_regStr_EpidTAGvEpiDMSO", figDir)
-
-
-plot_loop_scores(data, ooe_UT, ooe_AID, c("P-P", "P-E", "P-S", "P-X",
-                                          "E-E", "E-S", "E-X",
-                                          "S-S", "S-X",
-                                          "X-X"),
-                 name = "hicdcp_ooe_all_AIDvUT",
-                 title = "hicdcp_ooe_all_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("S-S"),
-                 name = "hicdcp_ooe_str_AIDvUT",
-                 title = "hicdcp_ooe_str_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("S-S", "S-X"),
-                 name = "hicdcp_ooe_str2_AIDvUT",
-                 title = "hicdcp_ooe_str2_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("P-P", "P-E", "E-E"),
-                 name = "hicdcp_ooe_reg_AIDvUT",
-                 title = "hicdcp_ooe_reg_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("P-S", "E-S"),
-                 name = "hicdcp_ooe_regStr_AIDvUT",
-                 title = "hicdcp_ooe_regStr_AIDvUT", figDir)
-
-```
-#### RNA-seq loopscore scatterplot
-```{r}
-alpha <- 0.05
-fcCutoff <- 0.5
-diffCutoff <- 0.5
-commonLoopDir <- here("../data/loop_analysis")
-diffDir <- here("../data/RNA_diff")
-name <- "hicdcp"
-geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_simple_ensemblList.tsv"))) %>%
-  rowwise() %>%                                # work one row at a time
-  mutate(
-    minpos = min(c(ooe_dTAG, ooe_DMSO)[c(ooe_dTAG, ooe_DMSO) > 0], na.rm = TRUE),
-    eps    = ifelse(is.finite(minpos), minpos * 0.1, 0.01),      # fallback if both are 0
-    diff   = log2((ooe_dTAG + eps) / (ooe_DMSO + eps))
-  ) %>% 
-  ungroup() %>% 
-  select(-minpos, -eps) 
-#dplyr::mutate(diff = log2(ooe_dTAG) - log2(ooe_DMSO))
-
-diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
-geneList.down.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
-geneList.up.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
-
-
-maxLog2FC <- 2
-
-temp <- geneAnnoData %>% dplyr::select(diff, gene) %>% 
-  unnest(gene) %>% group_by(gene) %>%
-  summarize(mean_diff_score = mean(diff), .groups = 'drop')
-
-temp <- left_join(temp, diff.RNA, by = c("gene" = "ensembl_gene_id")) %>% 
-  dplyr::mutate(flag = ifelse(gene %in% geneList.down.RNA, "2DOWN",
-                              ifelse(gene %in% geneList.up.RNA, "1UP", "0NO")),
-                maxFlag = (abs(shrinked_log2FC) > maxLog2FC),
-                shrlog2fcMax = pmax(pmin(shrinked_log2FC, maxLog2FC), -maxLog2FC)) %>% 
-  dplyr::arrange(flag)
-
-p <- ggplot(temp, aes(x = shrlog2fcMax, y = mean_diff_score, color = flag,
-                      label = ifelse(flag != "0NO", external_gene_name, NA),
-                      shape = as.factor(maxFlag))) +
-  geom_point() + geom_text_repel() + theme_classic() +
-  ggtitle(paste0(name, "_ooe_simpleAnno")) +
-  geom_hline(yintercept = 0) +
-  geom_hline(yintercept = diffCutoff, linetype = "dashed") +
-  geom_hline(yintercept = - diffCutoff, linetype = "dashed") +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = fcCutoff, linetype = "dashed") +
-  geom_vline(xintercept = -fcCutoff, linetype = "dashed") +
-  scale_color_manual(values = c("0NO" = "grey", "1UP" = "red", "2DOWN" = "blue")) +  # Corrected color mapping
-  scale_shape_manual(values = c("TRUE" = 2, "FALSE" = 19))
-
-fileName <- paste0("RNAvsLoop_", name, "_ooe_simpleAnno")
-height <- 4
-width <- 7
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-```
-
-```{r}
-alpha <- 0.05
-fcCutoff <- 0.5
-diffCutoff <- 0.5
-commonLoopDir <- here("../data/loop_analysis")
-diffDir <- here("../data/RNA_diff")
-name <- "hicdcp"
-geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_complex_ensemblList.tsv"))) %>%
-  rowwise() %>%                                # work one row at a time
-  mutate(
-    minpos = min(c(ooe_dTAG, ooe_DMSO)[c(ooe_dTAG, ooe_DMSO) > 0], na.rm = TRUE),
-    eps    = ifelse(is.finite(minpos), minpos * 0.1, 0.01),      # fallback if both are 0
-    diff   = log2((ooe_dTAG + eps) / (ooe_DMSO + eps))
-  ) %>% 
-  ungroup() %>% 
-  select(-minpos, -eps) 
-#dplyr::mutate(diff = log2(ooe_dTAG) - log2(ooe_DMSO))
-
-diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
-geneList.down.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
-geneList.up.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
-
-
-maxLog2FC <- 2
-
-temp <- geneAnnoData %>% dplyr::select(diff, gene) %>% 
-  unnest(gene) %>% group_by(gene) %>%
-  summarize(mean_diff_score = mean(diff), .groups = 'drop')
-
-temp <- left_join(temp, diff.RNA, by = c("gene" = "ensembl_gene_id")) %>% 
-  dplyr::mutate(flag = ifelse(gene %in% geneList.down.RNA, "2DOWN",
-                              ifelse(gene %in% geneList.up.RNA, "1UP", "0NO")),
-                maxFlag = (abs(shrinked_log2FC) > maxLog2FC),
-                shrlog2fcMax = pmax(pmin(shrinked_log2FC, maxLog2FC), -maxLog2FC)) %>% 
-  dplyr::arrange(flag)
-
-p <- ggplot(temp, aes(x = shrlog2fcMax, y = mean_diff_score, color = flag,
-                      label = ifelse(flag != "0NO", external_gene_name, NA),
-                      shape = as.factor(maxFlag))) +
-  geom_point() + geom_text_repel() + theme_classic() +
-  ggtitle(paste0(name, "_ooe_complexAnno")) +
-  geom_hline(yintercept = 0) +
-  geom_hline(yintercept = diffCutoff, linetype = "dashed") +
-  geom_hline(yintercept = - diffCutoff, linetype = "dashed") +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = fcCutoff, linetype = "dashed") +
-  geom_vline(xintercept = -fcCutoff, linetype = "dashed") +
-  scale_color_manual(values = c("0NO" = "grey", "1UP" = "red", "2DOWN" = "blue")) +  # Corrected color mapping
-  scale_shape_manual(values = c("TRUE" = 2, "FALSE" = 19))
-
-fileName <- paste0("RNAvsLoop_", name, "_ooe_complexAnno")
-height <- 4
-width <- 7
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-```
-
-#### Scatterplot - Hansen
-```{r}
-plot_loop_scores <- function(df, col_x, col_y, annoList,
-                             name, title, figDir,
-                             diffCutoff = 0.5, density_n = 100,
-                             xmin = -0.5, xmax = 1,
-                             ymin = -0.5, ymax = 1) {
-  col_x_q <- enquo(col_x)
-  col_y_q <- enquo(col_y)
-  
-  # Scatterplot
-  df2 <- df %>%
-    filter(Anno_simple %in% annoList) %>%
-    select(id, x = !!col_x_q, y = !!col_y_q) %>%
-    mutate(
-      minpos = min(c(x, y)[c(x, y) > 0], na.rm = TRUE),
-      eps    = minpos * 0.1,
-      lx     = log2(x + eps),
-      ly     = log2(y + eps)
-    )
-  
-  p1 <- ggplot(df2, aes(x = lx, y = ly)) +
-    geom_point() +
-    scale_color_viridis() +
-    scale_x_continuous(
-      name   = paste0("log2(", quo_name(col_x_q), ")")
-    ) +
-    scale_y_continuous(
-      name   = paste0("log2(", quo_name(col_y_q), ")")
-    ) +
-    coord_fixed() +
-    geom_abline(slope = 1, intercept = 0,
-                colour = "grey50", linetype = "dashed") +
-    geom_hline(yintercept = 0, alpha = 0.5, colour = "grey") +
-    geom_vline(xintercept = 0, alpha = 0.5, colour = "grey") +
-    geom_abline(slope = 1, intercept = -(2**diffCutoff),
-                colour = "grey", linetype = "dotted") +
-    geom_abline(slope = 1, intercept = (2**diffCutoff),
-                colour = "grey", linetype = "dotted") +
-    theme_classic() +
-    labs(x = quo_name(col_x_q),
-         y = quo_name(col_y_q)) +
-    ggtitle(title)
-  
-  fileName <- paste0("scatterplot_", name)
-  svglite(here(figDir, paste0(fileName, ".svg")), 
-          width = 3.5, height = 3)
-  print(p1)
-  dev.off()
-  
-  png(here(figDir, paste0(fileName, ".png")), 
-      width = 3.5, height = 3, units = "in", res = 600)
-  print(p1)
-  dev.off()
-  
-  # Pie chart
-  df3 <- df %>%
-    filter(Anno_simple %in% annoList) %>%
-    select(id, x = !!col_x_q, y = !!col_y_q) %>%
-    mutate(
-      minpos = min(c(x, y)[c(x, y) > 0], na.rm = TRUE),
-      eps    = minpos * 0.1,
-      lx     = log2(x + eps),
-      ly     = log2(y + eps)
-    ) %>%
-    mutate(diff = ly - lx) %>%
-    mutate(updown = ifelse(diff > diffCutoff, "UP",
-                           ifelse(diff < -diffCutoff, "DOWN", "NO")))
-  df3$updown <- factor(df3$updown, c("UP", "NO", "DOWN"))
-  
-  pie_df <- df3 %>%
-    dplyr::count(updown) %>%
-    mutate(pct   = n / sum(n) * 100,
-           label = paste0(updown, "\n", n, "\n(", round(pct,1), "%)"))
-  
-  p2 <- ggplot(pie_df, aes(x = "", y = n, fill = updown)) +
-    geom_col(color = "white") +
-    coord_polar(theta = "y") +
-    geom_text(aes(label = label),
-              position = position_stack(vjust = 0.5),
-              size     = fontSizeM/2) +
-    theme_void() +   theme(legend.position = "none") +
-    scale_fill_manual(values = c(strong_red, no_grey, strong_blue))
-  fileName <- here(figDir, paste0("piechart_", name))
-  width <- panelSize(2)*mmToInch
-  height <- panelSize(2)*mmToInch
-  svglite(paste0(fileName, ".svg"), width = width, height = height)
-  print(p2)
-  dev.off()
-}
-
-commonLoopDir <- here("../data/loop_analysis")
-figDir <- here("../figure/loop_analysis")
-dir.create(figDir, showWarnings = FALSE, recursive = TRUE)
-
-data <- fread(here(commonLoopDir, "loopScore_Hansen.tsv"))
-data <- data %>% 
-  filter(
-    !if_all(starts_with("ooe"), ~ .x == 0)   # drop rows where *every* ooe* value is 0
-  )
-
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("P-P", "P-E", "P-S", "P-X",
-                                             "E-E", "E-S", "E-X",
-                                             "S-S", "S-X",
-                                             "X-X"),
-                 name = "Hansen_ooe_all_dTAGvDMSO",
-                 title = "Hansen_ooe_all_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("S-S"),
-                 name = "Hansen_ooe_str_dTAGvDMSO",
-                 title = "Hansen_ooe_str_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("S-S", "S-X"),
-                 name = "Hansen_ooe_str2_dTAGvDMSO",
-                 title = "Hansen_ooe_str2_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("P-P", "P-E", "E-E"),
-                 name = "Hansen_ooe_reg_dTAGvDMSO",
-                 title = "Hansen_ooe_reg_dTAGvDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_dTAG, c("P-S", "E-S"),
-                 name = "Hansen_ooe_regStr_dTAGvDMSO",
-                 title = "Hansen_ooe_regStr_dTAGvDMSO", figDir)
-
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("P-P", "P-E", "P-S", "P-X",
-                                             "E-E", "E-S", "E-X",
-                                             "S-S", "S-X",
-                                             "X-X"),
-                 name = "Hansen_ooe_all_A485vDMSO",
-                 title = "Hansen_ooe_all_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("S-S"),
-                 name = "Hansen_ooe_str_A485vDMSO",
-                 title = "Hansen_ooe_str_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("S-S", "S-X"),
-                 name = "Hansen_ooe_str2_A485vDMSO",
-                 title = "Hansen_ooe_str2_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("P-P", "P-E", "E-E"),
-                 name = "Hansen_ooe_reg_A485vDMSO",
-                 title = "Hansen_ooe_reg_A485vDMSO", figDir)
-plot_loop_scores(data, ooe_DMSO, ooe_A485, c("P-S", "E-S"),
-                 name = "Hansen_ooe_regStr_A485vDMSO",
-                 title = "Hansen_ooe_regStr_A485vDMSO", figDir)
-
-
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("P-P", "P-E", "P-S", "P-X",
-                                                   "E-E", "E-S", "E-X",
-                                                   "S-S", "S-X",
-                                                   "X-X"),
-                 name = "Hansen_ooe_all_EpidTAGvEpiDMSO",
-                 title = "Hansen_ooe_all_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("S-S"),
-                 name = "Hansen_ooe_str_EpidTAGvEpiDMSO",
-                 title = "Hansen_ooe_str_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("S-S", "S-X"),
-                 name = "Hansen_ooe_str2_EpidTAGvEpiDMSO",
-                 title = "Hansen_ooe_str2_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("P-P", "P-E", "E-E"),
-                 name = "Hansen_ooe_reg_EpidTAGvEpiDMSO",
-                 title = "Hansen_ooe_reg_EpidTAGvEpiDMSO", figDir)
-plot_loop_scores(data, ooe_EpiDMSO, ooe_EpidTAG, c("P-S", "E-S"),
-                 name = "Hansen_ooe_regStr_EpidTAGvEpiDMSO",
-                 title = "Hansen_ooe_regStr_EpidTAGvEpiDMSO", figDir)
-
-
-plot_loop_scores(data, ooe_UT, ooe_AID, c("P-P", "P-E", "P-S", "P-X",
-                                          "E-E", "E-S", "E-X",
-                                          "S-S", "S-X",
-                                          "X-X"),
-                 name = "Hansen_ooe_all_AIDvUT",
-                 title = "Hansen_ooe_all_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("S-S"),
-                 name = "Hansen_ooe_str_AIDvUT",
-                 title = "Hansen_ooe_str_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("S-S", "S-X"),
-                 name = "Hansen_ooe_str2_AIDvUT",
-                 title = "Hansen_ooe_str2_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("P-P", "P-E", "E-E"),
-                 name = "Hansen_ooe_reg_AIDvUT",
-                 title = "Hansen_ooe_reg_AIDvUT", figDir)
-plot_loop_scores(data, ooe_UT, ooe_AID, c("P-S", "E-S"),
-                 name = "Hansen_ooe_regStr_AIDvUT",
-                 title = "Hansen_ooe_regStr_AIDvUT", figDir)
-
-```
-#### RNA-seq loopscore scatterplot
-```{r}
-alpha <- 0.05
-fcCutoff <- 0.5
-diffCutoff <- 0.5
-commonLoopDir <- here("../data/loop_analysis")
-diffDir <- here("../data/RNA_diff")
-name <- "Hansen"
-geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_simple_ensemblList.tsv"))) %>%
-  filter(
-    !if_all(starts_with("ooe"), ~ .x == 0)   # drop rows where *every* ooe* value is 0
-  ) %>%
-  rowwise() %>%                                # work one row at a time
-  mutate(
-    minpos = min(c(ooe_dTAG, ooe_DMSO)[c(ooe_dTAG, ooe_DMSO) > 0], na.rm = TRUE),
-    eps    = ifelse(is.finite(minpos), minpos * 0.1, 0.01),      # fallback if both are 0
-    diff   = log2((ooe_dTAG + eps) / (ooe_DMSO + eps))
-  ) %>% 
-  ungroup() %>% 
-  select(-minpos, -eps) 
-#dplyr::mutate(diff = log2(ooe_dTAG) - log2(ooe_DMSO))
-
-
-diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
-geneList.down.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
-geneList.up.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
-
-
-maxLog2FC <- 2
-
-temp <- geneAnnoData %>% dplyr::select(diff, gene) %>% 
-  unnest(gene) %>% group_by(gene) %>%
-  summarize(mean_diff_score = mean(diff), .groups = 'drop')
-
-temp <- left_join(temp, diff.RNA, by = c("gene" = "ensembl_gene_id")) %>% 
-  dplyr::mutate(flag = ifelse(gene %in% geneList.down.RNA, "2DOWN",
-                              ifelse(gene %in% geneList.up.RNA, "1UP", "0NO")),
-                maxFlag = (abs(shrinked_log2FC) > maxLog2FC),
-                shrlog2fcMax = pmax(pmin(shrinked_log2FC, maxLog2FC), -maxLog2FC)) %>% 
-  dplyr::arrange(flag)
-
-p <- ggplot(temp, aes(x = shrlog2fcMax, y = mean_diff_score, color = flag,
-                      label = ifelse(flag != "0NO", external_gene_name, NA),
-                      shape = as.factor(maxFlag))) +
-  geom_point() + geom_text_repel() + theme_classic() +
-  ggtitle(paste0(name, "_ooe_simpleAnno")) +
-  geom_hline(yintercept = 0) +
-  geom_hline(yintercept = diffCutoff, linetype = "dashed") +
-  geom_hline(yintercept = - diffCutoff, linetype = "dashed") +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = fcCutoff, linetype = "dashed") +
-  geom_vline(xintercept = -fcCutoff, linetype = "dashed") +
-  scale_color_manual(values = c("0NO" = "grey", "1UP" = "red", "2DOWN" = "blue")) +  # Corrected color mapping
-  scale_shape_manual(values = c("TRUE" = 2, "FALSE" = 19))
-
-fileName <- paste0("RNAvsLoop_", name, "_ooe_simpleAnno")
-height <- 4
-width <- 7
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-```
-
-```{r}
-alpha <- 0.05
-fcCutoff <- 0.5
-diffCutoff <- 0.5
-commonLoopDir <- here("../data/loop_analysis")
-diffDir <- here("../data/RNA_diff")
-name <- "Hansen"
-geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_complex_ensemblList.tsv"))) %>%
-  filter(
-    !if_all(starts_with("ooe"), ~ .x == 0)   # drop rows where *every* ooe* value is 0
-  ) %>%
-  rowwise() %>%                                # work one row at a time
-  mutate(
-    minpos = min(c(ooe_dTAG, ooe_DMSO)[c(ooe_dTAG, ooe_DMSO) > 0], na.rm = TRUE),
-    eps    = ifelse(is.finite(minpos), minpos * 0.1, 0.01),      # fallback if both are 0
-    diff   = log2((ooe_dTAG + eps) / (ooe_DMSO + eps))
-  ) %>% 
-  ungroup() %>% 
-  select(-minpos, -eps) 
-#dplyr::mutate(diff = log2(ooe_dTAG) - log2(ooe_DMSO))
-
-diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
-  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
-geneList.down.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
-geneList.up.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
-
-
-maxLog2FC <- 2
-
-temp <- geneAnnoData %>% dplyr::select(diff, gene) %>% 
-  unnest(gene) %>% group_by(gene) %>%
-  summarize(mean_diff_score = mean(diff), .groups = 'drop')
-
-temp <- left_join(temp, diff.RNA, by = c("gene" = "ensembl_gene_id")) %>% 
-  dplyr::mutate(flag = ifelse(gene %in% geneList.down.RNA, "2DOWN",
-                              ifelse(gene %in% geneList.up.RNA, "1UP", "0NO")),
-                maxFlag = (abs(shrinked_log2FC) > maxLog2FC),
-                shrlog2fcMax = pmax(pmin(shrinked_log2FC, maxLog2FC), -maxLog2FC)) %>% 
-  dplyr::arrange(flag)
-
-p <- ggplot(temp, aes(x = shrlog2fcMax, y = mean_diff_score, color = flag,
-                      label = ifelse(flag != "0NO", external_gene_name, NA),
-                      shape = as.factor(maxFlag))) +
-  geom_point() + geom_text_repel() + theme_classic() +
-  ggtitle(paste0(name, "_ooe_complexAnno")) +
-  geom_hline(yintercept = 0) +
-  geom_hline(yintercept = diffCutoff, linetype = "dashed") +
-  geom_hline(yintercept = - diffCutoff, linetype = "dashed") +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = fcCutoff, linetype = "dashed") +
-  geom_vline(xintercept = -fcCutoff, linetype = "dashed") +
-  scale_color_manual(values = c("0NO" = "grey", "1UP" = "red", "2DOWN" = "blue")) +  # Corrected color mapping
-  scale_shape_manual(values = c("TRUE" = 2, "FALSE" = 19))
-
-fileName <- paste0("RNAvsLoop_", name, "_ooe_complexAnno")
-height <- 4
-width <- 7
-png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
-print(p)
-dev.off()
-```
---------------------------------------------------------------------------------
-# ARCHIVE
