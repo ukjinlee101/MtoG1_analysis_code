@@ -8562,7 +8562,7 @@ for(i in seq(1, nrow(temp))){
 ```{r}
 # Drawing parameters
 hicDir <- here("../data/hic_pooled")
-windowSize <- 1*1e6
+windowSize <- 200*1e3
 
 # Importing loops
 microcompartment <- importBedpe(fread(here("..", "reference", "microcompartment", "MicrocompartmentLoops_PlusMin1kb.bedpe")))
@@ -8571,7 +8571,7 @@ comparison <- "microcompartment"
 note <- "Gopel"
 # Visualization
 # for(i in seq(1, nrow(temp))){
-for(i in seq(1, 3)){
+for(i in seq(1,1)){
   ## Loading hic and plotting
   cf.G1DMSO <- HicFile(path = here(hicDir, "G1DMSO_pooled_allRes.hic"))
   cf.G1dTAG <- HicFile(path = here(hicDir, "G1dTAG_pooled_allRes.hic"))
@@ -8584,7 +8584,7 @@ for(i in seq(1, 3)){
   start <- floor(center - 0.5*windowSize)
   end <- floor(center + 0.5*windowSize)
   # Resolution 5kb
-  for(resolution in c(5, 10)){
+  for(resolution in c(1)){
     res <- resolution*1000
     zmax <- 2.5
 
