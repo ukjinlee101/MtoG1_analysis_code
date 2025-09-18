@@ -33,9 +33,9 @@ rm(pkgs, bio_pkgs)
 ################################################################################
 # ENSEMBL DATABASE
 # v102 is for the latest mm10 version
-ensembl.v102 <- useMart(host = "https://nov2020.archive.ensembl.org",
-                       biomart = "ENSEMBL_MART_ENSEMBL",
-                       dataset = "mmusculus_gene_ensembl")
+# ensembl.v102 <- useMart(host = "https://nov2020.archive.ensembl.org",
+#                        biomart = "ENSEMBL_MART_ENSEMBL",
+#                        dataset = "mmusculus_gene_ensembl")
 ################################################################################
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#
 ################################################################################

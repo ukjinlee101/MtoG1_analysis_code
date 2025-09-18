@@ -1685,3 +1685,257 @@ svglite(paste0(fileName, ".svg"), height = height, width = width)
 print(p)
 dev.off()
 ```
+
+# Additional analysis
+Checking whether genes that do not change during EpiLC differentiation remains unperturbed by RAD21 depletion
+```{r}
+################################################################################
+# IMPORTING GENE LIST OF INTERST
+extDir <- here("..", "RNA_241223_H202SC24124443_RAD21_EpiRecovery")
+alpha <- 0.05
+foldchange <- 0.5
+
+diff1 <- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_5h.Epi.DMSO_vs_5h.2i.DMSO.tsv"))
+diff2 <- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_24h.Epi.DMSO_vs_5h.2i.DMSO.tsv"))
+
+
+geneList.RAD21 <- unique(union((diff1 %>%  
+                                  dplyr::filter((padj < alpha) ))$ensembl_gene_id,
+                               (diff2 %>% 
+                                 dplyr::filter((padj < alpha)))$ensembl_gene_id))
+
+################################################################################
+# IMPORTING GENE LIST OF INTERST
+dataDir <- here("..", "data", "RNA_NIPBL")
+figDir <- here("..", "figure", "RNA_NIPBL")
+
+diff3 <- fread(here(dataDir, "diff_NIPBL_DMSO.Exit_vs_DMSO.0h.tsv"))
+
+geneList.NIPBL <- (diff3 %>% dplyr::filter((padj < alpha) ))$ensembl_gene_id
+
+geneIDNamePair <- bind_rows(diff1, diff2, diff3) %>%
+  dplyr::select(ensembl_gene_id, external_gene_name) %>%
+  distinct()
+
+################################################################################
+geneList_noEpiLCPerturb <- (geneIDNamePair %>% dplyr::filter(!(ensembl_gene_id %in% c(geneList.RAD21, geneList.NIPBL))))$ensembl_gene_id
+
+
+
+################################################################################
+################################################################################
+# Genes that are perturbed by RAD21 depletion
+geneList.RAD21.3h <- (fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_5h.Epi.dTAG_vs_5h.Epi.DMSO.tsv")) %>%
+  dplyr::filter((padj < 0.05)))$ensembl_gene_id
+geneList.RAD21.22h <- (fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_24h.Epi.dTAG_vs_24h.Epi.DMSO.tsv")) %>%
+  dplyr::filter((padj < 0.05)))$ensembl_gene_id
+geneList.NIPBL.48h <- (fread(here(dataDir, "diff_NIPBL-Exit_dTAG.Exit_vs_DMSO.Exit.tsv")) %>%
+  dplyr::filter((padj < 0.05)))$ensembl_gene_id
+
+geneList.degs <- unique(c(geneList.RAD21.3h, geneList.RAD21.22h, geneList.NIPBL.48h))
+
+
+################################################################################
+# Checking overlap
+sum(geneList_noEpiLCPerturb %in% geneList.degs)
+
+# PIE CHART 1
+categories <- c("Sensitive", "Not sensitive")
+values <- c(1213, 5912 - 1213)
+
+# Calculate percentages
+percentages <- round((values / sum(values)) * 100, 2)
+
+# Combine values and percentages for labels
+labels <- paste(categories, "\n", values, "\n(", percentages, "%)", sep = "")
+
+fileName <- here(figDir, "piechart_sensitive_EpiLCnoPerturb")
+width <- panelSize(2)*mmToInch
+height <- panelSize(2)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(values, 
+    labels = labels, 
+    col = c(strong_red, no_grey, strong_blue), 
+    cex = fontSizeM/12)
+dev.off()
+
+
+# PIE CHART 2
+categories <- c("Sensitive", "Not sensitive")
+values <- c(1478, 2583 - 1478)
+
+# Calculate percentages
+percentages <- round((values / sum(values)) * 100, 2)
+
+# Combine values and percentages for labels
+labels <- paste(categories, "\n", values, "\n(", percentages, "%)", sep = "")
+
+fileName <- here(figDir, "piechart_sensitive_EpiLCStrongPerturb")
+width <- panelSize(2)*mmToInch
+height <- panelSize(2)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+pie(values, 
+    labels = labels, 
+    col = c(strong_red, no_grey, strong_blue), 
+    cex = fontSizeM/12)
+dev.off()
+
+
+```
+
+```{r}
+# Comparing log2FC (dTAG perturbaation) based on whether they are perturbed in Epi ornot
+
+# IMPORTING FC
+diff_epiRecov_3hEpiDM <- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_5h.Epi.dTAG_vs_5h.Epi.DMSO.tsv")) %>% 
+  dplyr::select(ensembl_gene_id, shrinked_log2FC) %>% dplyr::rename(Async.3h = shrinked_log2FC)
+diff_epiRecov_22hEpiDM<- fread(here(extDir, "data", "diff_EpiRecoveryDiffCombTrtNo8h_24h.Epi.dTAG_vs_24h.Epi.DMSO.tsv")) %>% 
+  dplyr::select(ensembl_gene_id, shrinked_log2FC) %>% dplyr::rename(Async.22h = shrinked_log2FC)
+diff <- diff_epiRecov_3hEpiDM %>% 
+  dplyr::full_join(diff_epiRecov_22hEpiDM, by = c("ensembl_gene_id")) %>%
+  mutate_all(~ ifelse(is.na(.), 0, .))
+
+diff <- diff %>% dplyr::mutate(
+  group_Epi = case_when(
+    ensembl_gene_id %in% geneList_noEpiLCPerturb ~ "EpiPerturb_strong",
+    TRUE ~ "EpiPerturb_no"
+  ),
+  group_RAD21 = case_when(
+    ensembl_gene_id %in% geneList.degs ~ "RAD21_sensitive",
+    TRUE ~ "RAD21_insensitive"
+  )
+)
+
+table(diff$group_Epi)
+table(diff$group_RAD21)
+
+dataToPlot <- diff %>% pivot_longer(cols = !c(ensembl_gene_id, group_Epi, group_RAD21), names_to = "timepoint", values_to = "fc")
+dataToPlot$group_Epi <- factor(dataToPlot$group_Epi, levels = c("EpiPerturb_no", "EpiPerturb_strong"))
+dataToPlot$timepoint <- factor(dataToPlot$timepoint, levels = c("Async.3h", "Async.22h"))
+dataToPlot <- dataToPlot %>% dplyr::filter(group_Epi != "EpiPerturb_weak")
+
+# ggplot(dataToPlot, aes(x = timepoint, y = abs(fc))) +
+#   geom_violin(color = "black",
+#               linewidth = lineMedium * mmToLineUnit, lineend = "square",
+#               show.legend = FALSE) + geom_boxplot(width =0.4) +
+#   facet_grid(group_Epi ~ group_RAD21)
+
+p <- ggplot(dataToPlot %>% dplyr::filter(group_RAD21 == "RAD21_sensitive"), aes(x = group_Epi, y = abs(fc), fill = group_Epi)) +
+  geom_violin(linewidth = lineMedium* mmToLineUnit, lineend = "square", alpha = .4, , show.legend = FALSE) + 
+  geom_boxplot(width = 0.3, color = "black",
+               linewidth = lineMedium * mmToLineUnit, lineend = "square",
+               outlier.shape = NA) +
+  facet_wrap(~ timepoint) + 
+  coord_cartesian(ylim = c(0, 2)) +
+  stat_summary(
+    aes(group = timepoint), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black"
+  ) +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1, vjust = 1
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  ) + scale_fill_manual(values = c("#777777", "#009B77"))
+
+fileName <- paste0("log2FC_EpiLCStrongPerturb")
+width <- panelSize(3)*mmToInch
+height <- panelSize(2)*mmToInch
+svglite(here("figure", paste0(fileName, ".svg")),  height = height, width = width)
+print(p)
+dev.off()
+
+##### GO of those sensitive genes
+gene_background <- diff$ensembl_gene_id
+geneList <- unique((dataToPlot %>% dplyr::filter(group_Epi == "EpiPerturb_no", group_RAD21 == "RAD21_sensitive"))$ensembl_gene_id)
+
+GO <- enrichGO(gene = geneList, universe = gene_background,
+                  OrgDb = org.Mm.eg.db, keyType = "ENSEMBL", ont = "BP",
+                  pvalueCutoff = 0.1, qvalueCutoff = 0.2)
+# barplot(GO, showCategory = 20, title = "DOWN_ant")
+
+
+###########
+GO.readable <- setReadable(GO, OrgDb = org.Mm.eg.db)
+data <- as.data.frame(GO)
+data <- data %>% dplyr::select(ID, Description, GeneRatio, p.adjust, Count) %>%
+  dplyr::filter(p.adjust < 0.05) %>% dplyr::mutate(group = "EpiNo_Sensitive") %>%
+  dplyr::arrange(p.adjust)
+data$GeneRatio <- sapply(strsplit(data$GeneRatio, "/"), function(x) as.numeric(x[1]) / as.numeric(x[2]))
+
+# dataToPlot <- data %>% dplyr::filter(ID %in% c("GO:0033627", "GO:0030335", "GO:1901861")) %>% 
+#   dplyr::select(Description, GeneRatio, p.adjust, Count)
+dataToPlot <- data %>%
+  dplyr::select(Description, GeneRatio, p.adjust, Count)
+dataToPlot <- dataToPlot %>% dplyr::arrange(rev(GeneRatio))
+
+p <- ggplot(dataToPlot %>% head(10), aes(x = GeneRatio, y = reorder(Description, GeneRatio), fill = p.adjust)) +
+  geom_bar(stat = "identity") + geom_text(
+    aes(x = 0, label = Description),
+    color = "black",            # Text color
+    hjust = 0.05,               # Horizontal alignment (adjust as needed)
+    size = fontSizeS / 3,       # Adjust font size appropriately
+    family = fontType
+  ) +
+  scale_fill_gradient(low = "#CB333A", high = "white", name = "p.adjust", limits = c(0, 0.05),
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08,  # Adjust height of the color bar
+                        title.theme = element_text(size = fontSizeS)  # Set p.adjust label title size
+                      )) + 
+  labs(
+    x = "Gene Ratio", y = NULL
+  ) +theme_classic() +  # Apply theme_bw first, so custom theme settings come after
+  theme(
+    panel.background = element_rect(fill = "transparent"),  # Override theme_bw panel
+    axis.title = element_text(
+      size = fontSizeM,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      size = fontSizeS,         # Ensure size is set for x-axis text
+      family = fontType,
+      color = "#000000",
+    ),
+    axis.text.y = element_blank(),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick * mmToLineUnit,
+      lineend = "square"
+    ),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)
+  )
+
+fileName <- here("figure", "GO_EpiLCStrongPerturb")
+width <- panelSize(1.75)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"), height = height, width = width)
+print(p)
+dev.off()
+
+
+
+```
+
