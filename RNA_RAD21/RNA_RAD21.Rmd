@@ -382,7 +382,6 @@ ggplot(dataToPlot, aes(x = log2FoldChange.G1.Epi3h, y = log2FoldChange.Async.24h
 # Grouping genes
 ## Our data grouping
 ```{r}
-max(diff.G1.3h$shrinked_log2FC)
 # 5 grouping
 
 #1.3-1.5
@@ -418,11 +417,243 @@ dataToPlot <- diff.Async.3h %>%
 dataToPlot <- dataToPlot %>% dplyr::select(group, log2FoldChange)
 dataToPlot$group <- factor(dataToPlot$group, levels = c("HD", "ID", "SD", "NC", "SU", "IU", "HU"))
 
-ggplot(data = dataToPlot, aes(x = group, y = log2FoldChange, fill = group)) +
-  geom_boxplot(width = 0.9) + theme_classic() + geom_hline(yintercept = 0) + scale_y_continuous(limits = c(-1, 1))
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+
+p <- ggplot(data = dataToPlot, aes(x = group, y = log2FoldChange, fill = group)) +
+  scale_y_continuous() +
+  scale_fill_manual(values = c(darken(strong_blue, amount = 0.5),
+                               strong_blue,
+                               lighten(strong_blue, amount = 0.5),
+                               no_grey,
+                               lighten(strong_red, amount = 0.5),
+                               strong_red,
+                               darken(strong_red, amount = 0.5))) +
+  geom_boxplot(
+    width = 0.9, color = "black", alpha = 0.6,
+    linewidth = lineMedium * mmToLineUnit, lineend = "square",
+    outlier.shape = NA,  alpha = 0.6
+  ) +
+  # Mean point in each group
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black", position = position_dodge(.3)
+  ) +
+  
+  # Horizontal line at y = 0
+  geom_hline(yintercept = 0, linewidth = lineThick * mmToLineUnit) +
+  
+  # Coordinate limits and custom y-axis labels
+  coord_cartesian(ylim = c(-1, 1)) +
+  # Theme customization
+  theme_classic() +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1, vjust = 1
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)) +
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )
+  )
 
 
+  fileName <- paste0("fccomparison_g1_project_Async_3h")
+  width <- panelSize(1.55)*mmToInch
+  height <- panelSize(1.5)*mmToInch
+  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+  print(p)
+  dev.off()
+  
+  
+  
+  dataToPlot <- diff.Async.12h %>%
+  dplyr::mutate(
+    group = case_when(
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "HU"))$ensembl_gene_id ~ "HU",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "IU"))$ensembl_gene_id ~ "IU",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "SU"))$ensembl_gene_id ~ "SU",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "NC"))$ensembl_gene_id ~ "NC",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "SD"))$ensembl_gene_id ~ "SD",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "ID"))$ensembl_gene_id ~ "ID",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "HD"))$ensembl_gene_id ~ "HD"
+    )
+  ) %>%
+  dplyr::filter(!is.na(group))
 
+
+dataToPlot <- dataToPlot %>% dplyr::select(group, log2FoldChange)
+dataToPlot$group <- factor(dataToPlot$group, levels = c("HD", "ID", "SD", "NC", "SU", "IU", "HU"))
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+
+p <- ggplot(data = dataToPlot, aes(x = group, y = log2FoldChange, fill = group)) +
+  scale_y_continuous() +
+  scale_fill_manual(values = c(darken(strong_blue, amount = 0.5),
+                               strong_blue,
+                               lighten(strong_blue, amount = 0.5),
+                               no_grey,
+                               lighten(strong_red, amount = 0.5),
+                               strong_red,
+                               darken(strong_red, amount = 0.5))) +
+  geom_boxplot(
+    width = 0.9, color = "black", alpha = 0.6,
+    linewidth = lineMedium * mmToLineUnit, lineend = "square",
+    outlier.shape = NA,  alpha = 0.6
+  ) +
+  # Mean point in each group
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black", position = position_dodge(.3)
+  ) +
+  
+  # Horizontal line at y = 0
+  geom_hline(yintercept = 0, linewidth = lineThick * mmToLineUnit) +
+  
+  # Coordinate limits and custom y-axis labels
+  coord_cartesian(ylim = c(-1, 1)) +
+  # Theme customization
+  theme_classic() +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1, vjust = 1
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)) +
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )
+  )
+
+
+  fileName <- paste0("fccomparison_g1_project_Async_12h")
+  width <- panelSize(1.55)*mmToInch
+  height <- panelSize(1.5)*mmToInch
+  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+  print(p)
+  dev.off()
+
+  
+  dataToPlot <- diff.Async.24h %>%
+  dplyr::mutate(
+    group = case_when(
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "HU"))$ensembl_gene_id ~ "HU",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "IU"))$ensembl_gene_id ~ "IU",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "SU"))$ensembl_gene_id ~ "SU",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "NC"))$ensembl_gene_id ~ "NC",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "SD"))$ensembl_gene_id ~ "SD",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "ID"))$ensembl_gene_id ~ "ID",
+      ensembl_gene_id %in% (diff.G1.3h %>% dplyr::filter(group == "HD"))$ensembl_gene_id ~ "HD"
+    )
+  ) %>%
+  dplyr::filter(!is.na(group))
+
+
+dataToPlot <- dataToPlot %>% dplyr::select(group, log2FoldChange)
+dataToPlot$group <- factor(dataToPlot$group, levels = c("HD", "ID", "SD", "NC", "SU", "IU", "HU"))
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+
+p <- ggplot(data = dataToPlot, aes(x = group, y = log2FoldChange, fill = group)) +
+  scale_y_continuous() +
+  scale_fill_manual(values = c(darken(strong_blue, amount = 0.5),
+                               strong_blue,
+                               lighten(strong_blue, amount = 0.5),
+                               no_grey,
+                               lighten(strong_red, amount = 0.5),
+                               strong_red,
+                               darken(strong_red, amount = 0.5))) +
+  geom_boxplot(
+    width = 0.9, color = "black", alpha = 0.6,
+    linewidth = lineMedium * mmToLineUnit, lineend = "square",
+    outlier.shape = NA,  alpha = 0.6
+  ) +
+  # Mean point in each group
+  stat_summary(
+    aes(group = group), fun = mean,
+    geom = "point", shape = 21, size = 0.5,
+    fill = "black", color = "black", position = position_dodge(.3)
+  ) +
+  
+  # Horizontal line at y = 0
+  geom_hline(yintercept = 0, linewidth = lineThick * mmToLineUnit) +
+  
+  # Coordinate limits and custom y-axis labels
+  coord_cartesian(ylim = c(-1, 1)) +
+  # Theme customization
+  theme_classic() +
+  theme(
+    axis.title = element_text(
+      size = fontSizeM, family = fontType, color = "#000000"
+    ),
+    axis.text = element_text(
+      size = fontSizeS, family = fontType, color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45, hjust = 1, vjust = 1
+    ),
+    axis.line = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS)) +
+  guides(
+    fill = guide_legend(
+      keywidth = 0.2,  # Adjust the width of the legend keys
+      keyheight = 0.2  # Adjust the height of the legend keys
+    )
+  )
+
+
+  fileName <- paste0("fccomparison_g1_project_Async_24h")
+  width <- panelSize(1.55)*mmToInch
+  height <- panelSize(1.5)*mmToInch
+  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+  print(p)
+  dev.off()
+```
+
+
+```{r}
 #############
 diff.G1.Epi3h <- diff.G1.Epi3h %>% dplyr::mutate(
   group = case_when(

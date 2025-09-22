@@ -12,7 +12,7 @@ pkgs = c("tidyverse", "here", "svglite", "ggplot2", "ggrepel",
          "nlme", "factoextra", "devtools", "beepr", "remotes",
          "cowplot", "data.table", "strawr", "rtracklayer", "utils",
          "reshape2", "VennDiagram","gridExtra", "eulerr", "scales",
-         "InteractionSet", "gplots", "locfdr", "future", "ggbeeswarm", "glossary", "ComplexUpset", "ggnewscale")
+         "InteractionSet", "gplots", "locfdr", "future", "ggbeeswarm", "glossary", "ComplexUpset", "ggnewscale", "ggsci")
 bio_pkgs = c("biomaRt", "DESeq2", "ComplexHeatmap", "apeglm", "vsn",
              "rhdf5", "InteractionSet", "plotgardener", "HiCDCPlus",
              "GenomicInteractions", "LOLA", "AnnotationHub",
@@ -337,7 +337,7 @@ fwrite(temp_p_n, here(commonLoopDir, paste0("loopScore_", name, "_p-n_complex_en
 
 ```
 
-#### [1.2] Chromosight Adjusted
+#### [1.2] (Archived)Chromosight Adjusted
 ```{r}
 id.Tbx3 <- c("chr5_118250000_118275000_chr5_119625000_119650000", "chr5_118400000_118425000_chr5_119625000_119650000")
 id.Elf3 <- c("chr1_135175000_135180000_chr1_135260000_135265000")
@@ -887,6 +887,45 @@ data <- data %>%
   left_join(annotate_scores("GSE178982_AsyncUT", "UT"), by = "id")
 data <- data %>%
   left_join(annotate_scores("GSE178982_AsyncAID", "AID"), by = "id")
+
+
+
+# Adding obs/exp
+resolutions  <- c(20000, 10000, 4000, 2000, 1000)
+import_obsexp <- function(experiment, suffix) {
+  map_dfr(resolutions, function(res) {
+    fread(here(loopDir,
+               sprintf("TjianChromo_union_%dbp_obxexp_%s_pooled.tsv",
+                       res, experiment))
+    ) %>%
+      mutate(id = paste(chrom1, start1, end1, chrom2, start2, end2, sep = "_")) %>%
+      select(id, ooe) %>%
+      rename_with(~ paste0(., "_", suffix),
+                  c(ooe))
+  })
+}
+
+data <- data %>%
+  left_join(import_obsexp("G1DMSO", "DMSO") %>% distinct(), by = "id")
+data <- data %>%
+  left_join(import_obsexp("G1dTAG", "dTAG") %>% distinct(), by = "id")
+# data <- data %>%
+#   left_join(import_obsexp("G1A485", "A485") %>% distinct(), by = "id")
+# data <- data %>%
+#   left_join(import_obsexp("EpiG1DMSO", "EpiDMSO") %>% distinct(), by = "id")
+# data <- data %>%
+#   left_join(import_obsexp("EpiG1dTAG", "EpidTAG") %>% distinct(), by = "id")
+data <- data %>%
+  left_join(import_obsexp("GSE178982_AsyncUT", "UT") %>% distinct(), by = "id")
+data <- data %>%
+  left_join(import_obsexp("GSE178982_AsyncAID", "AID") %>% distinct(), by = "id")
+
+# data <- data %>% 
+#   filter(
+#     !if_all(starts_with("ooe"), ~ .x == 0)   # drop rows where every ooe value is 0 or NA
+#   )
+
+
 
 ################################################################################
 fwrite(data, here(commonLoopDir, "loopScore_TjianChromo.tsv"),
@@ -2265,6 +2304,189 @@ svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
 print(p)
 dev.off()
 ```
+###### Str loops
+```{r}
+#-------------------------------------------------------------------------------
+# LOADING LOOPS
+### Importing differential regulatory loops & extract anchor
+commonLoopDir <- here("../data/loop_analysis")
+loop.all <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
+anchor.all <- (extractAnchor(loop.all))
+overlaps <- findOverlaps(anchor.all, atac.gr)
+anchor.all <- pintersect(anchor.all[queryHits(overlaps)], atac.gr[subjectHits(overlaps)])
+
+loop.up <- fread(here(commonLoopDir, "chromosight_score_complex_str_dTAGvsDMSO_diffCutoff0.2_UP.bedpe"))
+anchor.up <- (extractAnchor(loop.up))
+overlaps <- findOverlaps(anchor.up, atac.gr)
+anchor.up <- pintersect(anchor.up[queryHits(overlaps)], atac.gr[subjectHits(overlaps)])
+
+loop.no <- fread(here(commonLoopDir, "chromosight_score_complex_str_dTAGvsDMSO_diffCutoff0.2_NO.bedpe"))
+anchor.no <- (extractAnchor(loop.no))
+overlaps <- findOverlaps(anchor.no, atac.gr)
+anchor.no <- pintersect(anchor.no[queryHits(overlaps)], atac.gr[subjectHits(overlaps)])
+
+loop.upno <- bind_rows(loop.up, loop.no)
+anchor.upno <- (extractAnchor(loop.upno))
+overlaps <- findOverlaps(anchor.upno, atac.gr)
+anchor.upno <- pintersect(anchor.upno[queryHits(overlaps)], atac.gr[subjectHits(overlaps)])
+
+loop.down <- fread(here(commonLoopDir, "chromosight_score_complex_str_dTAGvsDMSO_diffCutoff0.2_DOWN.bedpe"))
+anchor.down <- (extractAnchor(loop.down))
+overlaps <- findOverlaps(anchor.down, atac.gr)
+anchor.down <- pintersect(anchor.down[queryHits(overlaps)], atac.gr[subjectHits(overlaps)])
+
+#-------------------------------------------------------------------------------
+# RUNNING LOLA
+# UP
+lolaDir <- here(commonLoopDir, "LOLA")
+dir.create(lolaDir, showWarnings = FALSE, recursive = TRUE)
+
+
+name <- "chromosight_score_complex_str_dTAGvsDMSO_diffCutoff0.2"
+result <- runLOLA(anchor.up, anchor.all, lolaDB)
+tb <- as_tibble(result)
+fwrite(tb, here(lolaDir, paste0("LOLA_", name, "UP_ATAC.tsv")), sep = "\t")
+
+# NO
+result <- runLOLA(anchor.no, anchor.all, lolaDB)
+tb <- as_tibble(result)
+fwrite(tb, here(lolaDir, paste0("LOLA_", name, "NO_ATAC.tsv")), sep = "\t")
+
+# UPNO
+result <- runLOLA(anchor.upno, anchor.all, lolaDB)
+tb <- as_tibble(result)
+fwrite(tb, here(lolaDir, paste0("LOLA_", name, "UPNO_ATAC.tsv")), sep = "\t")
+
+# DOWN
+result <- runLOLA(anchor.down, anchor.all, lolaDB)
+tb <- as_tibble(result)
+fwrite(tb, here(lolaDir, paste0("LOLA_", name, "DOWN_ATAC.tsv")), sep = "\t")
+
+
+### Visualizing p-value and OR
+alpha <- 0.05
+tb.up <- fread(here(lolaDir, paste0("LOLA_", name, "UP_ATAC.tsv"))) %>%
+  dplyr::mutate(target = toupper(antibody),
+                qValueLog = -log2(qValue),
+                group = "UP") %>%
+  filter(str_to_lower(cellType) == "embryonic stem cell") %>%
+  dplyr::filter(qValue < alpha) %>% dplyr::group_by(target) %>%
+  slice_min(meanRnk, with_ties = FALSE)
+tb.no <- fread(here(lolaDir, paste0("LOLA_", name, "NO_ATAC.tsv"))) %>%
+  dplyr::mutate(target = toupper(antibody),
+                qValueLog = -log2(qValue),
+                group = "NO") %>%
+  filter(str_to_lower(cellType) == "embryonic stem cell") %>%
+  dplyr::filter(qValue < alpha) %>% dplyr::group_by(target) %>%
+  slice_min(meanRnk, with_ties = FALSE)
+
+tb.upno <- fread(here(lolaDir, paste0("LOLA_", name, "UPNO_ATAC.tsv"))) %>%
+  dplyr::mutate(target = toupper(antibody),
+                qValueLog = -log10(qValue),
+                group = "UP/NO") %>%
+  filter(str_to_lower(cellType) == "embryonic stem cell") %>%
+  dplyr::filter(qValue < alpha) %>% dplyr::group_by(target) %>%
+  slice_min(meanRnk, with_ties = FALSE)
+
+fwrite(tb.upno %>% dplyr::select(c(24, 16, 20,
+                                   4, 25, 5,
+                                   7, 8, 9, 10, 11,
+                                   12, 13, 14)), here(lolaDir, paste0("LOLA_", name, "UPNO_ATAC_pub.tsv")), sep = "\t")
+
+tb.down <- fread(here(lolaDir, paste0("LOLA_", name, "DOWN_ATAC.tsv"))) %>%
+  dplyr::mutate(target = toupper(antibody),
+                qValueLog = -log10(qValue),
+                group = "DOWN") %>%
+  filter(str_to_lower(cellType) == "embryonic stem cell") %>%
+  dplyr::filter(qValue < alpha) %>% dplyr::group_by(target) %>%
+  slice_min(meanRnk, with_ties = FALSE)
+fwrite(tb.down %>% dplyr::select(c(24, 16, 20,
+                                   4, 25, 5,
+                                   7, 8, 9, 10, 11,
+                                   12, 13, 14)), here(lolaDir, paste0("LOLA_", name, "DOWN_ATAC__pub.tsv")), sep = "\t")
+
+
+temp.upno <- tb.upno %>% dplyr::select(target, oddsRatio, qValueLog, group)
+temp.down <- tb.down %>% dplyr::select(target, oddsRatio, qValueLog, group)
+
+temp <- bind_rows(temp.upno, temp.down)
+
+order <- c((temp %>% dplyr::filter(group == "UP/NO") %>% arrange(desc(oddsRatio)))$target,
+           (temp %>% dplyr::filter(group == "DOWN") %>% arrange(desc(oddsRatio)))$target)
+order <- unique(order)
+
+temp$target <- factor(temp$target, levels = rev(order))
+temp$group <- factor(temp$group, levels = c("UP/NO", "DOWN"))
+
+targetList <- c("POLR2A", "CTR9", "ARR4", "ELL2",
+                "MED1", "MED12", "TBP", "TAF1", "TAF2",
+                "ESRRB", "KLF4", "NANOG", "POU5F1", "SOX2", "MYCN", "GATA4", "STAT3", "E2F1", "YY1",
+                "P300", "DPY30", "RBBP5", "KDM2B", "KDM4B", "KDM6B", "TET1",
+                "CBX7", "RING1B", "RNF2", "EZH2", "SUZ12", "JARID2", "MTF2", "PHF19")
+
+temp <- temp %>% dplyr::filter(target %in% targetList)
+temp$target <- factor(temp$target, levels = rev(targetList))
+
+
+qValueLogMax <- 10
+temp2 <- temp %>% dplyr::mutate(qValueLog = pmin(qValueLog, qValueLogMax))
+
+p <- ggplot(temp2, aes(x = group, y = target, fill = oddsRatio, size = qValueLog)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 1*ptToMM/2      # Line width for the border
+  ) + theme_bw() + 
+  scale_size_continuous(range = c(0.5, 2)) +  # Set min and max point sizes here
+  scale_fill_gradient(low = "white", high = "#CB333A",
+                      limits = c(1, 3),
+                      oob = scales::squish, # Define gradient colors
+                      guide = guide_colorbar(
+                        barwidth = 1.5/5.08,  # Adjust width of the color bar
+                        barheight = 15/5.08   # Adjust height of the color bar
+                      )
+  ) + 
+  labs(x = NULL, y = NULL)  +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1,        # Adjust vertical justification
+      color = "#000000"
+    ),
+    axis.text.y = element_text(size = fontSizeS, family = fontType),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS),
+    )
+
+# figDir <- here("../figure/loop_analysis")
+# 
+# fileName <- paste0("LOLA_", name)
+# width <- panelSize(1.6)*mmToInch
+# height <- panelSize(2.7)*mmToInch
+# png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+# print(p)
+# dev.off()
+# svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+# print(p)
+# dev.off()
+```
+
 ##### EpiLC
 ###### All loops
 ```{r}
@@ -2682,9 +2904,12 @@ data <- data %>% dplyr::mutate(
     TRUE ~ "XXX")
 ) %>%
   dplyr::mutate(group2 = case_when(
-    group %in% c("reg_reg") ~ "reg_reg",
-    group %in% c("reg_strReg", "reg_str", "reg_other") ~ "reg_nonReg",
-    group %in% c("strReg_strReg", "strReg_str", "strReg_other") ~ "strReg_nonReg",
+    Anno == "P-P" ~ "P-P",
+    Anno == "P-E" ~ "P-E",
+    Anno == "E-E" ~ "E-E",
+    # group %in% c("reg_reg") ~ "reg",
+    group %in% c("reg_strReg", "reg_str") ~ "mixed",
+    group %in% c("strReg_strReg", "strReg_str", "strReg_other") ~ "mixed",
     group %in% c("str") ~ "str",
     TRUE ~ "XXXXX"
   ))
@@ -2693,29 +2918,40 @@ data <- data %>% dplyr::mutate(
 
 
 
-data$group2 <- factor(data$group2, levels = c("reg_reg", "reg_nonReg", "strReg_nonReg", "str"))
+data$group2 <- factor(data$group2, levels = c("P-P", "P-E", "E-E", "mixed", "str"))
 
-p <- ggplot(
-  data %>% dplyr::filter(group2 %in% c("reg_reg", "str")),
-  aes(x = dist_bin, y = fc, fill = group2)
+show_col(pal_npg()(10))
+
+palnpg <- pal_npg()(10)
+
+p0 <- ggplot(
+  data %>% dplyr::filter(group2 %in% c("P-P", "P-E", "E-E", "mixed", "str"),
+                         distance < 550000),
+  aes(x = distance, y = fc, fill = group2, color = group2)
 ) +
+  scale_fill_manual(values =c(palnpg[8], palnpg[1], palnpg[5], palnpg[2], palnpg[3])) +
+  scale_color_manual(values =c(palnpg[8], palnpg[1], palnpg[5], palnpg[2], palnpg[3])) +
+  
   # remove outliers with outlier.shape = NA (there is no "outliers" argument)
-  geom_boxplot(outlier.shape = NA) +
+  # geom_boxplot(outlier.shape = NA) +
+    geom_smooth(show.legend = TRUE, se = TRUE,
+              size = lineThick*mmToLineUnit,
+              lineend = "square")  +
   # keep empty bins
-  scale_x_discrete(drop = FALSE) +
+  # scale_x_discrete(drop = FALSE) +
   # add red‐filled mean points, dodged by group
-  stat_summary(
-    aes(group = group2),
-    fun = mean,
-    geom = "point",
-    shape = 21,
-    size = 0.5,
-    fill = "red",
-    color = "red",
-    position = position_dodge(0.8)
-  ) +
+  # stat_summary(
+  #   aes(group = group2),
+  #   fun = mean,
+  #   geom = "point",
+  #   shape = 21,
+  #   size = 0.5,
+  #   fill = "red",
+  #   color = "red",
+  #   position = position_dodge(0.8)
+  # ) +
   labs(
-    x = "Distance bin",
+    x = "Size (bp)",
     y = "Δ log2(obs/exp)",
   ) +
   theme_classic() +
@@ -2725,7 +2961,8 @@ p <- ggplot(
     strip.text         = element_text(face = "bold")
   ) +
   geom_hline(yintercept = 0) +
-  coord_cartesian(ylim = c(-3, 2)) +
+  coord_cartesian(ylim = c(-1.8, -0.2)) +
+      scale_x_continuous(labels = label_kb_mb) +
   theme(
     axis.title       = element_text(size = fontSizeS, family = fontType),
     axis.text        = element_text(size = fontSizeS, family = fontType),
@@ -2743,22 +2980,195 @@ p <- ggplot(
     )
   )
 
-name <- "chromosight_score_all_dTAGvsDMSO_diffCutoff0.2"
+p1 <- ggplot(
+  data %>% dplyr::filter(group2 %in% c("P-P", "P-E", "E-E", "mixed", "str"),
+                         distance < 1000000),
+  aes(x = distance, y = fc, fill = group2, color = group2)
+) +
+  scale_fill_manual(values =c(palnpg[8], palnpg[1], palnpg[5], palnpg[2], palnpg[3])) +
+  scale_color_manual(values =c(palnpg[8], palnpg[1], palnpg[5], palnpg[2], palnpg[3])) +
+  
+  # remove outliers with outlier.shape = NA (there is no "outliers" argument)
+  # geom_boxplot(outlier.shape = NA) +
+    geom_smooth(show.legend = TRUE, se = TRUE,
+              size = lineThick*mmToLineUnit,
+              lineend = "square")  +
+  # keep empty bins
+  # scale_x_discrete(drop = FALSE) +
+  # add red‐filled mean points, dodged by group
+  # stat_summary(
+  #   aes(group = group2),
+  #   fun = mean,
+  #   geom = "point",
+  #   shape = 21,
+  #   size = 0.5,
+  #   fill = "red",
+  #   color = "red",
+  #   position = position_dodge(0.8)
+  # ) +
+  labs(
+    x = "Size (bp)",
+    y = "Δ log2(obs/exp)",
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x        = element_text(angle = 45, hjust = 1),
+    strip.background   = element_rect(fill = "white", color = "black"),
+    strip.text         = element_text(face = "bold")
+  ) +
+  geom_hline(yintercept = 0) +
+  coord_cartesian(ylim = c(-1.75, 0)) +
+      scale_x_continuous(labels = label_kb_mb) +
+  theme(
+    axis.title       = element_text(size = fontSizeS, family = fontType),
+    axis.text        = element_text(size = fontSizeS, family = fontType),
+    axis.line        = element_line(size = lineThick * mmToLineUnit, lineend = "square"),
+    axis.ticks       = element_line(size = lineThick * mmToLineUnit, lineend = "square"),
+    panel.background = element_rect(fill = "transparent"),
+    legend.title     = element_text(family = fontType, size = fontSizeS),
+    legend.text      = element_text(family = fontType, size = fontSizeS)
+  ) +
+  # close the guides(...) call properly and map the correct aesthetic
+  guides(
+    fill = guide_legend(
+      keywidth  = 0.5,
+      keyheight = 0.5
+    )
+  )
+
+p2 <- ggplot(
+  data %>% dplyr::filter(group2 %in% c("P-P", "P-E", "E-E", "mixed", "str")),
+  aes(x = distance, y = fc, fill = group2, color = group2)
+) +
+  scale_fill_manual(values =c(palnpg[8], palnpg[1], palnpg[5], palnpg[2], palnpg[3])) +
+  scale_color_manual(values =c(palnpg[8], palnpg[1], palnpg[5], palnpg[2], palnpg[3])) +
+
+  # remove outliers with outlier.shape = NA (there is no "outliers" argument)
+  # geom_boxplot(outlier.shape = NA) +
+    geom_smooth(show.legend = TRUE, se = TRUE,
+              size = lineThick*mmToLineUnit,
+              lineend = "square")  +
+  # keep empty bins
+  # scale_x_discrete(drop = FALSE) +
+  # add red‐filled mean points, dodged by group
+  # stat_summary(
+  #   aes(group = group2),
+  #   fun = mean,
+  #   geom = "point",
+  #   shape = 21,
+  #   size = 0.5,
+  #   fill = "red",
+  #   color = "red",
+  #   position = position_dodge(0.8)
+  # ) +
+  labs(
+    x = "Size (bp)",
+    y = "Δ log2(obs/exp)",
+  ) +
+  theme_classic() +
+  theme(
+    axis.text.x        = element_text(angle = 45, hjust = 1),
+    strip.background   = element_rect(fill = "white", color = "black"),
+    strip.text         = element_text(face = "bold")
+  ) +
+  geom_hline(yintercept = 0) +
+  coord_cartesian(ylim = c(-1.75, 0.5)) +
+  scale_x_continuous(labels = label_kb_mb) +
+  theme(
+    axis.title       = element_text(size = fontSizeS, family = fontType),
+    axis.text        = element_text(size = fontSizeS, family = fontType),
+    axis.line        = element_line(size = lineThick * mmToLineUnit, lineend = "square"),
+    axis.ticks       = element_line(size = lineThick * mmToLineUnit, lineend = "square"),
+    panel.background = element_rect(fill = "transparent"),
+    legend.title     = element_text(family = fontType, size = fontSizeS),
+    legend.text      = element_text(family = fontType, size = fontSizeS)
+  ) +
+  # close the guides(...) call properly and map the correct aesthetic
+  guides(
+    fill = guide_legend(
+      keywidth  = 0.5,
+      keyheight = 0.5
+    )
+  )
+
+p3 <- ggplot(
+  data %>% dplyr::filter(group2 %in% c("P-P", "P-E", "E-E", "mixed", "str")),
+  aes(x = distance, fill = group2, color = group2)
+) +
+  scale_fill_manual(values =c(palnpg[8], palnpg[1], palnpg[5], palnpg[2], palnpg[3])) +
+  scale_color_manual(values =c(palnpg[8], palnpg[1], palnpg[5], palnpg[2], palnpg[3])) +
+  geom_histogram(binwidth = 100000, position = "dodge") +
+  # remove outliers with outlier.shape = NA (there is no "outliers" argument)
+  # geom_boxplot(outlier.shape = NA) +
+    # geom_smooth(show.legend = TRUE, se = TRUE,
+    #           size = lineThick*mmToLineUnit,
+    #           lineend = "square")  +
+  # keep empty bins
+  # scale_x_discrete(drop = FALSE) +
+  # add red‐filled mean points, dodged by group
+  # stat_summary(
+  #   aes(group = group2),
+  #   fun = mean,
+  #   geom = "point",
+  #   shape = 21,
+  #   size = 0.5,
+  #   fill = "red",
+  #   color = "red",
+  #   position = position_dodge(0.8)
+  # ) +
+  labs(
+    x = "Size (100kb bin)",
+    y = "Count",
+  ) +
+  theme_classic() +
+    scale_x_continuous(labels = label_kb_mb) +
+  theme(
+    axis.text.x        = element_text(angle = 45, hjust = 1),
+    strip.background   = element_rect(fill = "white", color = "black"),
+    strip.text         = element_text(face = "bold")
+  ) +
+  theme(
+    axis.title       = element_text(size = fontSizeS, family = fontType),
+    axis.text        = element_text(size = fontSizeS, family = fontType),
+    axis.line        = element_line(size = lineThick * mmToLineUnit, lineend = "square"),
+    axis.ticks       = element_line(size = lineThick * mmToLineUnit, lineend = "square"),
+    panel.background = element_rect(fill = "transparent"),
+    legend.title     = element_text(family = fontType, size = fontSizeS),
+    legend.text      = element_text(family = fontType, size = fontSizeS)
+  ) +
+  # close the guides(...) call properly and map the correct aesthetic
+  guides(
+    fill = guide_legend(
+      keywidth  = 0.5,
+      keyheight = 0.5
+    )
+  )
 
 
-fileName <- paste0("dist_vs_score_binned_reg_str_", name)
+fileName <- paste0("dist_vs_score_binned_reg_str")
 
-width <- panelSize(2.5)*mmToInch
-height <- panelSize(1.75)*mmToInch
-png(here(figDir, paste0(fileName, ".png")), 
-    res = 600, units = "in", width = width, height = height)
-print(p)
-dev.off()
-svglite(here(figDir, paste0(fileName, ".svg")), 
+width <- panelSize(2.2)*mmToInch
+height <- panelSize(1.5)*mmToInch
+
+svglite(here(figDir, paste0(fileName, "_500kb.svg")), 
         width = width, height = height)
-print(p)
+print(p0)
 dev.off()
 
+svglite(here(figDir, paste0(fileName, "_1Mb.svg")), 
+        width = width, height = height)
+print(p1)
+dev.off()
+
+svglite(here(figDir, paste0(fileName, "_2Mb.svg")), 
+        width = width, height = height)
+print(p2)
+dev.off()
+
+svglite(here(figDir, paste0(fileName, "_histogram.svg")), 
+        width = width, height = height)
+print(p3)
+dev.off()
 
 ```
 
@@ -2904,6 +3314,121 @@ plotSumScoresBinary(track, peak, "CTCF", "_ESC", anchor.upno, anchor.down)
 track <- import(here(refDir, "ChIP", "RAD21-HA", "RAD21_ESC-DMSO_Rep1_depthNorm.bw"), format = "BigWig")
 peak <- importPeak(here(refDir, "ChIP", "RAD21-HA", "RAD21_ESC-DMSO_unionPeaks.bed"))
 plotSumScoresBinary(track, peak, "RAD21", "_ESC", anchor.upno, anchor.down)
+
+
+name <- "chromosight_score_complex_str_dTAGvsDMSO_diffCutoff0.2"
+
+# UP loop
+loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe")))
+anchor.up <- (extractAnchor(loop.up))
+# NO loop
+loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe")))
+anchor.no <- (extractAnchor(loop.no))
+# UP NO
+loop.upno <- bind_rows(loop.up, loop.no)
+anchor.upno <- (extractAnchor(loop.upno))
+# DOWN loop
+loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
+anchor.down <- (extractAnchor(loop.down))
+
+track <- import(here(refDir, "ChIP", "H3K4me3", "H3K4me3_ESC_avg_depthNorm.bw"), format = "BigWig")
+peak <- importPeak(here(refDir, "ChIP", "H3K4me3", "H3K4me3_ESC_unionPeaks.bed"))
+plotSumScoresBinary(track, peak, "H3K4me3", "_ESC", anchor.upno, anchor.down)
+
+track <- import(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_avg_depthNorm.bw"), format = "BigWig")
+peak <- importPeak(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_unionPeaks.bed"))
+plotSumScoresBinary(track, peak, "H3K27ac", "_ESC", anchor.upno, anchor.down)
+
+track <- import(here(refDir, "ChIP", "CTCF", "CTCF_ESC_Rep1_33248_depthNorm.bw"), format = "BigWig")
+peak <- importPeak(here(refDir, "ChIP", "CTCF", "CTCF_ESC_unionPeaks.bed"))
+plotSumScoresBinary(track, peak, "CTCF", "_ESC", anchor.upno, anchor.down)
+
+track <- import(here(refDir, "ChIP", "RAD21-HA", "RAD21_ESC-DMSO_Rep1_depthNorm.bw"), format = "BigWig")
+peak <- importPeak(here(refDir, "ChIP", "RAD21-HA", "RAD21_ESC-DMSO_unionPeaks.bed"))
+plotSumScoresBinary(track, peak, "RAD21", "_ESC", anchor.upno, anchor.down)
+
+# Size
+temp1 <- loop.upno %>% dplyr::mutate(size = V5 - V2)
+temp2 <- loop.down %>% dplyr::mutate(size = V5 - V2)
+temp1 <- tibble(condition = "UP/NO",
+                size = temp1$size)
+temp2 <- tibble(condition = "DOWN",
+                size = temp2$size)
+
+dataToPlot <- bind_rows(temp1, temp2)
+
+
+getPvalWilcox <- function(data, group1, group2){
+  distance1 <- (data %>% dplyr::filter(condition ==group1) )$size
+  distance2 <- (data %>% dplyr::filter(condition ==group2) )$size
+  wil <- wilcox.test(distance1, distance2)
+  return(wil$p.value)
+}
+
+  name1 = "UP/NO"
+  name2 = "DOWN"
+  color1 = "grey30"
+  color2 = "#e64b35"
+  
+  dataToPlot$condition <- factor(dataToPlot$condition, levels = (c("UP/NO", "DOWN")))
+p12 <- getPvalWilcox(dataToPlot, "UP/NO", "DOWN")
+  p <-  ggplot(dataToPlot, aes(x = ".", fill = condition, y = size)) + 
+    labs(x = NULL, y = paste0("Average ChIP peak score at anchor)")) +
+    introdataviz::geom_split_violin(linewidth = lineThick * mmToLineUnit, lineend = "square",
+                                    alpha = .4) +
+    geom_boxplot(width = 0.3, color = "black",
+                 linewidth = lineThick * mmToLineUnit, lineend = "square",
+                 outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + theme_classic() +
+    scale_fill_manual(
+      name = "Loop type",
+      values = c(color1, color2)
+    ) +
+    stat_summary(
+      aes(group = condition), fun = mean,
+      geom = "point", shape = 21, size = 0.5,
+      fill = "black", color = "black", position = position_dodge(.3)
+    ) + theme(
+      axis.title = element_text(
+        size = fontSizeM, family = fontType, color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeM, family = fontType, color = "#000000"
+      ),
+      axis.text.x = element_text(
+        angle = 0,
+      ),
+      axis.text.y = element_text(
+        size = fontSizeS,
+      ),
+      axis.line = element_line(
+        color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+      legend.text = element_text(family = fontType, size = fontSizeS),
+      legend.title = element_text(family = fontType, size = fontSizeS)
+    ) + 
+    coord_cartesian(ylim = c(quantile(data$sumScore, 0.0), quantile(data$sumScore, 0.95))) + 
+    annotate(
+      "text", x = 1, y = quantile(data$sumScore, 0.5),
+      label = paste0("p12: ", convPvalue(p12)),
+      color = "black", hjust = 0, size = 1
+    ) +   guides(
+      fill = guide_legend(
+        keywidth = 0.2,  # Adjust the width of the legend keys
+        keyheight = 0.2  # Adjust the height of the legend keys
+      )
+    ) + scale_y_continuous(labels = label_kb_mb)
+  
+  fileName <- paste0("LoopSize_G1vsAsync")
+  height <- panelSize(1.2)*mmToInch
+  width <-  panelSize(1.7)*mmToInch
+  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+  print(p)
+  dev.off()
+
 ```
 
 ##### EpiLC
@@ -2947,7 +3472,7 @@ plotSumScoresBinary(track, peak, "RAD21", "_EpiLC",anchor.upno, anchor.down)
 peak.Whyte.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Whyte_ESC_mm10.bed"))
 peak.Dylan.SE <- importPeak(here(refDir, "mm10", "superEnhancer_Dylan_ESC.bed"))
 ```
-
+##### Pie chart
 Q1. How many SEs are covered with Micro-C loops?
 
 ```{r}
@@ -3000,103 +3525,91 @@ dev.off()
 ```
 
 Q2. Fisher's exact test?
+For more accurate statistical analysis, the fisher's exact test should be comparing the presence of SE in loop anchor set A vs loop anchor set B.
+It shouldn't be A vs total (A + B), B vs total (A + B). This will underestimate the statistical outcome due to lack of independence.
+
+Here, I will test both using fisher's exact and using permutation to see how different they are. Theoretically, both should be ok.
+##### Fisher's exact test
 ```{r}
-getOverlapLoopNumExpand <- function(loop, peak){
-  anchor <- resize(extractAnchor(loop), width = 25000, fix = "center")
-  a <- unique(queryHits(findOverlaps(anchor, peak)))
-  return(length(a))
+
+countOverlapLoopNumAnchorExpand <- function(loop, peak, expandSize = 25000){
+  # Extract anchor and expand
+  anchor1 <- loop %>% dplyr::select(c(1, 2, 3))
+  colnames(anchor1) <- c("chr", "start", "end")
+  
+  anchor1 <- resize(makeGRangesFromDataFrame(anchor1), width = expandSize, fix = "center")  
+  
+  anchor2 <- loop %>% dplyr::select(c(4, 5, 6))
+  colnames(anchor2) <- c("chr", "start", "end")
+  anchor2 <- resize(makeGRangesFromDataFrame(anchor2), width = expandSize, fix = "center")  
+  
+  overlap <- unique(c(queryHits(findOverlaps(anchor1, peak)),
+           queryHits(findOverlaps(anchor2, peak))))
+  return(length(overlap))
 }
 
-name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
-loop <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
-  dplyr::filter(Anno_simple %in% c("P-P", "P-E", "E-E"))
 
-
-getSEOverlapFisher <- function(allLoop, subsetLoop, peak){
-  all.overlap <- getOverlapLoopNumExpand(allLoop, peak)
-  all.notOverlap <- nrow(allLoop) - all.overlap
+getSEOverlapFisher <- function(loop1, loop2, peak){
+  # This is testing enrichment of peak at loop1 vs loop2
+  loop1.overlap <- countOverlapLoopNumAnchorExpand(loop1, peak)
+  loop1.noOverlap <- nrow(loop1) - loop1.overlap
   
-  subset.overlap <- getOverlapLoopNumExpand(subsetLoop, peak)
-  subset.notOverlap <- nrow(subsetLoop) - subset.overlap
+  loop2.overlap <- countOverlapLoopNumAnchorExpand(loop2, peak)
+  loop2.noOverlap <- nrow(loop2) - loop2.overlap
   
-  contingency_table <- matrix(c(subset.overlap, subset.notOverlap,
-                                all.overlap, all.notOverlap), nrow = 2, byrow = TRUE)
-  colnames(contingency_table) <- c("Overlapping", "Not_Overlapping")
-  rownames(contingency_table) <- c("All loops", "Subset loops")
+  
+  contingency_table <- matrix(c(loop1.overlap, loop1.noOverlap,
+                                loop2.overlap, loop2.noOverlap), nrow = 2, byrow = TRUE)
+  colnames(contingency_table) <- c("Overlap", "NoOverlap")
+  rownames(contingency_table) <- c("LoopA", "LoopB")
   
   # Perform Fisher's Exact Test
   fisher_test_result <- fisher.test(contingency_table)
   return(fisher_test_result)
 }
 
+name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
 loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe")))
 loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe")))
 loop.upno <- bind_rows(loop.up, loop.no)
 loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
 
-
 ### Dylan
 # Seeding
-temp <- getSEOverlapFisher(loop, loop.upno, peak.Dylan.SE)
-result.tb <- tibble(loopType = "UP/NO",
+temp <- getSEOverlapFisher(loop.upno, loop.down, peak.Dylan.SE)
+result.tb <- tibble(loopType = "UP/NO_vs_DOWN",
                     target = "Dylan SE",
                     pvalue = temp$p.value,
                     oddsRatio = temp$estimate)
 
-temp <- getSEOverlapFisher(loop, loop.down, peak.Dylan.SE)
-result.tb <- result.tb %>% 
-  add_row(loopType = "DOWN",
-          target = "Dylan SE",
-          pvalue = temp$p.value,
-          oddsRatio = temp$estimate)
-
 ### Whyte
 # Add row
-temp <- getSEOverlapFisher(loop, loop.upno, peak.Whyte.SE)
+temp <- getSEOverlapFisher(loop.upno, loop.down, peak.Whyte.SE)
 result.tb <- result.tb %>% 
-  add_row(loopType = "UP/NO",
+  add_row(loopType = "UP/NO_vs_DOWN",
           target = "Whyte SE",
           pvalue = temp$p.value,
           oddsRatio = temp$estimate)
-
-temp <- getSEOverlapFisher(loop, loop.down, peak.Whyte.SE)
-result.tb <- result.tb %>% 
-  add_row(loopType = "DOWN",
-          target = "Whyte SE",
-          pvalue = temp$p.value,
-          oddsRatio = temp$estimate)
-
 
 # Visualization
 library(circlize)
-data <- result.tb
-heatmap_data <- data %>% dplyr::select(target, loopType, oddsRatio) %>%
-  pivot_wider(names_from = loopType, values_from = oddsRatio) %>%
-  column_to_rownames(var = "target")
+data <- result.tb %>%
+  dplyr::mutate(pvalue = pmax(0.0001, pvalue))
 
-pvalue_data <- data %>% dplyr::select(target, loopType, pvalue) %>%
-  pivot_wider(names_from = loopType, values_from = pvalue) %>%
-  column_to_rownames(var = "target")
-
-col_fun <- colorRamp2(c(0, 1, 2), 
-                      c("#4852A0", "white", "#CB333A"))
-
-data$loopType <- factor(data$loopType, levels = c("UP/NO", "DOWN"))
+data$loopType <- factor(data$loopType, levels = c("UP/NO_vs_DOWN"))
 data$target <- factor(data$target, levels = c("Whyte SE", "Dylan SE"))
 
 p <- ggplot(data, aes(x = loopType, y = target, size = -log10(pvalue), fill = oddsRatio)) +
   geom_point(shape = 21,        # Ensures a point with an outline
              stroke = 1*ptToMM/2      # Line width for the border
   ) + theme_bw() + 
-  scale_size_continuous(range = c(1, 3)) +  # Set min and max point sizes here
+  scale_size_continuous(range = c(1, 3)) +
   scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
                        values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
-                       #low = "white", high = "#CB333A",
-                       #                  limits = c(1, 3),
                        oob = scales::squish, # Define gradient colors
                        guide = guide_colorbar(
                          barwidth = 1.5/5.08,  # Adjust width of the color bar
-                         barheight = 15/5.08   # Adjust height of the color bar
+                         barheight = 10/5.08   # Adjust height of the color bar
                        )
   ) +
   labs(x = NULL, y = NULL)  +
@@ -3137,36 +3650,14 @@ print(p)
 dev.off()
 ```
 
+
 #### [FIG] Hub enrichment
 ```{r}
-loop <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
-  dplyr::filter(Anno_simple %in% c("P-P", "P-E", "E-E"))
-
 name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
 loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe")))
 loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe")))
-anchor.upno <- extractAnchor(bind_rows(loop.up, loop.no))
-
+loop.upno <- bind_rows(loop.up, loop.no)
 loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
-anchor.down <- extractAnchor(loop.down)
-
-
-getSEOverlapFisher <- function(allLoop, subsetLoop, peak){
-  all.overlap <- getOverlapLoopNum(allLoop, peak)
-  all.notOverlap <- nrow(allLoop) - all.overlap
-  
-  subset.overlap <- getOverlapLoopNum(subsetLoop, peak)
-  subset.notOverlap <- nrow(subsetLoop) - subset.overlap
-  
-  contingency_table <- matrix(c(subset.overlap, subset.notOverlap,
-                                all.overlap, all.notOverlap), nrow = 2, byrow = TRUE)
-  colnames(contingency_table) <- c("Overlapping", "Not_Overlapping")
-  rownames(contingency_table) <- c("All loops", "Subset loops")
-  
-  # Perform Fisher's Exact Test
-  fisher_test_result <- fisher.test(contingency_table)
-  return(fisher_test_result)
-}
 
 
 i <- 2
@@ -3178,20 +3669,17 @@ colnames(temp) <- c("chr", "start", "end")
 hub.anchor <- makeGRangesFromDataFrame(temp)
 
 
-temp <- getSEOverlapFisher(loop, loop.upno, hub.anchor)
-result.tb <- tibble(loopType = "UP/NO",
+# Seeding
+temp <- getSEOverlapFisher(loop.upno, loop.down, hub.anchor)
+result.tb <- tibble(loopType = "UP/NO_vs_DOWN",
                     target = paste0("hub_", i),
                     pvalue = temp$p.value,
                     oddsRatio = temp$estimate)
-temp <- getSEOverlapFisher(loop, loop.down, hub.anchor)
-result.tb <- result.tb %>% 
-  add_row(loopType = "DOWN",
-          target =  paste0("hub_", i),
-          pvalue = temp$p.value,
-          oddsRatio = temp$estimate)
+
+# Add row
 
 
-for(i in c(5)){
+for(i in c(3, 4, 5)){
   data <- fread(here(refDir, "mm10", "Dylan_hub_esc.csv"))
   
   data.hub <- data %>% dplyr::filter(all_lcon > i)
@@ -3200,51 +3688,34 @@ for(i in c(5)){
   hub.anchor <- makeGRangesFromDataFrame(temp)
   
   
-  temp <- getSEOverlapFisher(loop, loop.upno, hub.anchor)
-  result.tb <- result.tb %>% add_row(loopType = "UP/NO",
-                                     target = paste0("hub_", i),
-                                     pvalue = temp$p.value,
-                                     oddsRatio = temp$estimate)
-  temp <- getSEOverlapFisher(loop, loop.down, hub.anchor)
+  temp <- getSEOverlapFisher(loop.upno, loop.down, hub.anchor)
   result.tb <- result.tb %>% 
-    add_row(loopType = "DOWN",
-            target =  paste0("hub_", i),
+    add_row(loopType = "UP/NO_vs_DOWN",
+                    target = paste0("hub_", i),
             pvalue = temp$p.value,
             oddsRatio = temp$estimate)
-  
-  
 }
 
-library(circlize)
-data <- result.tb
-heatmap_data <- data %>% dplyr::select(target, loopType, oddsRatio) %>%
-  pivot_wider(names_from = loopType, values_from = oddsRatio) %>%
-  column_to_rownames(var = "target")
+data <- result.tb %>%
+  dplyr::mutate(pvalue = pmax(0.0001, pvalue))
 
-pvalue_data <- data %>% dplyr::select(target, loopType, pvalue) %>%
-  pivot_wider(names_from = loopType, values_from = pvalue) %>%
-  column_to_rownames(var = "target")
+data$loopType <- factor(data$loopType, levels = c("UP/NO_vs_DOWN"))
+data$target <- factor(data$target, levels = c("hub_2", "hub_3", "hub_4", "hub_5"))
 
-# col_fun <- colorRamp2(c(0, 1, 2), 
-#                       c("blue", "white", "red"))
-
-data$target <- factor(data$target, levels = c("hub_5", "hub_2"))
-data$loopType <- factor(data$loopType, levels = c("UP/NO", "DOWN"))
 p <- ggplot(data, aes(x = loopType, y = target, size = -log10(pvalue), fill = oddsRatio)) +
   geom_point(shape = 21,        # Ensures a point with an outline
              stroke = 1*ptToMM/2      # Line width for the border
   ) + theme_bw() + 
-  scale_size_continuous(range = c(1, 3)) +  # Set min and max point sizes here
+  scale_size_continuous(range = c(1, 3), breaks = c(1, 2)) +
   scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
                        values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
-                       #low = "white", high = "#CB333A",
-                       #                  limits = c(1, 3),
                        oob = scales::squish, # Define gradient colors
                        guide = guide_colorbar(
                          barwidth = 1.5/5.08,  # Adjust width of the color bar
-                         barheight = 15/5.08   # Adjust height of the color bar
+                         barheight = 10/5.08   # Adjust height of the color bar
                        )
-  ) + labs(x = NULL, y = NULL)  +
+  ) +
+  labs(x = NULL, y = NULL)  +
   theme(
     axis.title = element_blank(),
     axis.text = element_text(
@@ -3274,13 +3745,129 @@ p <- ggplot(data, aes(x = loopType, y = target, size = -log10(pvalue), fill = od
     legend.title = element_text(family = fontType, size = fontSizeS),
     )
 
-fileName <- here(figDir, "dotplot_hub_enrichment_dotplot_all")
-width <- panelSize(1.65)*mmToInch
-height <- panelSize(1.1)*mmToInch
+fileName <- here(figDir, "dotplot_hub_enrichment_dotplot")
+width <- panelSize(1.6)*mmToInch
+height <- panelSize(1.5)*mmToInch
 svglite(paste0(fileName, ".svg"),  height = height, width = width)
 print(p)
 dev.off()
 ```
+
+#### [FIG] Bivalent peak enrichment in reg loops
+```{r}
+bivalent_peak <- fread(here(refDir, "mm10", "PMID38336688_bivalent_peaks.csv"))
+
+peak.bivalent.all <- makeGRangesFromDataFrame(bivalent_peak)
+peak.bivalent.tss <- makeGRangesFromDataFrame(bivalent_peak %>% dplyr::filter(simple %in% c("promoter-TSS", "TSS")))
+
+
+
+name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
+loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe")))
+loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe")))
+loop.upno <- bind_rows(loop.up, loop.no)
+loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
+
+# Seeding
+temp <- getSEOverlapFisher(loop.upno, loop.down, peak.bivalent.all)
+result.tb <- tibble(loopType = "UP/NO_vs_DOWN",
+                    target = "bivalent_all",
+                    pvalue = temp$p.value,
+                    oddsRatio = temp$estimate)
+
+# Add row
+temp <- getSEOverlapFisher(loop.upno, loop.down, peak.bivalent.tss)
+result.tb <- result.tb %>% 
+  add_row(loopType = "UP/NO_vs_DOWN",
+          target = "bivalent_TSS",
+          pvalue = temp$p.value,
+          oddsRatio = temp$estimate)
+
+
+data <- result.tb %>%
+  dplyr::mutate(pvalue = pmax(0.0001, pvalue))
+
+data$loopType <- factor(data$loopType, levels = c("UP/NO_vs_DOWN"))
+data$target <- factor(data$target, levels = rev(c("bivalent_all", "bivalent_TSS")))
+
+p <- ggplot(data, aes(x = loopType, y = target, size = -log10(pvalue), fill = oddsRatio)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 1*ptToMM/2      # Line width for the border
+  ) + theme_bw() + 
+  scale_size_continuous(range = c(1, 3), breaks = c(2, 3, 4)) +
+  scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
+                       values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
+                       oob = scales::squish, # Define gradient colors
+                       guide = guide_colorbar(
+                         barwidth = 1.5/5.08,  # Adjust width of the color bar
+                         barheight = 10/5.08   # Adjust height of the color bar
+                       )
+  ) +
+  labs(x = NULL, y = NULL)  +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1,        # Adjust vertical justification
+      color = "#000000"
+    ),
+    axis.text.y = element_text(size = fontSizeS, family = fontType),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS),
+    )
+
+fileName <- here(figDir, "dotplot_bivalent_dotplot")
+width <- panelSize(1.8)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"),  height = height, width = width)
+print(p)
+dev.off()
+
+
+```
+
+
+#### [FIG] Residual RAD21 peak enrichment in structural loops
+```{r}
+name <- "chromosight_score_complex_str_dTAGvsDMSO_diffCutoff0.2"
+loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe")))
+loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe")))
+loop.upno <- bind_rows(loop.up, loop.no)
+loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
+
+
+temp <- fread(here(refDir, "ChIP", "RAD21-HA", "UnionPeaks_RAD21_ESC-DMSO_and_dTAG__common.bed"))
+colnames(temp) <- c("chr", "start", "end")
+residualPeak <- makeGRangesFromDataFrame(temp)
+
+
+temp <- getSEOverlapFisher(loop.upno, loop.down, residualPeak)
+result.tb <- tibble(loopType = "UP/NO_vs_DOWN",
+                    target = "residual RAD21",
+                    pvalue = temp$p.value,
+                    oddsRatio = temp$estimate)
+
+
+
+```
+
 #### [FIG] Bookmarking enrichment
 ```{r}
 runFisherExact <- function(interest.gr, background.gr, query.gr){
@@ -3722,7 +4309,531 @@ height <- panelSize(2)*mmToInch
 svglite(paste0(fileName, ".svg"),  height = height, width = width)
 print(p)
 dev.off()
+
 ```
+##### Permutation test for enrichment
+```{r}
+calculatePermutEnrichment <- function(targetName, C, n_permutations = 10000){
+  
+  retained <- fread(here(refDir, "TF_bookmarking", targetName, "am_a.bed")) %>% dplyr::select(c(1, 2, 3))
+  colnames(retained) <- c("chr", "start", "end")
+  retained.gr <- makeGRangesFromDataFrame(retained)
+  # LOST loop
+  lost <- fread(here(refDir, "TF_bookmarking", targetName, "oa.bed")) %>% dplyr::select(c(1, 2, 3))
+  colnames(lost) <- c("chr", "start", "end")
+  lost.gr <- makeGRangesFromDataFrame(lost)
+  # --------------------------------------------------------------------------
+  # The test statistic is the difference in the number of overlaps.
+  # We count how many regions in C overlap with A vs. B.
+  # --------------------------------------------------------------------------
+  A <- retained.gr
+  B <- lost.gr
+  overlaps_A_C <- countOverlaps(C, A)
+  overlaps_B_C <- countOverlaps(C, B)
+  
+  # We are interested in the total number of C regions that are hit.
+  n_hits_A <- sum(overlaps_A_C > 0)
+  n_hits_B <- sum(overlaps_B_C > 0)
+  
+  # Test Statistic: The raw difference
+  observed_statistic <- n_hits_A - n_hits_B
+  
+  # Effect Size: Fold enrichment
+  observed_fold_enrichment <- if (n_hits_B > 0) {
+    n_hits_A / n_hits_B
+  } else {
+    Inf # Handle case where B has zero overlaps
+  }
+  
+  cat("--- Observed Result ---\n")
+  cat("Number of C regions overlapping with A:", sum(overlaps_A_C > 0), "\n")
+  cat("Number of C regions overlapping with B:", sum(overlaps_B_C > 0), "\n")
+  cat("Observed Difference (A - B):", observed_statistic, "\n\n")
+  
+  
+  # Step 3: Run the Permutation Test
+  # --------------------------------------------------------------------------
+  # We simulate the null hypothesis by pooling A and B, then repeatedly
+  # shuffling the labels and recalculating the statistic.
+  # --------------------------------------------------------------------------
+  cat("--- Running Permutations ---\n")
+  permuted_statistics <- numeric(n_permutations)
+  
+  # Pool A and B into a single set of regions
+  pooled_regions <- c(A, B)
+  n_A <- length(A)
+  n_B <- length(B)
+  n_total <- length(pooled_regions)
+  
+  # Run the permutation loop
+  # A progress bar is helpful for many permutations
+  pb <- txtProgressBar(min = 0, max = n_permutations, style = 3)
+  for (i in 1:n_permutations) {
+    # Shuffle the indices of the pooled regions
+    shuffled_indices <- sample(1:n_total)
+    
+    # Create pseudo-A and pseudo-B by re-labeling
+    pseudo_A <- pooled_regions[shuffled_indices[1:n_A]]
+    pseudo_B <- pooled_regions[shuffled_indices[(n_A + 1):n_total]]
+    
+    # Calculate the statistic for this permutation
+    perm_overlaps_A <- sum(countOverlaps(C, pseudo_A) > 0)
+    perm_overlaps_B <- sum(countOverlaps(C, pseudo_B) > 0)
+    permuted_statistics[i] <- perm_overlaps_A - perm_overlaps_B
+    
+    setTxtProgressBar(pb, i)
+  }
+  close(pb)
+  cat("\nPermutations complete.\n\n")
+  
+  
+  # Step 4: Calculate the P-value
+  # --------------------------------------------------------------------------
+  # The p-value is the proportion of times the permuted statistic was
+  # equal to or more extreme than our observed statistic.
+  # --------------------------------------------------------------------------
+  # For a one-sided test (A is MORE enriched than B)
+  # p_value <- (sum(permuted_statistics >= observed_statistic) + 1) / (n_permutations + 1)
+  # Two sided test
+  p_value <- (sum(abs(permuted_statistics) >= abs(observed_statistic)) + 1) / (n_permutations + 1)
+
+  result <- tibble(name = targetName,
+                   pvalue = p_value,
+                   enrichment = observed_fold_enrichment)
+  cat("pvalue: ", p_value, "\n")
+    cat("enrichment: ", observed_fold_enrichment, "\n")
+
+  return(result)
+}
+
+
+background <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+  dplyr::filter(Anno_simple %in% c("P-P", "P-E", "E-E"))
+background.gr <- (extractAnchor(background))
+
+name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
+loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe")))
+loop.up.gr <- (extractAnchor(loop.up))
+
+loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe")))
+loop.no.gr <- (extractAnchor(loop.no))
+
+loop.upno.gr <- extractAnchor(bind_rows(loop.up, loop.no))
+
+loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
+loop.down.gr <- (extractAnchor(loop.down))
+
+interestName <- "regLoop"
+
+
+
+temp1 <- calculatePermutEnrichment("H3K27ac_effie", loop.upno.gr, 10000)
+temp2 <- calculatePermutEnrichment("ESRRB_dsg", loop.upno.gr, 10000)
+temp3 <- calculatePermutEnrichment("KLF4_effie", loop.upno.gr, 10000)
+temp4 <- calculatePermutEnrichment("OCT4_effie", loop.upno.gr, 10000)
+temp5 <- calculatePermutEnrichment("SOX2_effie", loop.upno.gr, 10000)
+
+temp1d <- calculatePermutEnrichment("H3K27ac_effie", loop.down.gr, 10000)
+temp2d <- calculatePermutEnrichment("ESRRB_dsg", loop.down.gr, 10000)
+temp3d <- calculatePermutEnrichment("KLF4_effie", loop.down.gr, 10000)
+temp4d <- calculatePermutEnrichment("OCT4_effie", loop.down.gr, 10000)
+temp5d <- calculatePermutEnrichment("SOX2_effie", loop.down.gr, 10000)
+
+
+
+data <- bind_rows(temp1, temp1d,
+                  temp2, temp2d,
+                  temp3, temp3d,
+                  temp4, temp4d,
+                  temp5, temp5d
+                  )
+
+data$name <- c("H3K27ac", "H3K27ac",
+               "ESRRB", "ESRRB",
+               "KLF4", "KLF4",
+               "OCT4", "OCT4",
+               "SOX2", "SOX2"
+               )
+data$loop <- rep(c("UP/NO", "DOWN"), 5)
+fwrite(data, here(dataDir, "bookmarking_permutation.tsv"), sep = "\t")
+
+data$name <- factor(data$name, levels = rev(c("H3K27ac", "ESRRB", "KLF4", "OCT4", "SOX2")))
+data$loop <- factor(data$loop, levels = c("UP/NO", "DOWN"))
+p <- ggplot(data, aes(x = loop, y = name, size = -log10(pvalue), fill = enrichment)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 1*ptToMM/2      # Line width for the border
+  ) + theme_bw() + 
+  scale_size_continuous(range = c(1, 4)) +  # Set min and max point sizes here
+  scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
+                       values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
+                       #low = "white", high = "#CB333A",
+                       #                  limits = c(1, 3),
+                       oob = scales::squish, # Define gradient colors
+                       guide = guide_colorbar(
+                         barwidth = 1.5/5.08,  # Adjust width of the color bar
+                         barheight = 15/5.08   # Adjust height of the color bar
+                       )
+  ) +
+  labs(x = NULL, y = NULL)  +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1,        # Adjust vertical justification
+      color = "#000000"
+    ),
+    axis.text.y = element_text(size = fontSizeS, family = fontType),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS),
+    )
+
+fileName <- here(figDir, "dotplot_bookmarking_permutation")
+width <- panelSize(2)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"),  height = height, width = width)
+print(p)
+dev.off()
+
+```
+### [FIG] Does UP reg loops cross TAD boundaries?
+```{r}
+name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
+# name <- "chromosight_score_complex_str_dTAGvsDMSO_diffCutoff0.2"
+
+checkTADcross <- function(name, note){
+  loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe")))
+  loop.up.gr <- makeGRangesFromDataFrame(loop.up,
+                                         seqnames.field = "V1",
+                                         start.field = "V2",
+                                         end.field = "V6")
+  
+  
+  loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe")))
+  loop.no.gr <- makeGRangesFromDataFrame(loop.no,
+                                         seqnames.field = "V1",
+                                         start.field = "V2",
+                                         end.field = "V6")
+  
+  loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
+  loop.down.gr <- makeGRangesFromDataFrame(loop.down,
+                                           seqnames.field = "V1",
+                                           start.field = "V2",
+                                           end.field = "V6")
+  
+  dataDir <- here("../data")
+  tad_boundary <- fread(here(dataDir, "TAD", "TAD_25kb_125kb_otsu_boundaries_G1DMSO_pooled.bed"))
+  colnames(tad_boundary) <- c("chr", "start", "end")
+  tad_boundary <- tad_boundary %>% dplyr::mutate(boundaryID = paste(chr, start, end, sep = "_"),
+                                                 center = (start + end)/2,
+                                                 size = end - start)
+  tad_boundary.gr <- makeGRangesFromDataFrame(tad_boundary)
+  
+  
+  # Find overlap
+  hits <- findOverlaps(loop.up.gr, tad_boundary.gr)
+  gr1_hits <- loop.up.gr[queryHits(hits)]
+  gr2_hits <- tad_boundary.gr[subjectHits(hits)]
+  
+  # Step C: Apply the specific "encompass" logic to the overlapping pairs
+  # start(gr1) < start(gr2) AND end(gr1) > end(gr2)
+  is_encompassing <- start(gr1_hits) < start(gr2_hits) & end(gr1_hits) > end(gr2_hits)
+  
+  # Step D: Filter the original hits object to keep only the true encompassing pairs
+  encompassing_hits <- hits[is_encompassing]
+  
+  # Step E: Get the final count of unique gr1 elements that encompass at least one gr2 element
+  num_encompassing_gr1 <- length(unique(queryHits(encompassing_hits)))
+  print(num_encompassing_gr1)
+  print(length(loop.up.gr))
+  print(100*num_encompassing_gr1/length(loop.up.gr))
+  n.up <- 100*num_encompassing_gr1/length(loop.up.gr)
+  
+  # Find overlap
+  hits <- findOverlaps(loop.no.gr, tad_boundary.gr)
+  gr1_hits <- loop.no.gr[queryHits(hits)]
+  gr2_hits <- tad_boundary.gr[subjectHits(hits)]
+  
+  # Step C: Apply the specific "encompass" logic to the overlapping pairs
+  # start(gr1) < start(gr2) AND end(gr1) > end(gr2)
+  is_encompassing <- start(gr1_hits) < start(gr2_hits) & end(gr1_hits) > end(gr2_hits)
+  
+  # Step D: Filter the original hits object to keep only the true encompassing pairs
+  encompassing_hits <- hits[is_encompassing]
+  
+  # Step E: Get the final count of unique gr1 elements that encompass at least one gr2 element
+  num_encompassing_gr1 <- length(unique(queryHits(encompassing_hits)))
+  print(num_encompassing_gr1)
+  print(length(loop.no.gr))
+  print(100*num_encompassing_gr1/length(loop.no.gr))
+  n.no <- 100*num_encompassing_gr1/length(loop.no.gr)
+  
+  # Find overlap
+  hits <- findOverlaps(loop.down.gr, tad_boundary.gr)
+  gr1_hits <- loop.down.gr[queryHits(hits)]
+  gr2_hits <- tad_boundary.gr[subjectHits(hits)]
+  
+  # Step C: Apply the specific "encompass" logic to the overlapping pairs
+  # start(gr1) < start(gr2) AND end(gr1) > end(gr2)
+  is_encompassing <- start(gr1_hits) < start(gr2_hits) & end(gr1_hits) > end(gr2_hits)
+  
+  # Step D: Filter the original hits object to keep only the true encompassing pairs
+  encompassing_hits <- hits[is_encompassing]
+  
+  # Step E: Get the final count of unique gr1 elements that encompass at least one gr2 element
+  num_encompassing_gr1 <- length(unique(queryHits(encompassing_hits)))
+  print(num_encompassing_gr1)
+  print(length(loop.down.gr))
+  print(100*num_encompassing_gr1/length(loop.down.gr))
+  n.down <- 100*num_encompassing_gr1/length(loop.down.gr)
+  
+  
+  dataToPlot <- tibble(
+    group = factor(c("UP", "NO", "DOWN"), levels = c("UP", "NO", "DOWN")),
+    name = note,
+    crossBoundaryPerc = c(n.up, n.no, n.down)
+  )
+  
+  return(dataToPlot)
+}
+
+temp1 <- checkTADcross("chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2", "reg")
+temp2 <- checkTADcross("chromosight_score_complex_str_dTAGvsDMSO_diffCutoff0.2", "str")
+temp3 <- checkTADcross("chromosight_score_all_dTAGvsDMSO_diffCutoff0.2", "all")
+
+dataToPlot <- bind_rows(temp1, temp2, temp3)
+dataToPlot$name <- factor(dataToPlot$name, levels = c("all", "str", "reg"))
+
+p <- ggplot(dataToPlot, aes(x = group, y = crossBoundaryPerc, fill = name)) + geom_col(position = "dodge", color = "black", linewidth = lineMedium*mmToLineUnit) + coord_cartesian(ylim = c(0, 100)) +
+  theme_bw() +
+  scale_fill_manual(values = rev(c("#e64b35", "#00a087",  "#8491b4"))) +
+  labs(x = NULL, y = "Perc crossing TAD boundary") +
+  theme( axis.title = element_text(
+           size = fontSizeS,
+           family = fontType,
+           color = "#000000"
+         ),
+         axis.text = element_text(
+           size = fontSizeS,
+           family = fontType,
+           color = "#000000"
+         ),
+         axis.text.x = element_text(
+           angle = 45,      # Rotate x-axis labels 45 degrees
+           hjust = 1,       # Adjust horizontal justification
+           vjust = 1,        # Adjust vertical justification
+           color = "#000000"
+         ),
+         axis.text.y = element_text(size = fontSizeS, family = fontType),
+         axis.line = element_line(
+           color = "#000000",
+           size = lineThick*mmToLineUnit,
+           lineend = "square"
+         ),
+         axis.ticks = element_line(
+           color = "#000000",
+           size = lineThick*mmToLineUnit,
+           lineend = "square"
+         ),
+         panel.background = element_rect(fill = "transparent"),
+         legend.text = element_text(family = fontType, size = fontSizeS),
+         legend.title = element_text(family = fontType, size = fontSizeS),
+  ) +  guides(
+      fill = guide_legend(
+        keywidth = 0.2,  # Adjust the width of the legend keys
+        keyheight = 0.2  # Adjust the height of the legend keys
+      ))
+  
+
+fileName <- here(figDir, "barplot_TAD boundary cross")
+width <- panelSize(2)*mmToInch
+height <- panelSize(1.5)*mmToInch
+svglite(paste0(fileName, ".svg"),  height = height, width = width)
+print(p)
+dev.off()
+
+
+
+
+################################################################################
+# alpha <- 0.05
+# fcCutoff <- 0.5
+# diffCutoff <- 0.2
+# commonLoopDir <- here("../data/loop_analysis")
+# diffDir <- here("../data/RNA_diff")
+# name <- "chromosight"
+# 
+# geneAnnoData <- loadLoopAnnoData(here(commonLoopDir, paste0("loopScore_", name, "_p-n_complex_ensemblList.tsv"))) %>%
+#   dplyr::select(id, gene)
+# 
+# 
+# 
+# name <- "chromosight_score_complex_reg_dTAGvsDMSO_diffCutoff0.2"
+# 
+# loop.up <- fread(here(commonLoopDir, paste0(name, "_UP.bedpe"))) %>% dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+# loop.up.gr <- makeGRangesFromDataFrame(loop.up,
+#                                        seqnames.field = "V1",
+#                                        start.field = "V2",
+#                                        end.field = "V6")
+# 
+# 
+# loop.no <- fread(here(commonLoopDir, paste0(name, "_NO.bedpe"))) %>% dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+# loop.no.gr <- makeGRangesFromDataFrame(loop.no,
+#                                        seqnames.field = "V1",
+#                                        start.field = "V2",
+#                                        end.field = "V6")
+# 
+# loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe"))) %>% dplyr::mutate(id = paste(V1, V2, V3, V4, V5, V6, sep = "_"))
+# loop.down.gr <- makeGRangesFromDataFrame(loop.down,
+#                                          seqnames.field = "V1",
+#                                          start.field = "V2",
+#                                          end.field = "V6")
+# 
+# dataDir <- here("../data")
+# tad_boundary <- fread(here(dataDir, "TAD", "TAD_25kb_125kb_otsu_boundaries_G1DMSO_pooled.bed"))
+# colnames(tad_boundary) <- c("chr", "start", "end")
+# tad_boundary <- tad_boundary %>% dplyr::mutate(boundaryID = paste(chr, start, end, sep = "_"),
+#                                                center = (start + end)/2,
+#                                                size = end - start)
+# tad_boundary.gr <- makeGRangesFromDataFrame(tad_boundary)
+# 
+# 
+# # Find overlap
+# hits <- findOverlaps(loop.up.gr, tad_boundary.gr)
+# gr1_hits <- loop.up.gr[queryHits(hits)]
+# gr2_hits <- tad_boundary.gr[subjectHits(hits)]
+# is_encompassing <- start(gr1_hits) < start(gr2_hits) & end(gr1_hits) > end(gr2_hits)
+# encompassing_hits <- hits[is_encompassing]
+# 
+# id.up.cross <- (loop.up[unique(queryHits(encompassing_hits))])$id
+# id.up.noCross <- (loop.up[!unique(queryHits(encompassing_hits))])$id
+# 
+# 
+# 
+# # Find overlap
+# hits <- findOverlaps(loop.no.gr, tad_boundary.gr)
+# gr1_hits <- loop.no.gr[queryHits(hits)]
+# gr2_hits <- tad_boundary.gr[subjectHits(hits)]
+# is_encompassing <- start(gr1_hits) < start(gr2_hits) & end(gr1_hits) > end(gr2_hits)
+# encompassing_hits <- hits[is_encompassing]
+# 
+# id.no.cross <- (loop.no[unique(queryHits(encompassing_hits))])$id
+# id.no.noCross <- (loop.no[!unique(queryHits(encompassing_hits))])$id
+# 
+# 
+# # Find overlap
+# hits <- findOverlaps(loop.no.gr, tad_boundary.gr)
+# gr1_hits <- loop.no.gr[queryHits(hits)]
+# gr2_hits <- tad_boundary.gr[subjectHits(hits)]
+# is_encompassing <- start(gr1_hits) < start(gr2_hits) & end(gr1_hits) > end(gr2_hits)
+# encompassing_hits <- hits[is_encompassing]
+# 
+# id.no.cross <- (loop.no[unique(queryHits(encompassing_hits))])$id
+# id.no.noCross <- (loop.no[!unique(queryHits(encompassing_hits))])$id
+# 
+# # Find overlap
+# hits <- findOverlaps(loop.down.gr, tad_boundary.gr)
+# gr1_hits <- loop.down.gr[queryHits(hits)]
+# gr2_hits <- tad_boundary.gr[subjectHits(hits)]
+# is_encompassing <- start(gr1_hits) < start(gr2_hits) & end(gr1_hits) > end(gr2_hits)
+# encompassing_hits <- hits[is_encompassing]
+# 
+# id.down.cross <- (loop.down[unique(queryHits(encompassing_hits))])$id
+# id.down.noCross <- (loop.down[!unique(queryHits(encompassing_hits))])$id
+# 
+# 
+# 
+# #####
+# geneAnnoData <- geneAnnoData %>% dplyr::mutate(
+#   crossUPflag = case_when(
+#     id %in% id.up.cross ~ TRUE,
+#     id %in% id.up.noCross ~ FALSE,
+#     TRUE ~ NA
+#   ),
+#   crossNOflag = case_when(
+#     id %in% id.no.cross ~ TRUE,
+#     id %in% id.no.noCross ~ FALSE,
+#     TRUE ~ NA
+#   ),
+#   crossDOWNflag = case_when(
+#     id %in% id.down.cross ~ TRUE,
+#     id %in% id.down.noCross ~ FALSE,
+#     TRUE ~ NA
+#   )
+# )
+# 
+# temp <- geneAnnoData <- geneAnnoData %>% dplyr::filter(!if_all(crossUPflag:crossDOWNflag, is.na))
+# temp <- temp %>% unnest(gene) %>%
+#   group_by(gene) %>%
+#   summarize(
+#     across(
+#       starts_with("cross"),
+#       ~ {
+#         # Find unique, non-NA values
+#         unique_vals <- sort(unique(na.omit(.)))
+#         
+#         # If there are any values, paste them together; otherwise, return NA
+#         if (length(unique_vals) > 0) {
+#           paste(unique_vals, collapse = " & ")
+#         } else {
+#           NA_character_
+#         }
+#       }
+#     ),
+#     .groups = "drop" # Ungroup after summarizing
+#   )
+# 
+# temp <- temp %>% dplyr::mutate(flag = paste(crossUPflag, crossNOflag, crossDOWNflag, sep = "_")) %>% dplyr::select(gene, flag)
+#   
+# 
+# 
+# 
+# diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+#   dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name) %>%
+#   dplyr::left_join(temp, by = c("ensembl_gene_id" = "gene"))
+# 
+# dataToPlot <- diff.RNA %>% dplyr::filter(!is.na(flag)) %>%
+#   dplyr::mutate(group = case_when(
+#     flag %in% c("TRUE_FALSE_NA", "TRUE_NA_FALSE", "TRUE_NA_NA" ) ~ "UP_cross",
+#     flag %in% c("TRUE_TRUE_NA") ~ "UP_cross",
+#     # flag %in% c("TRUE_FALSE_TRUE", "TRUE_NA_TRUE") ~ "UP_cross_mixed",
+#     
+#     flag %in% c("FALSE_NA_NA")  ~ "UP_noCross",
+#     flag %in% c("FALSE_FALSE_NA")  ~ "UP_noCross",
+#     # flag %in% c("FALSE_TRUE_NA", "FALSE_TRUE_TRUE", "")  ~ "UP_noCross_mixed",
+#     TRUE ~ NA
+#   )) %>%
+#   dplyr::filter(!is.na(group))
+# 
+# 
+# 
+# ggplot(dataToPlot, aes(x = group, y = log2FoldChange)) + geom_violin() + geom_boxplot() + geom_point () +
+#     theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1)
+#   )
+# 
+# a <- (dataToPlot %>% dplyr::filter(group == "UP_cross"))$log2FoldChange
+# b <- (dataToPlot %>% dplyr::filter(group == "UP_noCross"))$log2FoldChange
+# 
+# wilcox.test(a, b)
+```
+
 
 ## [4] Loop + Transcription (Chromosight) ESC
 ### [FIG] RNA-seq loopscore scatterplot
@@ -4317,8 +5428,8 @@ plot_insScoreSingle <- function(temp.tb, note, ymin = -1.5, ymax = 0){
 }
 
 dataToPlot <- dataToPlot %>% mutate(negInsScore_DMSO = -(2^log2InsScore_DMSO))
-plot_insScoreSingle(dataToPlot, "nearestBoundary_DMSO_dTAGvsDMSO_binaryGroup", ymin = -1, ymax = 0)
-
+plot_insScoreSingle(dataToPlot, "nearestBoundary_DMSO_dTAGvsDMSO_binaryGroup", ymin = -1.25, ymax = -0.25)
+ 
 
 ```
 
@@ -4789,7 +5900,7 @@ dataToPlot <- gene.tb %>%
   mutate(peakNum = case_when(
     peak_count == 0 ~ "peakNum0",
     peak_count == 1 ~ "peakNum1",
-    peak_count >- 2 ~ "peakNumOver2",
+    peak_count >= 2 ~ "peakNumOver2",
     TRUE ~ NA
   ))
 
@@ -4840,6 +5951,51 @@ print(p)
 dev.off()  
 
 ```
+
+#### Group1 vs Group2 RAD21 enrichment
+```{r}
+dataDir <- here("..", "data")
+peak.RAD21 <- importPeak(here(refDir, "ChIP", "RAD21-HA", "RAD21_ESC-DMSO_unionPeaks.bed"))
+
+################################################################################
+flankSize <- 5000
+gene.tb <- fread(here(refDir, "mm10", "mm10_GRCm38.p6_gene_sorted.bed")) %>%
+  dplyr::mutate(TSS = ifelse(V4 == "+", V2, V3),
+                TSSstart = TSS - flankSize,
+                TSSend = TSS + flankSize) %>%
+  dplyr::select(V6, V5, V1, TSSstart, TSSend)
+colnames(gene.tb) <- c("ensembl_gene_id", "external_gene_name", "chr", "start", "end")
+
+group1 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group1.tsv"))$gene
+group2 <- fread(here(dataDir, "loop_analysis",
+                     "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group2.tsv"))$gene
+
+gr.group1 <- makeGRangesFromDataFrame(gene.tb %>% dplyr::filter(ensembl_gene_id %in% group1) %>% dplyr::select(chr, start, end))
+gr.group2 <- makeGRangesFromDataFrame(gene.tb %>% dplyr::filter(ensembl_gene_id %in% group2) %>% dplyr::select(chr, start, end))
+
+################################################################################
+
+
+
+  # This is testing enrichment of peak at loop1 vs loop2
+  loop1.overlap <-length(unique(queryHits(findOverlaps(gr.group1, peak.RAD21))))
+  loop1.noOverlap <- length(gr.group1) - loop1.overlap
+  
+  loop2.overlap <-length(unique(queryHits(findOverlaps(gr.group2, peak.RAD21))))
+  loop2.noOverlap <- length(gr.group2) - loop2.overlap
+  
+  contingency_table <- matrix(c(loop1.overlap, loop1.noOverlap,
+                                loop2.overlap, loop2.noOverlap), nrow = 2, byrow = TRUE)
+  colnames(contingency_table) <- c("Overlap", "NoOverlap")
+  rownames(contingency_table) <- c("Gene1", "Gene2")
+  
+  # Perform Fisher's Exact Test
+  fisher_test_result <- fisher.test(contingency_table)
+
+```
+
+
 ### Loop analysis per gene group
 ```{r}
 commonLoopDir <- here("../data/loop_analysis")
@@ -4869,6 +6025,23 @@ tempSum <- tempSum %>% dplyr::mutate(
   group = ifelse(gene %in% group1, "group1",
                  ifelse(gene %in% group2, "group2", NA))
 ) %>% dplyr::filter(!is.na(group)) %>% dplyr::filter(group %in% c("group1", "group2"))
+
+# Checking homotypic interaction
+temp1 <- (tempSum %>% dplyr::select(group, anno) %>% unnest(anno) %>% group_by(group, anno) %>% summarize(count = n()))
+temp2 <- temp1 %>%
+  # For each group...
+  group_by(group) %>%
+  # Create a new column categorizing the number of 'S' characters in 'anno'
+  mutate(s_category = case_when(
+    str_count(anno, "S") == 0 ~ "no_S",
+    str_count(anno, "S") == 1 ~ "one_S",
+    str_count(anno, "S") == 2 ~ "two_S",
+    TRUE ~ "other" # Fallback for cases with >2 'S's
+  )) %>%
+  # Group by the new category as well
+  group_by(s_category, .add = TRUE) %>%
+  # Calculate the sum of 'count' for each subgroup
+  summarise(total_count = sum(count), .groups = 'drop')
 
 # 
 getPvalWilcox <- function(data, group1, group2){
@@ -10254,8 +11427,217 @@ make_table2 <- function(loop, name){
 ```
 
 ## Chromosight loops
+### Delta score for various category
 ```{r}
-# --- 4. GENERATE PLOTS ---
+
+
+
+compareAsyncG1 <- function(data.filtered, loopTypes, note1, note2, pseudo_ooe = 0.01){
+  ################################################################################
+  # Delta score
+  ################################################################################
+  dataToPlot <- data.filtered %>% dplyr::filter(Anno %in% loopTypes) %>%
+    dplyr::select(diffScore_G1, diffScore_Async)
+  sig <- convPvalue((wilcox.test(dataToPlot$diffScore_G1, dataToPlot$diffScore_Async, paired = TRUE))$p.value)
+  loopNum <- nrow(dataToPlot)
+  dataToPlotLong <- dataToPlot %>% pivot_longer(everything(), names_to = "condition", values_to = "score")
+  
+  dataToPlotLong$condition <- factor(dataToPlotLong$condition, levels = c("diffScore_G1", "diffScore_Async"))
+  p1 <- ggplot(dataToPlotLong, aes(x = condition, y = score, fill = condition)) +
+    geom_violin(linewidth = lineThick * mmToLineUnit, lineend = "square", alpha = .4, show.legend = FALSE,
+                color = "black") +
+    geom_boxplot(width = 0.3, color = "black",
+                 linewidth = lineThick * mmToLineUnit, lineend = "square",
+                 outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) +
+    stat_summary(
+      aes(group = condition), fun = mean,
+      geom = "point", shape = 21, size = 0.5,
+      fill = "black", color = "black", position = position_dodge(.3)
+    ) +
+    ggtitle(paste0(note1, note2,
+                   sig, loopNum)) +
+    theme_classic() +
+    coord_cartesian(ylim = c(-0.8, 0.5)) +
+    scale_fill_manual(values = pal_npg("nrc")(2)) +
+    theme(
+      title = element_text(
+        size = fontSizeM/3,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(
+        size = fontSizeM,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text.x = element_text(
+        size = fontSizeM,
+        angle = 45,      # Rotate x-axis labels 45 degrees
+        hjust = 1,       # Adjust horizontal justification
+        vjust = 1        # Adjust vertical justification
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+      legend.text = element_text(family = fontType, size = fontSizeS),
+      legend.title = element_text(family = fontType, size = fontSizeS)
+    ) +
+    # labs(y = "log2 fc of obs/exp")  +
+    labs(y = "delta loop score")  +
+    geom_hline(yintercept = 0,
+               alpha = 1,
+               color = "black",
+               size = lineThick*mmToLineUnit,
+               lineend = "square") +
+    geom_hline(yintercept = c(-0.2, 0.2),
+               alpha = 0.5,
+               color = "black",
+               size = lineThick*mmToLineUnit,
+               lineend = "square", linetype = "dashed")
+  
+  width <- panelSize(1.1)*mmToInch
+  height <- panelSize(2)*mmToInch
+  fileName <- paste0("violin_", note1, "_", note2, "_deltaScore")
+  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+  print(p1)
+  dev.off()  
+  ################################################################################
+  # log2FC ooe
+  ################################################################################
+  dataToPlot <- data.filtered %>% dplyr::filter(Anno %in% loopTypes) %>%
+    dplyr::select(ooe_DMSO, ooe_dTAG, ooe_UT, ooe_AID) %>%
+    dplyr::filter(!is.na(ooe_DMSO), !is.na(ooe_dTAG), !is.na(ooe_UT), !is.na(ooe_AID)) %>%
+    dplyr::mutate(
+      ooe_DMSO = if_else(ooe_DMSO == 0, pseudo_ooe, ooe_DMSO),
+      ooe_dTAG = if_else(ooe_dTAG == 0, pseudo_ooe, ooe_dTAG),
+      ooe_UT = if_else(ooe_UT == 0, pseudo_ooe, ooe_UT),
+      ooe_AID = if_else(ooe_AID == 0, pseudo_ooe, ooe_AID),
+      fc_G1    = log2(ooe_dTAG / ooe_DMSO),
+      fc_Async = log2(ooe_AID / ooe_UT)
+    ) %>%
+    dplyr::select(fc_G1, fc_Async)
+  
+  sig <- convPvalue((wilcox.test(dataToPlot$fc_G1, dataToPlot$fc_Async, paired = TRUE))$p.value)
+  # loopNum <- nrow(dataToPlot)
+  dataToPlotLong <- dataToPlot %>% pivot_longer(everything(), names_to = "condition", values_to = "score")
+  
+  dataToPlotLong$condition <- factor(dataToPlotLong$condition, levels = c("fc_G1", "fc_Async"))
+  p1 <- ggplot(dataToPlotLong, aes(x = condition, y = score, fill = condition)) +
+    geom_violin(linewidth = lineThick * mmToLineUnit, lineend = "square", alpha = .4, show.legend = FALSE,
+                color = "black") +
+    geom_boxplot(width = 0.3, color = "black",
+                 linewidth = lineThick * mmToLineUnit, lineend = "square",
+                 outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) +
+    stat_summary(
+      aes(group = condition), fun = mean,
+      geom = "point", shape = 21, size = 0.5,
+      fill = "black", color = "black", position = position_dodge(.3)
+    ) +
+    ggtitle(paste0(note1, note2,
+                   sig, loopNum)) +
+    theme_classic() +
+    coord_cartesian(ylim = c(-4, 2)) +
+    scale_fill_manual(values = pal_npg("nrc")(2)) +
+    theme(
+      title = element_text(
+        size = fontSizeM/3,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(
+        size = fontSizeM,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text.x = element_text(
+        size = fontSizeM,
+        angle = 45,      # Rotate x-axis labels 45 degrees
+        hjust = 1,       # Adjust horizontal justification
+        vjust = 1        # Adjust vertical justification
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+      legend.text = element_text(family = fontType, size = fontSizeS),
+      legend.title = element_text(family = fontType, size = fontSizeS)
+    ) +
+    # labs(y = "log2 fc of obs/exp")  +
+    labs(y = "delta loop score")  +
+    geom_hline(yintercept = 0,
+               alpha = 1,
+               color = "black",
+               size = lineThick*mmToLineUnit,
+               lineend = "square") +
+    geom_hline(yintercept = c(-0.5, 0.5),
+               alpha = 0.5,
+               color = "black",
+               size = lineThick*mmToLineUnit,
+               lineend = "square", linetype = "dashed")
+  
+  width <- panelSize(1.1)*mmToInch
+  height <- panelSize(2)*mmToInch
+  fileName <- paste0("violin_", note1, "_", note2, "_log2FCooe")
+  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+  print(p1)
+  dev.off()  
+}
+
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+  dplyr::mutate(diffScore_G1 = score_dTAG - score_DMSO,
+                diffScore_Async = score_AID - score_UT)
+compareAsyncG1(data, unique(data$Anno), "ChromoAllLoop", "all")
+compareAsyncG1(data, c("P-P", "P-E", "E-E"), "ChromoAllLoop", "reg")
+compareAsyncG1(data, c("P-P"), "ChromoAllLoop", "pp")
+compareAsyncG1(data, c("P-E"), "ChromoAllLoop", "pe")
+compareAsyncG1(data, c("E-E"), "ChromoAllLoop", "ee")
+compareAsyncG1(data, c("S-S", "S-X"), "ChromoAllLoop", "str")
+
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+  dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
+  dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3)) %>%
+  dplyr::mutate(diffScore_G1 = score_dTAG - score_DMSO,
+                diffScore_Async = score_AID - score_UT)
+
+compareAsyncG1(data, unique(data$Anno), "ChromoBothStrLoop", "all")
+compareAsyncG1(data, c("P-P", "P-E", "E-E"), "ChromoBothStrLoop", "reg")
+compareAsyncG1(data, c("P-P"), "ChromoBothStrLoop", "pp")
+compareAsyncG1(data, c("P-E"), "ChromoBothStrLoop", "pe")
+compareAsyncG1(data, c("E-E"), "ChromoBothStrLoop", "ee")
+compareAsyncG1(data, c("S-S", "S-X"), "ChromoBothStrLoop", "str")
+
+```
+
+### Scatterplot
+```{r}
+# --- 4. GENERATE PLOTS --- 
 data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
   # dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
   # dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3)) %>%
@@ -10303,61 +11685,63 @@ plot_df_delta <- data %>%
     delta_G1 = score_dTAG - score_DMSO,
     delta_Async = score_AID - score_UT
   )
-# 
-# 
-# # Function to generate and save scatterplots
-# generate_scatterplot2 <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
-#   plot_data <- df %>%
-#     mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
-# 
-#   p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
-#     geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
-#     coord_fixed() +
-#     scale_x_continuous(limits = limits) +
-#     scale_y_continuous(limits = limits) +
-#     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
-#     geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
-#     geom_hline(yintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
-#     geom_vline(xintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
-#     geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
-#     geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
-#     common_theme
-# 
-#   # Save the plot
-#   ggsave(
-#     filename = here(figDir, paste0("scatterplot_", name, ".png")),
-#     plot = p,
-#     width = panelSize(1.5) * mmToInch,
-#     height = panelSize(1.5) * mmToInch,
-#     dpi = 600
-#   )
-# }
-# generate_scatterplot2(
-#   df = plot_df_delta,
-#   x_var = "delta_G1",
-#   y_var = "delta_Async",
-#   name = paste0(loopName, "_deltaScore_AsyncvsG1"),
-#   limits = c(-0.75, 0.75), # Use default data limits
-#   diff_cutoff = 0.2
-# )
 
 
+# Function to generate and save scatterplots
+generate_scatterplot2 <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
+  plot_data <- df %>%
+    mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
+
+  p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
+    coord_fixed() +
+    scale_x_continuous(limits = limits) +
+    scale_y_continuous(limits = limits) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
+    geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
+    geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
+    scale_color_gradient(low = "grey90", high = "black") +
+
+    common_theme
+
+  width <- panelSize(1.5)*mmToInch
+  height <- panelSize(1.5)*mmToInch  
+  
+  fileName <- paste0("scatterplot_", name)
+  svglite(here(figDir, paste0(fileName, ".svg")), 
+          width = width, height = height)
+  print(p)
+  dev.off()
+}
+generate_scatterplot2(
+  df = plot_df_delta,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1"),
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
+
+print(nrow(plot_df_delta))
 temp <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2, 
                                         abs(delta_Async) < 0.2,
                                         delta_G1 - delta_Async < -0.2)
-# print(nrow(temp))
+print(nrow(temp))
 # temp1 <- make_table(temp, "G1SpecificPerturb")
 # temp3 <- make_table2(temp, "G1SpecificPerturb") %>%
 #   dplyr::filter(!is.na(AnnoGroup))
-# 
-# generate_scatterplot2(
-#   df = temp,
-#   x_var = "delta_G1",
-#   y_var = "delta_Async",
-#   name = paste0(loopName, "_deltaScore_AsyncvsG1_G1specific"),
-#   limits = c(-0.75, 0.75), # Use default data limits
-#   diff_cutoff = 0.2
-# )
+
+generate_scatterplot2(
+  df = temp,
+  x_var = "delta_G1",
+  y_var = "delta_Async",
+  name = paste0(loopName, "_deltaScore_AsyncvsG1_G1specific"),
+  limits = c(-0.75, 0.75), # Use default data limits
+  diff_cutoff = 0.2
+)
 
 temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
                                         abs(delta_G1) < 0.2,
@@ -10778,11 +12162,42 @@ plotSumScoresBinary <- function(track, peak, name, note = "", anchor.upno, ancho
   dev.off()
 }
 
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv")) %>%
+  dplyr::filter(Anno %in% c("P-P", "P-E", "E-E"))
+background.gr <- extractAnchor(data)
+
+
+plot_df_delta <- data %>%
+  dplyr::mutate(
+    delta_G1 = score_dTAG - score_DMSO,
+    delta_Async = score_AID - score_UT
+  )
+temp <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2, 
+                                        abs(delta_Async) < 0.2,
+                                        delta_G1 - delta_Async < -0.2)
+G1specific.gr <- extractAnchor(temp)
+
+temp <- plot_df_delta %>% dplyr::filter(
+                                        abs(delta_G1) < 0.2)
+
+G1noChange.gr <- extractAnchor(temp)
+
+temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
+                                        abs(delta_G1) < 0.2,
+                                        delta_Async - delta_G1 < -0.2)
+Asyncspecific.gr <- extractAnchor(temp)
+
+temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
+                                        delta_G1 < -0.2)
+common.gr <- extractAnchor(temp)
+
 
 track <- import(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_avg_depthNorm.bw"), format = "BigWig")
 peak <- importPeak(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_unionPeaks.bed"))
 plotSumScoresBinary(track, peak, "H3K27ac", "_G1vsAsync", G1specific.gr, Asyncspecific.gr, "G1specific", "Asyncspecific")
 plotSumScoresBinary(track, peak, "H3K27ac", "_G1_specificvsnochange", G1specific.gr, G1noChange.gr, "G1specific", "G1nochange")
+
+plotSumScoresBinary(track, peak, "H3K27ac", "_G1specificVScommon", G1specific.gr, common.gr, "G1specific", "common")
 
 
 ```
@@ -10930,6 +12345,7 @@ tb.Async <- fread(here(lolaDir, paste0("LOLA_", name, "_ATAC.tsv"))) %>%
 
 ```
 ## Hansen loops
+
 ```{r}
 loopName <- "Hansen_strongLoopsG1"
 
@@ -11033,20 +12449,56 @@ generate_scatterplot2(
 
 ```
 ## Tjian loops
+### Delta score for various category
+```{r}
+data <- fread(here(commonLoopDir, "loopScore_TjianChromo.tsv")) %>%
+  drop_na(score_DMSO, score_dTAG, score_A485, score_EpiDMSO, score_EpidTAG, score_UT, score_AID) %>%
+  dplyr::mutate(res = end1 - start1) %>%
+  dplyr::filter(res >= 1000) %>%
+  dplyr::filter(if_any(c(score_DMSO, score_dTAG, score_UT, score_AID), ~ . > 0.3)) %>%
+  dplyr::mutate(diffScore_G1 = score_dTAG - score_DMSO,
+                diffScore_Async = score_AID - score_UT)
+compareAsyncG1(data, unique(data$Anno), "Tjian1kbAllLoop", "all")
+compareAsyncG1(data, c("P-P", "P-E", "E-E"), "Tjian1kbAllLoop", "reg")
+compareAsyncG1(data, c("P-P"), "Tjian1kbAllLoop", "pp")
+compareAsyncG1(data, c("P-E"), "Tjian1kbAllLoop", "pe")
+compareAsyncG1(data, c("E-E"), "Tjian1kbAllLoop", "ee")
+compareAsyncG1(data, c("S-S", "S-X"), "Tjian1kbAllLoop", "str")
+
+
+data <- fread(here(commonLoopDir, "loopScore_TjianChromo.tsv")) %>%
+  drop_na(score_DMSO, score_dTAG, score_A485, score_EpiDMSO, score_EpidTAG, score_UT, score_AID) %>%
+  dplyr::mutate(res = end1 - start1) %>%
+  dplyr::filter(res >= 1000) %>%
+  dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
+  dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3)) %>%
+  dplyr::mutate(diffScore_G1 = score_dTAG - score_DMSO,
+                diffScore_Async = score_AID - score_UT) %>%
+  dplyr::mutate(diffScore_G1 = score_dTAG - score_DMSO,
+                diffScore_Async = score_AID - score_UT)
+
+compareAsyncG1(data, unique(data$Anno), "Tjian1kbBothStrLoop", "all")
+compareAsyncG1(data, c("P-P", "P-E", "E-E"), "Tjian1kbBothStrLoop", "reg")
+compareAsyncG1(data, c("P-P"), "Tjian1kbBothStrLoop", "pp")
+compareAsyncG1(data, c("P-E"), "Tjian1kbBothStrLoop", "pe")
+compareAsyncG1(data, c("E-E"), "Tjian1kbBothStrLoop", "ee")
+compareAsyncG1(data, c("S-S", "S-X"), "Tjian1kbBothStrLoop", "str")
+```
+
 ```{r}
 # --- 4. GENERATE PLOTS ---
 data <- fread(here(commonLoopDir, "loopScore_TjianChromo.tsv")) %>%
  drop_na(score_DMSO, score_dTAG, score_A485, score_EpiDMSO, score_EpidTAG, score_UT, score_AID) %>%
   dplyr::mutate(res = end1 - start1) %>%
   dplyr::filter(res >= 1000) %>%
-    dplyr::filter(if_any(c(score_DMSO, score_dTAG, score_A485, score_EpiDMSO, score_EpidTAG, score_UT, score_AID), ~ . > 0.3)) %>%
+  dplyr::filter(if_any(c(score_DMSO, score_dTAG, score_UT, score_AID), ~ . > 0.3)) %>%
     # dplyr::filter(if_any(c(score_DMSO, score_dTAG), ~ . > 0.3)) %>%
     # dplyr::filter(if_any(c(score_UT, score_AID), ~ . > 0.3)) %>%
     dplyr::filter(Anno %in% c("P-P", "P-E", "E-E"))
   # dplyr::filter(Anno %in% c("S-S", "S-X"))
 
 
-# loopName <- "TjianChromo_strongAnyEE"
+loopName <- "TjianChromo_strongAnyReg"
 # loopName <- "TjianChromo_strongLoopsG1Async"
 
 # Checking the distribution of scores
@@ -11064,24 +12516,24 @@ data <- fread(here(commonLoopDir, "loopScore_TjianChromo.tsv")) %>%
 
 
 # Differential
-dataToPlot2 <- data %>% dplyr::mutate(diffScore_G1 = score_dTAG - score_DMSO,
-                                      diffScore_Async = score_AID - score_UT) %>%
-  dplyr::select(diffScore_G1, diffScore_Async) %>%
-  pivot_longer(everything(), names_to = "condition", values_to = "score")
-dataToPlot2$condition <- factor(dataToPlot2$condition, levels = c("diffScore_G1", "diffScore_Async"))
-ggplot(dataToPlot2, aes(x = condition, y = score, fill = condition)) +
-  geom_violin() +
-  scale_y_continuous(limits = c(-1, 1)) +
-  geom_boxplot(width = 0.4) +
-  ggtitle(paste0("Chromosight ", loopName)) +
-  theme_classic() +
-  geom_hline(yintercept = c(0)) +
-  geom_hline(yintercept = c(0.3), linetype = "dashed")  
-
-
-generate_scatterplot(data, "score_DMSO",    "score_UT", paste0(loopName, "_AsyncUTvsG1DMSO"))
-generate_scatterplot(data, "score_UT",    "score_AID", paste0(loopName, "_AsyncAIDvsAsyncUT"))
-generate_scatterplot(data, "score_DMSO",    "score_dTAG", paste0(loopName, "_G1dTAGvsG1DMSO"))
+# dataToPlot2 <- data %>% dplyr::mutate(diffScore_G1 = score_dTAG - score_DMSO,
+#                                       diffScore_Async = score_AID - score_UT) %>%
+#   dplyr::select(diffScore_G1, diffScore_Async) %>%
+#   pivot_longer(everything(), names_to = "condition", values_to = "score")
+# dataToPlot2$condition <- factor(dataToPlot2$condition, levels = c("diffScore_G1", "diffScore_Async"))
+# ggplot(dataToPlot2, aes(x = condition, y = score, fill = condition)) +
+#   geom_violin() +
+#   scale_y_continuous(limits = c(-1, 1)) +
+#   geom_boxplot(width = 0.4) +
+#   ggtitle(paste0("Chromosight ", loopName)) +
+#   theme_classic() +
+#   geom_hline(yintercept = c(0)) +
+#   geom_hline(yintercept = c(0.3), linetype = "dashed")  
+# 
+# 
+# generate_scatterplot(data, "score_DMSO",    "score_UT", paste0(loopName, "_AsyncUTvsG1DMSO"))
+# generate_scatterplot(data, "score_UT",    "score_AID", paste0(loopName, "_AsyncAIDvsAsyncUT"))
+# generate_scatterplot(data, "score_DMSO",    "score_dTAG", paste0(loopName, "_G1dTAGvsG1DMSO"))
 
 ## Plot diff score
 plot_df_delta <- data %>%
@@ -11091,33 +12543,8 @@ plot_df_delta <- data %>%
   )
 
 
-# Function to generate and save scatterplots
-generate_scatterplot2 <- function(df, x_var, y_var, name, limits = c(-0.5, 1), diff_cutoff = 0.2) {
-  plot_data <- df %>%
-    mutate(density = get_density(.data[[x_var]], .data[[y_var]], n = 200))
+print(nrow(plot_df_delta))
 
-  p <- ggplot(plot_data, aes(x = .data[[x_var]], y = .data[[y_var]])) +
-    geom_point(aes(color = density), size = 0.1, data = . %>% arrange(density)) +
-    coord_fixed() +
-    scale_x_continuous(limits = limits) +
-    scale_y_continuous(limits = limits) +
-    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black", size = lineThick*mmToLineUnit) +
-    geom_abline(slope = 1, intercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
-    geom_hline(yintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
-    geom_vline(xintercept = c(-diff_cutoff, diff_cutoff), linetype = "dotted", color = "black", size = lineThick*mmToLineUnit) +
-    geom_hline(yintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
-    geom_vline(xintercept = 0, alpha = 0.5, color = "black", size = lineThick*mmToLineUnit) +
-    common_theme
-
-  # Save the plot
-  ggsave(
-    filename = here(figDir, paste0("scatterplot_", name, ".png")),
-    plot = p,
-    width = panelSize(1.5) * mmToInch,
-    height = panelSize(1.5) * mmToInch,
-    dpi = 600
-  )
-}
 generate_scatterplot2(
   df = plot_df_delta,
   x_var = "delta_G1",
@@ -11132,17 +12559,17 @@ temp <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2,
                                         abs(delta_Async) < 0.2,
                                         delta_G1 - delta_Async < -0.2)
 print(nrow(temp))
-temp1 <- make_table(temp, "G1SpecificPerturb")
-temp3 <- make_table2(temp, "G1SpecificPerturb") %>%
-  dplyr::filter(!is.na(AnnoGroup))
-generate_scatterplot2(
-  df = temp,
-  x_var = "delta_G1",
-  y_var = "delta_Async",
-  name = paste0(loopName, "_deltaScore_AsyncvsG1_G1specific"),
-  limits = c(-0.75, 0.75), # Use default data limits
-  diff_cutoff = 0.2
-)
+# temp1 <- make_table(temp, "G1SpecificPerturb")
+# temp3 <- make_table2(temp, "G1SpecificPerturb") %>%
+#   dplyr::filter(!is.na(AnnoGroup))
+# generate_scatterplot2(
+#   df = temp,
+#   x_var = "delta_G1",
+#   y_var = "delta_Async",
+#   name = paste0(loopName, "_deltaScore_AsyncvsG1_G1specific"),
+#   limits = c(-0.75, 0.75), # Use default data limits
+#   diff_cutoff = 0.2
+# )
 
 temp <- plot_df_delta %>% dplyr::filter(delta_Async < -0.2, 
                                         abs(delta_G1) < 0.2,
@@ -11160,6 +12587,257 @@ generate_scatterplot2(
   limits = c(-0.75, 0.75), # Use default data limits
   diff_cutoff = 0.2
 )
+
+
+#################################################
+# Testing g1specific vs resilient both
+g1specific <- plot_df_delta %>% dplyr::filter(delta_G1 < -0.2, 
+                                        abs(delta_Async) < 0.2,
+                                        delta_G1 - delta_Async < -0.2)
+print(nrow(temp))
+
+ncBoth <- plot_df_delta %>% dplyr::filter(abs(delta_Async) < 0.2, 
+                                        abs(delta_G1) < 0.2)
+print(nrow(ncBoth))
+
+
+
+g1specific.gr <- (extractAnchor(g1specific))
+temp1 <- calculatePermutEnrichment("H3K27ac_effie", g1specific.gr, 10000)
+
+ncBoth.gr <- (extractAnchor(ncBoth))
+temp2 <- calculatePermutEnrichment("H3K27ac_effie", ncBoth.gr, 10000)
+
+result.tb <- temp1 %>% add_row(temp2) %>%
+  dplyr::mutate(interest = c("G1perturb", "CommonResilient"),
+                target = ("RetainedvsL"))
+
+
+result.tb <- result.tb %>%
+  mutate(target = recode(name,
+                         "H3K27ac_effie_retained" = "Retained",
+                         "H3K27ac_effie_lost" = "Lost"))
+
+fwrite(result.tb, here(dataDir, "bookmarking_permutation_G1vsAsync.tsv"), sep = "\t")
+
+p <- ggplot(result.tb, aes(x = interest, y = name, size = -log10(pvalue), fill = enrichment)) +
+  geom_point(shape = 21,        # Ensures a point with an outline
+             stroke = 1*ptToMM/2      # Line width for the border
+  ) + theme_bw() + 
+  scale_size_continuous(range = c(1, 4)) +  # Set min and max point sizes here
+  scale_fill_gradientn(colors = c("#4852A0", "white", "#CB333A"),  # Define gradient colors
+                       values = scales::rescale(c(0.5, 1, 1.5)), limits = c(0.5, 1.5), 
+                       #low = "white", high = "#CB333A",
+                       #                  limits = c(1, 3),
+                       oob = scales::squish, # Define gradient colors
+                       guide = guide_colorbar(
+                         barwidth = 1.5/5.08,  # Adjust width of the color bar
+                         barheight = 15/5.08   # Adjust height of the color bar
+                       )
+  ) +
+  labs(x = NULL, y = NULL)  +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_text(
+      size = fontSizeS,
+      family = fontType,
+      color = "#000000"
+    ),
+    axis.text.x = element_text(
+      angle = 45,      # Rotate x-axis labels 45 degrees
+      hjust = 1,       # Adjust horizontal justification
+      vjust = 1,        # Adjust vertical justification
+      color = "#000000"
+    ),
+    axis.text.y = element_text(size = fontSizeS, family = fontType),
+    axis.line = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    axis.ticks = element_line(
+      color = "#000000",
+      size = lineThick*mmToLineUnit,
+      lineend = "square"
+    ),
+    panel.background = element_rect(fill = "transparent"),
+    legend.text = element_text(family = fontType, size = fontSizeS),
+    legend.title = element_text(family = fontType, size = fontSizeS),
+    )
+
+fileName <- here(figDir, "dotplot_bookmarking_permutation_G1vsAsync")
+width <- panelSize(2)*mmToInch
+height <- panelSize(1)*mmToInch
+svglite(paste0(fileName, ".svg"),  height = height, width = width)
+print(p)
+dev.off()
+
+########################################
+plotSumScoresBinary <- function(track, peak, name, note = "", anchor.upno, anchor.down){
+  peakTrack <- track[unique(queryHits(findOverlaps(track, peak)))]
+  b <- getSumScores(peakTrack, anchor.upno)
+  c <- getSumScores(peakTrack, anchor.down)
+  name1 = "resilient"
+  name2 = "G1specific"
+  color1 = "grey30"
+  color2 = "#e64b35"
+  b.tb <- tibble(loop = name1,
+                 sumScore = b)
+  c.tb <- tibble(loop = name2,
+                 sumScore = c)
+  data <- bind_rows(b.tb, c.tb) %>% drop_na()
+  data$loop <- factor(data$loop, levels = c(name1, name2))
+  
+  p12 <- getPvalWilcox(data, name1, name2)
+  p <-  ggplot(data, aes(x = name, fill = loop, y = sumScore)) + 
+    labs(x = NULL, y = paste0("Average ChIP peak score at anchor)")) +
+    introdataviz::geom_split_violin(linewidth = lineThick * mmToLineUnit, lineend = "square",
+                                    alpha = .4) +
+    geom_boxplot(width = 0.3, color = "black",
+                 linewidth = lineThick * mmToLineUnit, lineend = "square",
+                 outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + theme_classic() +
+    scale_fill_manual(
+      name = "Loop type",
+      values = c(color1, color2)
+    ) +
+    stat_summary(
+      aes(group = loop), fun = mean,
+      geom = "point", shape = 21, size = 0.5,
+      fill = "black", color = "black", position = position_dodge(.3)
+    ) + theme(
+      axis.title = element_text(
+        size = fontSizeM, family = fontType, color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeM, family = fontType, color = "#000000"
+      ),
+      axis.text.x = element_text(
+        angle = 0,
+      ),
+      axis.text.y = element_text(
+        size = fontSizeS,
+      ),
+      axis.line = element_line(
+        color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+      legend.text = element_text(family = fontType, size = fontSizeS),
+      legend.title = element_text(family = fontType, size = fontSizeS)
+    ) + 
+    coord_cartesian(ylim = c(quantile(data$sumScore, 0.0), quantile(data$sumScore, 0.95))) + 
+    annotate(
+      "text", x = 1, y = quantile(data$sumScore, 0.5),
+      label = paste0("p12: ", convPvalue(p12)),
+      color = "black", hjust = 0, size = 1
+    ) +   guides(
+      fill = guide_legend(
+        keywidth = 0.2,  # Adjust the width of the legend keys
+        keyheight = 0.2  # Adjust the height of the legend keys
+      )
+    )
+  
+  fileName <- paste0("ChIP_peak_avgPeakScore_", name, note)
+  width <- panelSize(1.65)*mmToInch
+  height <- panelSize(1.2)*mmToInch
+  png(here(figDir, paste0(fileName, ".png")), res = 600, unit = "in", height = height, width = width)
+  print(p)
+  dev.off()
+  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+  print(p)
+  dev.off()
+}
+
+track <- import(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_avg_depthNorm.bw"), format = "BigWig")
+peak <- importPeak(here(refDir, "ChIP", "H3K27ac", "H3K27ac_ESC_unionPeaks.bed"))
+plotSumScoresBinary(track, peak, "H3K27ac", "_G1vsAsync", ncBoth.gr, g1specific.gr)
+
+
+########################################
+
+g1specific <- g1specific %>% dplyr::mutate(size = start2 - start1)
+ncBoth <- ncBoth  %>% dplyr::mutate(size = start2 - start1)
+
+temp1 <- tibble(condition = "G1",
+                size = g1specific$size)
+temp2 <- tibble(condition = "resilient",
+                size = ncBoth$size)
+
+dataToPlot <- bind_rows(temp1, temp2)
+
+
+getPvalWilcox <- function(data, group1, group2){
+  distance1 <- (data %>% dplyr::filter(condition ==group1) )$size
+  distance2 <- (data %>% dplyr::filter(condition ==group2) )$size
+  wil <- wilcox.test(distance1, distance2)
+  return(wil$p.value)
+}
+
+  name1 = "resilient"
+  name2 = "G1specific"
+  color1 = "grey30"
+  color2 = "#e64b35"
+  
+  dataToPlot$condition <- factor(dataToPlot$condition, levels = rev(c("G1", "resilient")))
+p12 <- getPvalWilcox(dataToPlot, "G1", "resilient")
+  p <-  ggplot(dataToPlot, aes(x = ".", fill = condition, y = size)) + 
+    labs(x = NULL, y = paste0("Average ChIP peak score at anchor)")) +
+    introdataviz::geom_split_violin(linewidth = lineThick * mmToLineUnit, lineend = "square",
+                                    alpha = .4) +
+    geom_boxplot(width = 0.3, color = "black",
+                 linewidth = lineThick * mmToLineUnit, lineend = "square",
+                 outlier.shape = NA,  alpha = 0.6, show.legend = FALSE) + theme_classic() +
+    scale_fill_manual(
+      name = "Loop type",
+      values = c(color1, color2)
+    ) +
+    stat_summary(
+      aes(group = condition), fun = mean,
+      geom = "point", shape = 21, size = 0.5,
+      fill = "black", color = "black", position = position_dodge(.3)
+    ) + theme(
+      axis.title = element_text(
+        size = fontSizeM, family = fontType, color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeM, family = fontType, color = "#000000"
+      ),
+      axis.text.x = element_text(
+        angle = 0,
+      ),
+      axis.text.y = element_text(
+        size = fontSizeS,
+      ),
+      axis.line = element_line(
+        color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000", size = lineThick * mmToLineUnit, lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+      legend.text = element_text(family = fontType, size = fontSizeS),
+      legend.title = element_text(family = fontType, size = fontSizeS)
+    ) + 
+    coord_cartesian(ylim = c(quantile(data$sumScore, 0.0), quantile(data$sumScore, 0.95))) + 
+    annotate(
+      "text", x = 1, y = quantile(data$sumScore, 0.5),
+      label = paste0("p12: ", convPvalue(p12)),
+      color = "black", hjust = 0, size = 1
+    ) +   guides(
+      fill = guide_legend(
+        keywidth = 0.2,  # Adjust the width of the legend keys
+        keyheight = 0.2  # Adjust the height of the legend keys
+      )
+    ) + scale_y_continuous(labels = label_kb_mb)
+  
+  fileName <- paste0("LoopSize_G1vsAsync")
+  height <- panelSize(1.2)*mmToInch
+  width <-  panelSize(1.7)*mmToInch
+  svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
+  print(p)
+  dev.off()
 
 ```
 
@@ -12687,6 +14365,9 @@ gene.TSS.tb <- gene.TSS.tb %>% dplyr::mutate(
   )
 )
 
+dataDir <- here("..", "data", "loop_analysis")
+name <- "chromosight"
+gene.expressed <- (fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")))$ensembl_gene_id
 
 geneList.group1 <- fread(here(dataDir, paste0("geneList_", name, "_dTAG_vs_DMSO_p-n_complex_Group1.tsv")), sep = "\t") %>%
   dplyr::filter(gene %in% gene.expressed)
@@ -12716,9 +14397,17 @@ temp <- diff.RNA %>% left_join(gene.TSS.tb %>% dplyr::select(ensembl, group), by
   drop_na(group)
 
 # 
-ks_result4 <- ks.test(
+ks_result1 <- ks.test(
+  temp %>% dplyr::filter(group == "noSE") %>% pull(absLog2FC),
+  temp %>% dplyr::filter(group == "prox") %>% pull(absLog2FC)
+)
+ks_result2 <- ks.test(
   temp %>% dplyr::filter(group == "noSE") %>% pull(absLog2FC),
   temp %>% dplyr::filter(group == "proxLooped") %>% pull(absLog2FC)
+)
+ks_result3 <- ks.test(
+  temp %>% dplyr::filter(group == "noSE") %>% pull(absLog2FC),
+  temp %>% dplyr::filter(group == "looped") %>% pull(absLog2FC)
 )
 
 p <- ggplot(temp, aes(x = absLog2FC, color = group)) +
@@ -14059,5 +15748,172 @@ height <- panelSize(1.2)*mmToInch
 svglite(here(figDir, paste0(fileName, ".svg")),  height = height, width = width)
 print(p)
 dev.off()
+```
+# [11] Miscellanous
+## Comparing loops & genes across experiments
+Comparing loops
+```{r}
+commonLoopDir <- here("../data/loop_analysis")
+figDir <- here("../figure/loop_analysis")
+dir.create(figDir, showWarnings = FALSE, recursive = TRUE)
+
+data <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
+
+compareLoop <- function(data, loopList, note){
+  data <- data %>% dplyr::filter(Anno %in% loopList)
+  diffCutoff <- 0.2
+  temp <- data %>% dplyr::mutate(
+    diff_dTAG = score_dTAG - score_DMSO,
+    diff_A485 = score_A485 - score_DMSO,
+    diff_Epi = score_EpidTAG - score_EpiDMSO
+  ) %>%
+    dplyr::mutate(
+      updown_dTAG = case_when(
+        diff_dTAG > diffCutoff  ~ "UP",
+        diff_dTAG < -diffCutoff ~ "DOWN",
+        TRUE               ~ "NO"),
+      updown_A485 = case_when(
+        diff_A485 > diffCutoff  ~ "UP",
+        diff_A485 < -diffCutoff ~ "DOWN",
+        TRUE               ~ "NO"),
+      updown_Epi = case_when(
+        diff_Epi > diffCutoff  ~ "UP",
+        diff_Epi < -diffCutoff ~ "DOWN",
+        TRUE               ~ "NO")
+    )
+  
+  dataToPlot <- temp %>% dplyr::select(updown_dTAG, updown_A485, updown_Epi)
+  
+  dataToPlot$updown_dTAG <- factor(dataToPlot$updown_dTAG, levels = c("UP", "NO", "DOWN"))
+  dataToPlot$updown_A485 <- factor(dataToPlot$updown_A485, levels = c("UP", "NO", "DOWN"))
+  dataToPlot$updown_Epi <- factor(dataToPlot$updown_Epi, levels = c("UP", "NO", "DOWN"))
+  
+  
+  flow_df <- dataToPlot %>%
+    dplyr::count(updown_dTAG, updown_A485, updown_Epi, name = "freq")
+  
+  lodes_df <- flow_df %>%
+    mutate(fill_group = updown_dTAG) %>%
+    mutate(alluvium_id = row_number()) %>%
+    pivot_longer(cols = c(updown_A485, updown_dTAG, updown_Epi),
+                 names_to = "x",
+                 values_to = "stratum")
+  
+  # 2. Set the factor levels for the stratum and axis (x) columns
+  #    This is the key step that enforces the correct display order.
+  unified_levels <- c("UP", "NO", "DOWN")
+  lodes_df$stratum <- factor(lodes_df$stratum, levels = unified_levels)
+  lodes_df$x <- factor(lodes_df$x, levels = c("updown_A485", "updown_dTAG", "updown_Epi"))
+  # Ensure the fill variable is also a factor with the correct levels
+  lodes_df$fill_group <- factor(lodes_df$fill_group, levels = c("UP", "NO", "DOWN"))
+  
+  library(ggalluvial)
+  # 3. Plot using the new long-format data frame and aesthetics
+  p <- ggplot(data = lodes_df,
+              aes(x = x, stratum = stratum, alluvium = alluvium_id,
+                  y = freq)) +
+    geom_flow(aes(fill = fill_group), width = 1/4,
+              reverse = FALSE) +
+    geom_stratum(width = 1/4, color = "black",
+                 reverse = FALSE) +
+    geom_text(stat = "stratum", aes(label = after_stat(stratum)), reverse = FALSE,
+              size = fontSizeM*ptToMM) +
+    labs(x = NULL,
+         y = "Number of anchors") +
+    theme_minimal() +  scale_x_discrete(expand = expansion(add = 0.25)) +
+    theme(legend.position = "none") +
+    # theme_classic() +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(
+        hjust = 0.5,
+        size = fontSizeS,
+        family = fontType
+      ),
+      axis.title = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.text = element_text(
+        size = fontSizeS,
+        family = fontType,
+        color = "#000000"
+      ),
+      axis.line = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      axis.ticks = element_line(
+        color = "#000000",
+        size = lineThick*mmToLineUnit,
+        lineend = "square"
+      ),
+      panel.background = element_rect(fill = "transparent"),
+    )
+  
+  
+  name <- paste0("alluvial_loopUPDOWN_comparison_", note)
+  width <- panelSize(1.5)*mmToInch
+  height <- panelSize(2)*mmToInch  
+  svglite(here(figDir,
+               paste0(name, ".svg")),
+          width = width, height = height)
+  plot(p)
+  dev.off()
+}
+compareLoop(data, unique(data$Anno), "all")
+compareLoop(data, c("P-P", "P-E", "E-E"), "reg")
+compareLoop(data, c("S-S", "S-X"), "str")
+
+alpha <- 0.05
+diffDir <- here("../data/RNA_diff")
+diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.2i.dTAG_vs_G1.2i.DMSO.tsv")) %>%
+  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
+geneList.escdown.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
+geneList.escup.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
+
+
+diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) %>%
+  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
+geneList.epidown.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
+geneList.epiup.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
+
+common <- sum(geneList.escdown.RNA %in% geneList.epidown.RNA)
+
+fit <- euler(c(
+  "ESC" = length(geneList.escdown.RNA) - common ,
+  "EpiLC" = length(geneList.epidown.RNA) - common,
+  "ESC&EpiLC"       = common
+))
+
+strong_orange
+p <- plot(
+  fit,
+  fills = list(
+    fill = c(strong_orange, "#009B77"),
+    alpha = 0.5),
+  labels = list(
+    font = 1,         # font face: 1=plain, 2=bold, 3=italic, 4=bold italic
+    cex = 1,        # label font size multiplier
+    family = fontType # font family name
+  ),
+  quantities = list(
+    cex = 1,        # quantity font size multiplier
+    font = 1,         # font face for numbers
+    family = fontType
+  ),
+  edges = list(
+    lwd = 2           # line width in points
+  ),
+)
+fileName <- here(figDir, "Venn_DEGs_DOWN")
+width <- panelSize(1)*mmToInch
+height <- panelSize(1)*mmToInch
+svglite(paste0(fileName, ".svg"), width = width, height =height)
+print(p)
+dev.off()
+
 ```
 

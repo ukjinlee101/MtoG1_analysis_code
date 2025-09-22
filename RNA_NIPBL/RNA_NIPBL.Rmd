@@ -1814,13 +1814,23 @@ dataToPlot$group_Epi <- factor(dataToPlot$group_Epi, levels = c("EpiPerturb_no",
 dataToPlot$timepoint <- factor(dataToPlot$timepoint, levels = c("Async.3h", "Async.22h"))
 dataToPlot <- dataToPlot %>% dplyr::filter(group_Epi != "EpiPerturb_weak")
 
-# ggplot(dataToPlot, aes(x = timepoint, y = abs(fc))) +
-#   geom_violin(color = "black",
-#               linewidth = lineMedium * mmToLineUnit, lineend = "square",
-#               show.legend = FALSE) + geom_boxplot(width =0.4) +
-#   facet_grid(group_Epi ~ group_RAD21)
 
-p <- ggplot(dataToPlot %>% dplyr::filter(group_RAD21 == "RAD21_sensitive"), aes(x = group_Epi, y = abs(fc), fill = group_Epi)) +
+getPvalWilcox <- function(data, group1, group2){
+  distance1 <- (data %>% dplyr::filter(group_Epi ==group1) )$fc
+  distance2 <- (data %>% dplyr::filter(group_Epi ==group2) )$fc
+  wil <- wilcox.test(distance1, distance2)
+  return(wil$p.value)
+}
+
+
+pv12 <- round(getPvalWilcox(tempSum,"group1", "group2"), 5)
+
+dataToPlot <- dataToPlot %>% dplyr::filter(group_RAD21 == "RAD21_sensitive")
+getPvalWilcox(dataToPlot %>% dplyr::filter(timepoint == "Async.3h"), "EpiPerturb_no", "EpiPerturb_strong")
+
+getPvalWilcox(dataToPlot %>% dplyr::filter(timepoint == "Async.22h"), "EpiPerturb_no", "EpiPerturb_strong")
+
+p <- ggplot(dataToPlot, aes(x = group_Epi, y = abs(fc), fill = group_Epi)) +
   geom_violin(linewidth = lineMedium* mmToLineUnit, lineend = "square", alpha = .4, , show.legend = FALSE) + 
   geom_boxplot(width = 0.3, color = "black",
                linewidth = lineMedium * mmToLineUnit, lineend = "square",

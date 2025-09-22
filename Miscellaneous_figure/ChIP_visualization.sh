@@ -173,6 +173,98 @@ plotHeatmap \
 -o ${figDir}/heatmap_${name}.svg
 
 
+############################################################################################
+
+dataDir="/Volumes/UKJIN_SSD/data/deeptools"
+figDir="/Volumes/UKJIN_SSD/figure/deeptools"
+mkdir -p $dataDir
+mkdir -p $figDir
+
+
+name="UnionPeaks_RAD21-HA_ESC-DMSO_and_EpiLC"
+computeMatrix reference-point \
+  --referencePoint center \
+  -R ${chipDir}/UnionPeaks_RAD21-HA_ESC-DMSO_and_EpiLC.bed \
+  -S ${chipDir}/RAD21_ESC-DMSO_Rep1_spikeNorm_inputNorm.bw ${chipDir}/RAD21_ESC-DMSO_Rep2_spikeNorm_inputNorm.bw ${chipDir}/HA_ESC-DMSO_Rep1_spikeNorm_inputNorm.bw ${chipDir}/HA_ESC-DMSO_Rep2_spikeNorm_inputNorm.bw ${chipDir}/RAD21_EpiLC_Rep1_spikeNorm_inputNorm.bw ${chipDir}/RAD21_EpiLC_Rep2_spikeNorm_inputNorm.bw ${chipDir}/HA_EpiLC_Rep1_spikeNorm_inputNorm.bw ${chipDir}/HA_EpiLC_Rep2_spikeNorm_inputNorm.bw \
+  --beforeRegionStartLength 2000 \
+  --afterRegionStartLength 2000 \
+  --binSize 25 \
+  --missingDataAsZero \
+  -p 8 \
+  -o ${dataDir}/matrix_${name}.gz
+
+
+plotHeatmap \
+-m ${dataDir}/matrix_${name}.gz \
+--heatmapHeight 0.5 \
+--heatmapWidth 3 \
+--colorMap Blues Blues Greens Greens Blues Blues Greens Greens -max 1 \
+-T $name --refPointLabel "" \
+--samplesLabel "ESC1" "ESC2" "ESC3" "ESC4" "EpiLC1" "EpiLC2" "EpiLC3" "EpiLC4" \
+--legendLocation none \
+--yAxisLabel "spikeInputNorm" \
+--xAxisLabel "peak center" \
+--plotFileFormat svg \
+-o ${figDir}/heatmap_${name}.svg
+
+
+
+# DRAWING METAPLOT TO SHOW THE REPRODUCIBILITY ACROSS REPLICATES
+mamba activate deeptools
+
+workDir="/Volumes/UKJIN_SSD/ChIP_250609_18886_H3K4me3K27ac/pipeline/result"
+outDir="${workDir}/../metaplot"
+mkdir -p $outDir
+
+# Diff plot
+computeMatrix reference-point \
+--referencePoint center \
+-R H3K4me3_diff_specific_ESC.bed H3K4me3_diff_specific_EpiLC.bed \
+-S ${workDir}/bigwig/H3K4me3_ESC_Rep1_depthNorm.bw ${workDir}/bigwig/H3K4me3_ESC_Rep2_depthNorm.bw ${workDir}/bigwig/H3K4me3_EpiLC_Rep1_depthNorm.bw ${workDir}/bigwig/H3K4me3_EpiLC_Rep2_depthNorm.bw \
+--beforeRegionStartLength 2000 \
+--afterRegionStartLength 2000 \
+--binSize 25 \
+--missingDataAsZero \
+-p 8 \
+-o ${outDir}/matrix_diff_H3K4me3_onlyChange.gz
+
+plotHeatmap \
+-m ${outDir}/matrix_diff_H3K4me3_onlyChange.gz \
+--heatmapHeight 0.5 \
+--heatmapWidth 3 \
+--colorMap Blues Blues Greens Greens \
+-T "" --refPointLabel "" \
+--samplesLabel "ESC1" "ESC2" "EpiLC1" "EpiLC2" \
+--legendLocation none \
+--yAxisLabel "RPM" \
+--xAxisLabel "peak center" \
+--regionsLabel "ESC" "EpiLC" \
+-o ${outDir}/heatmap_diff_H3K4me3_onlyChange.svg
+
+
+computeMatrix reference-point \
+--referencePoint center \
+-R H3K27ac_diff_specific_ESC.bed H3K27ac_diff_specific_EpiLC.bed \
+-S ${workDir}/bigwig/H3K27ac_ESC_Rep1_depthNorm.bw ${workDir}/bigwig/H3K27ac_ESC_Rep2NoSpike_depthNorm.bw ${workDir}/bigwig/H3K27ac_EpiLC_Rep1_depthNorm.bw ${workDir}/bigwig/H3K27ac_EpiLC_Rep2_depthNorm.bw \
+--beforeRegionStartLength 2000 \
+--afterRegionStartLength 2000 \
+--binSize 25 \
+--missingDataAsZero \
+-p 8 \
+-o ${outDir}/matrix_diff_H3K27ac_onlyChange.gz
+
+plotHeatmap \
+-m ${outDir}/matrix_diff_H3K27ac_onlyChange.gz \
+--heatmapHeight 0.5 \
+--heatmapWidth 3 \
+--colorMap Blues Blues Greens Greens \
+-T "" --refPointLabel "" \
+--samplesLabel "ESC1" "ESC2" "EpiLC1" "EpiLC2" \
+--legendLocation none \
+--yAxisLabel "RPM" \
+--xAxisLabel "peak center" \
+--regionsLabel "ESC" "EpiLC" \
+-o ${outDir}/heatmap_diff_H3K27ac_onlyChange.svg
 
 # REVIEWED FOR PUBLICATION END
 ############################################################################################
