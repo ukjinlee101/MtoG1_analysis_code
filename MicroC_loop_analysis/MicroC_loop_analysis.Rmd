@@ -3769,16 +3769,16 @@ loop.upno <- bind_rows(loop.up, loop.no)
 loop.down <- fread(here(commonLoopDir, paste0(name, "_DOWN.bedpe")))
 
 # Seeding
-temp <- getSEOverlapFisher(loop.upno, loop.down, peak.bivalent.all)
-result.tb <- tibble(loopType = "UP/NO_vs_DOWN",
+temp <- getSEOverlapFisher(loop.down, loop.upno, peak.bivalent.all)
+result.tb <- tibble(loopType = "DOWN_vs_UP/NO",
                     target = "bivalent_all",
                     pvalue = temp$p.value,
                     oddsRatio = temp$estimate)
 
 # Add row
-temp <- getSEOverlapFisher(loop.upno, loop.down, peak.bivalent.tss)
+temp <- getSEOverlapFisher(loop.down, loop.upno, peak.bivalent.tss)
 result.tb <- result.tb %>% 
-  add_row(loopType = "UP/NO_vs_DOWN",
+  add_row(loopType = "DOWN_vs_UP/NO",
           target = "bivalent_TSS",
           pvalue = temp$p.value,
           oddsRatio = temp$estimate)
@@ -3787,7 +3787,7 @@ result.tb <- result.tb %>%
 data <- result.tb %>%
   dplyr::mutate(pvalue = pmax(0.0001, pvalue))
 
-data$loopType <- factor(data$loopType, levels = c("UP/NO_vs_DOWN"))
+data$loopType <- factor(data$loopType, levels = c("DOWN_vs_UP/NO"))
 data$target <- factor(data$target, levels = rev(c("bivalent_all", "bivalent_TSS")))
 
 p <- ggplot(data, aes(x = loopType, y = target, size = -log10(pvalue), fill = oddsRatio)) +
@@ -15863,9 +15863,67 @@ compareLoop <- function(data, loopList, note){
   plot(p)
   dev.off()
 }
+
 compareLoop(data, unique(data$Anno), "all")
 compareLoop(data, c("P-P", "P-E", "E-E"), "reg")
 compareLoop(data, c("S-S", "S-X"), "str")
+
+
+# Venn diagram instead of alluvial plot
+compareLoopVen <- function(data, loopList, note){
+    data <- data %>% dplyr::filter(Anno %in% loopList)
+  diffCutoff <- 0.2
+  temp <- data %>% dplyr::mutate(
+    diff_dTAG = score_dTAG - score_DMSO,
+    diff_A485 = score_A485 - score_DMSO,
+    diff_Epi = score_EpidTAG - score_EpiDMSO
+  ) %>%
+    dplyr::mutate(
+      updown_dTAG = case_when(
+        diff_dTAG > diffCutoff  ~ "UP",
+        diff_dTAG < -diffCutoff ~ "DOWN",
+        TRUE               ~ "NO"),
+      updown_A485 = case_when(
+        diff_A485 > diffCutoff  ~ "UP",
+        diff_A485 < -diffCutoff ~ "DOWN",
+        TRUE               ~ "NO"),
+      updown_Epi = case_when(
+        diff_Epi > diffCutoff  ~ "UP",
+        diff_Epi < -diffCutoff ~ "DOWN",
+        TRUE               ~ "NO")
+    )
+  
+  dataToPlot <- temp %>% dplyr::select(updown_dTAG, updown_A485, updown_Epi)
+  
+  dataToPlot$updown_dTAG <- factor(dataToPlot$updown_dTAG, levels = c("UP", "NO", "DOWN"))
+  dataToPlot$updown_A485 <- factor(dataToPlot$updown_A485, levels = c("UP", "NO", "DOWN"))
+  dataToPlot$updown_Epi <- factor(dataToPlot$updown_Epi, levels = c("UP", "NO", "DOWN"))
+  
+  down_combinations <- dataToPlot[, c("updown_dTAG", "updown_A485", "updown_Epi")] == "DOWN"
+    fit <- euler(down_combinations)
+  p <- plot(
+    fit,
+    fills = list(fill = pal_npg()(3), alpha = 0.7),
+    edges = list(lwd = 0.75),
+    labels = list(fontfamily = "Helvetica", fontsize = 6),
+    quantities = list(type = c("counts"), fontfamily = "Helvetica", fontsize = 6),
+  )
+    name <- paste0("venn_loopDOWN_comparison_", note)
+    width <- panelSize(1)*mmToInch
+    height <- panelSize(1)*mmToInch  
+    svglite(here(figDir,
+                 paste0(name, ".svg")),
+            width = width, height = height)
+    plot(p)
+  dev.off()
+}
+
+
+compareLoopVen(data, unique(data$Anno), "all")
+compareLoopVen(data, c("P-P", "P-E", "E-E"), "reg")
+compareLoopVen(data, c("S-S", "S-X"), "str")
+
+
 
 alpha <- 0.05
 diffDir <- here("../data/RNA_diff")
@@ -15879,6 +15937,38 @@ diff.RNA <- fread(here(diffDir, "diff_G1.dTAG_G1.Epi.dTAG_vs_G1.Epi.DMSO.tsv")) 
   dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
 geneList.epidown.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
 geneList.epiup.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
+
+diff.RNA <- fread(here(diffDir, "diff_EpiRecoveryDiffCombTrtNo8h_24h.Epi.dTAG_vs_24h.Epi.DMSO.tsv")) %>%
+  dplyr::select(ensembl_gene_id, log2FoldChange, shrinked_log2FC, padj, external_gene_name)
+geneList.epiLongdown.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC <= 0, padj < alpha))$ensembl_gene_id
+geneList.epiLongup.RNA <- (diff.RNA %>% dplyr::filter(shrinked_log2FC > 0, padj < alpha))$ensembl_gene_id
+
+
+my_gene_lists <- list(
+  "ESC Down" = geneList.escdown.RNA,
+  "Epi Down" = geneList.epidown.RNA,
+  "Epi Long Down" = geneList.epiLongdown.RNA
+)
+
+fit <- euler(my_gene_lists)
+
+# Generate the plot with specified styling
+p <- plot(
+  fit,
+  fills = list(fill = c(strong_orange, "#009B77", darken("#009B77", amount = 0.5)), alpha = 0.7),
+  edges = list(lwd = 0.75),
+  labels = list(fontfamily = "Helvetica", fontsize = 6),
+  quantities = list(type = c("counts"), fontfamily = "Helvetica", fontsize = 6),
+)
+name <- paste0("venn_DOWNDEG_comparison_")
+width <- panelSize(1)*mmToInch
+height <- panelSize(1)*mmToInch  
+svglite(here(figDir,
+             paste0(name, ".svg")),
+        width = width, height = height)
+plot(p)
+dev.off()
+
 
 common <- sum(geneList.escdown.RNA %in% geneList.epidown.RNA)
 

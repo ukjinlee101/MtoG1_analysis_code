@@ -767,6 +767,14 @@ geneList.RAD21 <- unique(union((diff1 %>%
                                   dplyr::filter((padj < alpha) & (abs(shrinked_log2FC) > foldchange)))$ensembl_gene_id,
                                (diff2 %>% 
                                  dplyr::filter((padj < alpha) & (abs(shrinked_log2FC) > foldchange)))$ensembl_gene_id))
+geneList.RAD21.up <- unique(union((diff1 %>%  
+                                  dplyr::filter((padj < alpha) & ((shrinked_log2FC) > foldchange)))$ensembl_gene_id,
+                               (diff2 %>% 
+                                 dplyr::filter((padj < alpha) & ((shrinked_log2FC) > foldchange)))$ensembl_gene_id))
+geneList.RAD21.down <- unique(union((diff1 %>%  
+                                  dplyr::filter((padj < alpha) & ((shrinked_log2FC) < -foldchange)))$ensembl_gene_id,
+                               (diff2 %>% 
+                                 dplyr::filter((padj < alpha) & ((shrinked_log2FC) < -foldchange)))$ensembl_gene_id))
 
 ################################################################################
 # IMPORTING GENE LIST OF INTERST
@@ -776,6 +784,8 @@ figDir <- here("..", "figure", "RNA_NIPBL")
 diff3 <- fread(here(dataDir, "diff_NIPBL_DMSO.Exit_vs_DMSO.0h.tsv"))
 
 geneList.NIPBL <- (diff3 %>% dplyr::filter((padj < alpha) & (abs(shrinked_log2FC) > foldchange)))$ensembl_gene_id
+geneList.NIPBL.up <- (diff3 %>% dplyr::filter((padj < alpha) & ((shrinked_log2FC) > foldchange)))$ensembl_gene_id
+geneList.NIPBL.down <- (diff3 %>% dplyr::filter((padj < alpha) & ((shrinked_log2FC) < -foldchange)))$ensembl_gene_id
 
 
 
@@ -786,6 +796,55 @@ geneIDNamePair <- bind_rows(diff1, diff2, diff3) %>%
 ################################################################################
 # FINDING COMMON GENE SETS
 geneList.common <- geneList.RAD21[geneList.RAD21 %in% geneList.NIPBL]
+################################################################################
+# Venn diagram of overlap
+my_gene_lists <- list(
+  "RAD21 UP" = geneList.RAD21.up,
+  "NIPBL UP" = geneList.NIPBL.up
+)
+
+fit <- euler(my_gene_lists)
+
+# Generate the plot with specified styling
+p <- plot(
+  fit,
+  # fills = list(fill = c(), alpha = 0.7),
+  edges = list(lwd = 0.75),
+  labels = list(fontfamily = "Helvetica", fontsize = 6),
+  quantities = list(type = c("counts"), fontfamily = "Helvetica", fontsize = 6),
+)
+name <- paste0("venn_EpiUPDEG_comparison")
+width <- panelSize(1)*mmToInch
+height <- panelSize(1)*mmToInch  
+svglite(here(figDir,
+             paste0(name, ".svg")),
+        width = width, height = height)
+plot(p)
+dev.off()
+
+my_gene_lists <- list(
+  "RAD21 DOWN" = geneList.RAD21.down,
+  "NIPBL DOWN" = geneList.NIPBL.down
+)
+
+fit <- euler(my_gene_lists)
+
+# Generate the plot with specified styling
+p <- plot(
+  fit,
+  # fills = list(fill = c(), alpha = 0.7),
+  edges = list(lwd = 0.75),
+  labels = list(fontfamily = "Helvetica", fontsize = 6),
+  quantities = list(type = c("counts"), fontfamily = "Helvetica", fontsize = 6),
+)
+name <- paste0("venn_EpiDOWNDEG_comparison")
+width <- panelSize(1)*mmToInch
+height <- panelSize(1)*mmToInch  
+svglite(here(figDir,
+             paste0(name, ".svg")),
+        width = width, height = height)
+plot(p)
+dev.off()
 
 ################################################################################
 # IMPORTING AND BATCH CORRECTING READS
