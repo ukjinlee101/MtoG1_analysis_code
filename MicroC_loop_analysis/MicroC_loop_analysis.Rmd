@@ -5446,7 +5446,7 @@ tadGeneCount <- data %>% rowwise() %>%
 # Merging with data
 dataToPlot <- data %>% left_join(tadGeneCount, by = c("tadID")) %>%
   mutate(tadGeneDensity = tadGeneCount/tadSize*100e3)
-
+saveRDS(dataToPlot, here("../data", "rds", "tadgenedensity.rds"))
 
 group1 <- fread(here(dataDir, "loop_analysis",
                      "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group1.tsv"))$gene
@@ -5880,7 +5880,7 @@ overlap_counts <- countOverlaps(gene_gr, peak.RAD21)
 # Add overlap counts to the original gene.tb data
 gene.tb$peak_count <- overlap_counts
 
-
+saveRDS(gene.tb, here("../data", "rds", "geneTSSRAD21peakcount.rds"))
 group1 <- fread(here(dataDir, "loop_analysis",
                      "geneList_chromosight_dTAG_vs_DMSO_p-n_complex_Group1.tsv"))$gene
 group2 <- fread(here(dataDir, "loop_analysis",
@@ -6124,7 +6124,7 @@ temp2 <- tempSum %>% rowwise() %>% mutate(total = length(anno),
                                           num_spn = sum(anno %in% c("E-SP", "SP-X")),
                                           num_str = num_ps + num_sps + num_spn
 )
-
+saveRDS(temp2, here("../data", "rds", "geneLoopNum.rds"))
 
 loopType <- temp2 %>% group_by(group) %>% summarise(num_pp = sum(num_pp),
                                                     num_pe = sum(num_pe),
@@ -6987,7 +6987,7 @@ temp <- temp %>% left_join(temp2, by = c("gene"))
 data.all <- temp %>% dplyr::mutate(group = ifelse(!geneHasSS, "No",
                                                   ifelse(is.na(loopID2), "Outside", "Within")),
                                    size = start2 - start1)
-
+saveRDS(data.all, here("../data", "rds", "insulateddomain.rds"))
 ##################################
 outfile <- data.all %>% dplyr::select(loopID2, gene) %>% dplyr::filter(!is.na(loopID2)) %>%
   separate(loopID2, into = c("chrom", "start", "end"), sep = "_", convert = TRUE)
@@ -7356,6 +7356,111 @@ print(p)
 dev.off()
 ```
 
+### Testing how many genes in Group 2 has similar characteristics as in Group 1
+(i) they were confined within insulated domains (S-S with convergent CTCF motif) 
+and gene-sparse TADs with stronger boundary insulation, 
+(ii) they exhibited higher RAD21 occupancy at promoters, (iii) they were highly connected, and featured many P-S loops.") 
+```{r}
+rdsDir <- here("../data", "rds")
+
+data <- readRDS(here(rdsDir, "geneLoopNum.rds")) %>%
+  dplyr::select(gene, group, total, num_str) 
+colnames(data) <- c("ensembl_gene_id", "group", "loopNumTotal", "loopNumStr")
+
+data2 <- readRDS(here(rdsDir, "geneTSSRAD21peakcount.rds")) %>%
+  dplyr::select(ensembl_gene_id, peak_count)
+colnames(data2) <- c("ensembl_gene_id", "TSSRad21PeakNum")
+
+data <- data %>% dplyr::left_join(data2, by = c("ensembl_gene_id"))
+
+data3 <- readRDS(here(rdsDir, "tadgenedensity.rds")) %>%
+  dplyr::select(ensembl, tadGeneDensity)
+colnames(data3) <- c("ensembl_gene_id", "tadGeneDensity")
+
+data <- data %>% dplyr::left_join(data3, by = c("ensembl_gene_id"))
+
+data4 <- readRDS(here(rdsDir, "insulateddomain.rds")) %>%
+  dplyr::select(gene, geneHasSS) %>%
+  distinct()
+colnames(data4) <- c("ensembl_gene_id", "hasInsDomain")
+
+data <- data %>% dplyr::left_join(data4, by = c("ensembl_gene_id"))
+
+################################################################################
+# Fisher's exact test on the presence of Insulated Domain
+group1.hasInsDomain <- nrow(data %>% dplyr::filter(group == "group1", hasInsDomain))
+group1.NoInsDomain <- nrow(data %>% dplyr::filter(group == "group1", !hasInsDomain))
+group2.hasInsDomain <- nrow(data %>% dplyr::filter(group == "group2", hasInsDomain))
+group2.NoInsDomain <- nrow(data %>% dplyr::filter(group == "group2", !hasInsDomain))
+
+contingency_table <- matrix(c(group1.hasInsDomain, group1.NoInsDomain,
+                              group2.hasInsDomain, group2.NoInsDomain), nrow = 2, byrow = TRUE)
+colnames(contingency_table) <- c("hasInsDomain", "NoInsDomain")
+rownames(contingency_table) <- c("group1", "group2")
+
+# Perform Fisher's Exact Test
+fisher_test_result <- fisher.test(contingency_table)
+
+################################################################################
+run_permutation_test <- function(data, col_name, group_col = "group", group1_name = "group1", group2_name = "group2", n_permutations = 10000, test_direction = "greater") {
+  
+  cat(paste("--- Starting Permutation Test for column:", col_name, "---\n"))
+  
+  # --- Setup ---
+  # Use [[ ]] for string-based column indexing
+  group1_vals <- data[data[[group_col]] == group1_name, ][[col_name]]
+  group2_vals <- data[data[[group_col]] == group2_name, ][[col_name]]
+  all_vals <- data[[col_name]]
+  
+  n_group1 <- length(group1_vals)
+  n_total <- length(all_vals)
+
+  # Calculate the OBSERVED difference in means
+  observed_diff <- mean(group1_vals) - mean(group2_vals)
+  cat(paste("Observed Difference in Means (", group1_name, " - ", group2_name, "): ", round(observed_diff, 4), "\n", sep = ""))
+
+  # --- Run the Permutation Loop ---
+  permuted_diffs <- numeric(n_permutations)
+  for (i in 1:n_permutations) {
+    shuffled_vals <- sample(all_vals)
+    perm_group1 <- shuffled_vals[1:n_group1]
+    perm_group2 <- shuffled_vals[(n_group1 + 1):n_total]
+    permuted_diffs[i] <- mean(perm_group1) - mean(perm_group2)
+  }
+  cat(paste("Completed", n_permutations, "permutations.\n\n"))
+
+  # --- Calculate P-value based on the test direction ---
+  if (test_direction == "greater") {
+    # Test hypothesis: group1 mean is HIGHER than group2 mean
+    count_extreme <- sum(permuted_diffs >= observed_diff)
+  } else if (test_direction == "less") {
+    # Test hypothesis: group1 mean is LOWER than group2 mean
+    count_extreme <- sum(permuted_diffs <= observed_diff)
+  } else if (test_direction == "two.sided") {
+    # Test hypothesis: group1 mean is DIFFERENT from group2 mean
+    count_extreme <- sum(abs(permuted_diffs) >= abs(observed_diff))
+  } else {
+    stop("Invalid test_direction. Please use 'greater', 'less', or 'two.sided'.")
+  }
+  
+  p_value <- (count_extreme + 1) / (n_permutations + 1)
+
+  # --- Interpretation ---
+  cat("--- Results ---\n")
+  cat(paste("P-value:", (p_value), "\n"))
+}
+
+
+# --- 3. How to Use the Function ---
+# Now you can easily run the test on any column you want.
+data <- data %>%
+  mutate(across(everything(), ~replace_na(., 0)))
+run_permutation_test(data = data, col_name = "loopNumTotal", test_direction = "two.sided")
+run_permutation_test(data = data, col_name = "loopNumStr", test_direction = "two.sided")
+run_permutation_test(data = data, col_name = "TSSRad21PeakNum", test_direction = "two.sided")
+run_permutation_test(data = data, col_name = "tadGeneDensity", test_direction = "two.sided")
+
+```
 
 ## [5] Loop + Transcription (Chromosight) EpiLC
 ### [FIG] RNA-seq loopscore scatterplot
