@@ -1,0 +1,402 @@
+# INTRODUCTION
+This RMD document is to have a record of how the figures were made for future reference. Also, the aim is to make publication-ready figures directly to minimize hands-on editing on illustrator. Codes should include how the preprocessed data is handled for making figures
+
+Below are the key parameters to be used across the figures from Nature guidelines.
+- Figure width = 180 mm
+- Figure height = 185 mm, 210 mm, 225 mm
+- Panel size unit = 30 mm
+- Margin between panel = 1.5 mm
+- Font = Helvetica
+- Font size = 7 to 5 pt
+# FIGURE PARAMETERS
+```{r}
+library(colorspace)
+
+fontType <- "Helvetica"
+
+fontSizeL <- 10 # pt
+fontSizeM <- 8
+fontSizeS <- 6
+
+lineThick <- 0.75 # pt
+lineMedium <- 0.5
+lineThin <- 0.25
+
+panelUnit <- 30 # mm
+panelMargin <- 1.5
+
+mmToInch <- 0.03937007874
+mmToLineUnit <- 1/2.13
+mmToLinePlotgarden <- 1/0.75
+ptToMM <- 1/2.845
+
+
+strong_red <- "#CB333A"
+strong_blue <- "#4851A0"
+weak_red <- lighten(strong_red, amount = 0.4)   # FF7D81
+weak_blue <- lighten(strong_blue, amount = 0.4) # 8A91DD
+no_grey <- "#A8A8A8"
+
+strong_teel <- "#0892A5"
+strong_green <- "#23CE6B" # A485
+strong_darkgreen <- "#054A29"
+strong_yellow <- "#FFBA49"
+strong_orange <- "#F18F01" # dTAG
+strong_lightpurple <- "#BD93D8"
+strong_purple <- "#9E33CB" # Epi
+
+panelSize <- function(num, unit = panelUnit, margin = panelMargin){
+  return(num*unit - 2*margin)
+}
+
+genome <- "mm10"
+```
+# LOADING
+```{r}
+library(here)
+source(here("script", "figure_functions.R"))
+```
+
+# DIRECTORIES
+```{r}
+figDir <- here("../figure/4C")
+rdsDir <- here("../data", "4c_rds")
+refDir <- here("../reference")
+bwDir <- here("../data", "4C")
+for(dir in c(figDir, rdsDir, bwDir)){  
+  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+}
+```
+
+# Making bigwig with sliding bin normalization
+```{r}
+slideBinNormReads <- function(reads.all, binSize, shiftSize, refGenome = BSgenome.Mmusculus.UCSC.mm10){
+  # Get genome info and chr size
+  chr = as.character(unique(seqnames(reads.all)))
+  x = seqinfo(refGenome)
+  seqlevels(x) = chr
+  
+  # Make bin & sliding bin
+  gr.bin <- tileGenome(x, tilewidth = binSize, cut.last.tile.in.chrom = TRUE)
+  numBins <- floor((max(end(gr.bin))-binSize)/shiftSize)+1
+  gr.bin.sliding <- GRanges(
+    seqnames = rep(seqlevels(x), numBins),
+    ranges = IRanges(
+      start = seq(1, by = shiftSize, length.out = numBins),
+      end = seq(binSize, by = shiftSize, length.out = numBins)
+    ),
+    strand = "*"
+  )
+  
+  # Using only non-blind fragment reads
+  capture <- reads.all[reads.all$type == "non_blind"]
+  capture.rds <- capture[,1]
+  # Using normalized non-smoothened readcounts
+  capture.rds$nreads <- capture$normReads
+  
+  
+  # Find overlap to bin
+  hits <- findOverlaps(gr.bin.sliding, capture.rds)
+  hits_dt <- data.table(queryHits = queryHits(hits), subjectHits = subjectHits(hits))
+  
+  # Convert capture.rds to data.table
+  capture_dt <- data.table(nreads = capture.rds$nreads)
+  
+  # Set keys for efficient join
+  setkey(hits_dt, queryHits)
+  
+  # Perform a join and calculate the mean using data.table's efficient grouping and summarization
+  result = hits_dt[, .(average_score = if (.N > 0) mean(capture_dt$nreads[subjectHits]) else 0), by = queryHits]
+  
+  
+  # Find overlaps to bin (assuming findOverlaps() returns hits as a data.frame-like structure)
+  hits <- findOverlaps(gr.bin.sliding, capture.rds)
+  hits.tb <- tibble(queryHits = queryHits(hits), subjectHits = subjectHits(hits))
+  
+  temp <- tibble(nreads = capture.rds$nreads, 
+                 subjectHits = 1:nrow(as_tibble(capture.rds)))
+  
+  
+  result <- hits.tb %>% left_join(temp, by = "subjectHits") %>%
+    group_by(queryHits) %>%
+    summarize(avgNormReads = mean(nreads))
+  
+  gr.bin.sliding.tb <- as_tibble(gr.bin.sliding)
+  gr.bin.sliding.tb$queryHits = 1:nrow(gr.bin.sliding.tb)
+  
+  gr.bin.sliding.tb <- gr.bin.sliding.tb %>% left_join(result, by = "queryHits") %>%
+    dplyr::mutate(reads = if_else(is.na(avgNormReads), 0, avgNormReads)) %>%
+    dplyr::select(seqnames, start, end, width, strand, reads)
+  
+  gr.bin.sliding <- makeGRangesFromDataFrame(gr.bin.sliding.tb, keep.extra.columns = TRUE)
+  
+  return(gr.bin.sliding)
+}
+
+makeNorm4CBigwig <- function(rdsDir, bwDir, VP, expName, binSize, shiftSize){
+  
+  reads.1 <- readRDS(here(rdsDir, paste0(VP, "_", expName, ".rds")))$reads
+  
+  # Import chr info
+  seqinfo_from_db <- getChromInfoFromUCSC("mm10")
+  seqinfo_from_db <- seqinfo_from_db[grep("^chr[0-9XY]+$", seqinfo_from_db$chrom), ]
+  seqinfo_object <- Seqinfo(
+    seqnames = seqinfo_from_db$chrom,
+    seqlengths = seqinfo_from_db$size,
+    isCircular =seqinfo_from_db$circular,
+    genome = "mm10"
+  )
+  
+  # Make slinding norm
+  bin.D1 <- as.data.frame(slideBinNormReads(reads.1, binSize, shiftSize))
+  temp1 <- bin.D1 %>% dplyr::mutate(
+    pos = start + binSize/2-1,
+    bw_start = pos - shiftSize/2+1,
+    bw_end = pos + shiftSize/2
+  ) %>%
+    dplyr::select(seqnames, bw_start, bw_end, strand, reads)
+  colnames(temp1) <- c("seqnames", "start", "end", "strand", "score")
+  
+  bin.Gr <- makeGRangesFromDataFrame(temp1, keep.extra.columns = TRUE)
+  seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
+  seqinfo(bin.Gr) <- seqinfo_object
+  export(bin.Gr, here(bwDir, paste0(VP, "_", expName, ".bw")), format = "BigWig")
+}
+
+
+makeNorm4CBigwig_avg <- function(rdsDir, bwDir, VP, name, expNameList, binSize, shiftSize){
+
+  # Import chr info
+  seqinfo_from_db <- getChromInfoFromUCSC("mm10")
+  seqinfo_from_db <- seqinfo_from_db[grep("^chr[0-9XY]+$", seqinfo_from_db$chrom), ]
+  seqinfo_object <- Seqinfo(
+    seqnames = seqinfo_from_db$chrom,
+    seqlengths = seqinfo_from_db$size,
+    isCircular =seqinfo_from_db$circular,
+    genome = "mm10"
+  )
+  
+  # process each replicates
+  dfs <- map(expNameList, function(expName){
+    reads <- readRDS(here(rdsDir, paste0(VP, "_", expName, ".rds")))$reads
+    df <- as.data.frame(slideBinNormReads(reads, binSize, shiftSize)) %>%
+      dplyr::mutate(
+        pos = start + binSize/2-1,
+        bw_start = pos - shiftSize/2+1,
+        bw_end = pos + shiftSize/2
+      ) %>%
+      dplyr::select(seqnames, start = bw_start, end = bw_end, strand, score = reads)
+    df
+  })
+  
+  # Join an average replicates
+  merged <- purrr::reduce(dfs, full_join, by = c("seqnames", "start", "end", "strand"))
+  score_cols <- grep("^score", names(merged), value = TRUE)
+  
+  avg_df <- merged %>%
+    dplyr::mutate(score = rowMeans(across(all_of(score_cols)), na.rm = TRUE)) %>%
+    dplyr::select(seqnames, start, end, strand, score)
+  
+  bin.Gr <- makeGRangesFromDataFrame(avg_df, keep.extra.columns = TRUE)
+  seqlevels(bin.Gr) <- seqlevels(seqinfo_object)
+  seqinfo(bin.Gr) <- seqinfo_object
+  export(bin.Gr, here(bwDir, paste0(VP, "_", name, "_avg.bw")), format = "BigWig")
+  export(bin.Gr, here(bwDir, paste0(VP, "_", name, "_avg.bedgraph")), format = "bedgraph")
+}
+
+
+binSize <- 10e3
+shiftSize <- binSize/20
+VP <- "Myc"
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1DMSO_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1DMSO_Exp2", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1DMSO_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "ESC-G1DMSO", 
+                     c("ESC-G1DMSO_Exp1", "ESC-G1DMSO_Exp2", "ESC-G1DMSO_Exp3"), binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1dTAG_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1dTAG_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "ESC-G1dTAG", 
+                     c("ESC-G1dTAG_Exp1", "ESC-G1dTAG_Exp3"), binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "EpiLC-G1DMSO_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "EpiLC-G1DMSO_Exp2", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "EpiLC-G1DMSO_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "EpiLC-G1DMSO", 
+                     c("EpiLC-G1DMSO_Exp1", "EpiLC-G1DMSO_Exp2", "EpiLC-G1DMSO_Exp3"), binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "EpiLC-G1dTAG_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "EpiLC-G1dTAG_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "EpiLC-G1dTAG", 
+                     c("EpiLC-G1dTAG_Exp1", "EpiLC-G1dTAG_Exp3"), binSize, shiftSize)
+VP <- "Fosl2"
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1DMSO_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1DMSO_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "ESC-G1DMSO", 
+                     c("ESC-G1DMSO_Exp1", "ESC-G1DMSO_Exp3"), binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1dTAG_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1dTAG_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "ESC-G1dTAG", 
+                     c("ESC-G1dTAG_Exp1", "ESC-G1dTAG_Exp3"), binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "EpiLC-G1DMSO_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "EpiLC-G1DMSO_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "EpiLC-G1DMSO", 
+                     c("EpiLC-G1DMSO_Exp1", "EpiLC-G1DMSO_Exp3"), binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "EpiLC-G1dTAG_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "EpiLC-G1dTAG_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "EpiLC-G1dTAG", 
+                     c("EpiLC-G1dTAG_Exp1", "EpiLC-G1dTAG_Exp3"), binSize, shiftSize)
+VP <- "Tbx3"
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1DMSO_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1DMSO_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "ESC-G1DMSO", 
+                     c("ESC-G1DMSO_Exp1", "ESC-G1DMSO_Exp3"), binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1dTAG_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1dTAG_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "ESC-G1dTAG", 
+                     c("ESC-G1dTAG_Exp1", "ESC-G1dTAG_Exp3"), binSize, shiftSize)
+
+binSize <- 5e3
+shiftSize <- binSize/20
+VP <- "Klf4"
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1DMSO_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1DMSO_Exp2", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1DMSO_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "ESC-G1DMSO", 
+                     c("ESC-G1DMSO_Exp1", "ESC-G1DMSO_Exp2", "ESC-G1DMSO_Exp3"), binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1dTAG_Exp1", binSize, shiftSize)
+# makeNorm4CBigwig(rdsDir, bwDir, VP, "ESC-G1dTAG_Exp3", binSize, shiftSize)
+makeNorm4CBigwig_avg(rdsDir, bwDir, VP, "ESC-G1dTAG", 
+                     c("ESC-G1dTAG_Exp1", "ESC-G1dTAG_Exp3"), binSize, shiftSize)
+```
+
+# Running statistical analsis
+```{r}
+
+make4CdiffSig <- function(rdsDir, bwDir, VP, vp.pos, flank, name, expNameList1, expNameList2, binSize, shiftSize, alpha){
+
+  # Import chr info
+  seqinfo_from_db <- getChromInfoFromUCSC("mm10")
+  seqinfo_from_db <- seqinfo_from_db[grep("^chr[0-9XY]+$", seqinfo_from_db$chrom), ]
+  seqinfo_object <- Seqinfo(
+    seqnames = seqinfo_from_db$chrom,
+    seqlengths = seqinfo_from_db$size,
+    isCircular =seqinfo_from_db$circular,
+    genome = "mm10"
+  )
+  
+  # process each replicates
+  dfs1 <- map(expNameList1, function(expName){
+    reads <- readRDS(here(rdsDir, paste0(VP, "_", expName, ".rds")))$reads
+    df <- as.data.frame(slideBinNormReads(reads, binSize, shiftSize)) %>%
+      dplyr::mutate(
+        pos = start + binSize/2-1,
+        bw_start = pos - shiftSize/2+1,
+        bw_end = pos + shiftSize/2
+      ) %>%
+      dplyr::select(seqnames, start = bw_start, end = bw_end, strand, !!expName := reads)
+    df
+  })
+  
+  # Join an average replicates
+  merged1 <- purrr::reduce(dfs1, full_join, by = c("seqnames", "start", "end", "strand"))
+  
+  dfs2 <- map(expNameList2, function(expName){
+    reads <- readRDS(here(rdsDir, paste0(VP, "_", expName, ".rds")))$reads
+    df <- as.data.frame(slideBinNormReads(reads, binSize, shiftSize)) %>%
+      dplyr::mutate(
+        pos = start + binSize/2-1,
+        bw_start = pos - shiftSize/2+1,
+        bw_end = pos + shiftSize/2
+      ) %>%
+      dplyr::select(seqnames, start = bw_start, end = bw_end, strand, !!expName := reads)
+    df
+  })
+  
+  merged2 <- purrr::reduce(dfs2, full_join, by = c("seqnames", "start", "end", "strand"))
+  
+  merged <- merged1 %>% full_join(merged2, by = c("seqnames", "start", "end", "strand"))
+  merged_filtered <- merged %>%
+    dplyr::filter(start > vp.pos - flank,
+                  end < vp.pos + flank)
+    
+  merged_with_ttest <- merged_filtered %>%
+  rowwise() %>%
+  mutate(
+    p_value = tryCatch({
+      t.test(c_across(all_of(expNameList1)), 
+             c_across(all_of(expNameList2)))$p.value
+    }, error = function(e) {
+      NA_real_
+    })
+  ) %>%
+  ungroup()
+  
+  result <- merged_with_ttest %>% dplyr::filter(p_value < alpha)
+  result <- reduce(makeGRangesFromDataFrame(result, keep.extra.columns = FALSE))
+
+fwrite(as_tibble(result) %>% dplyr::select(c(1, 2, 3)), here(bwDir, paste0(VP, "_", name, "_significantBin.bed")), sep = "\t", col.names = FALSE)
+}
+
+
+
+
+
+flank <- 2000000
+alpha <- 0.05
+
+binSize <- 10e3
+shiftSize <- binSize/20
+vp.pos <- 61985406
+VP <- "Myc"
+make4CdiffSig(rdsDir, bwDir, VP, vp.pos, flank, "ESCdTAGvsDMSO",
+              c("ESC-G1DMSO_Exp1", "ESC-G1DMSO_Exp2", "ESC-G1DMSO_Exp3"),
+              c("ESC-G1dTAG_Exp1", "ESC-G1dTAG_Exp3"),
+              binSize, shiftSize,
+              alpha)
+make4CdiffSig(rdsDir, bwDir, VP, vp.pos, flank, "EpiLCdTAGvsDMSO",
+              c("EpiLC-G1DMSO_Exp1", "EpiLC-G1DMSO_Exp2", "EpiLC-G1DMSO_Exp3"),
+              c("EpiLC-G1dTAG_Exp1", "EpiLC-G1dTAG_Exp3"),
+              binSize, shiftSize,
+              alpha)
+make4CdiffSig(rdsDir, bwDir, VP, vp.pos, flank, "EpiLCvsESC",
+              c("ESC-G1DMSO_Exp1", "ESC-G1DMSO_Exp2", "ESC-G1DMSO_Exp3"),
+              c("EpiLC-G1DMSO_Exp1", "EpiLC-G1DMSO_Exp2", "EpiLC-G1DMSO_Exp3"),
+              binSize, shiftSize,
+              alpha)
+
+vp.pos <- 32136544
+VP <- "Fosl2"
+make4CdiffSig(rdsDir, bwDir, VP, vp.pos, flank, "ESCdTAGvsDMSO",
+              c("ESC-G1DMSO_Exp1", "ESC-G1DMSO_Exp3"),
+              c("ESC-G1dTAG_Exp1", "ESC-G1dTAG_Exp3"),
+              binSize, shiftSize,
+              alpha)
+make4CdiffSig(rdsDir, bwDir, VP, vp.pos, flank, "EpiLCdTAGvsDMSO",
+              c("EpiLC-G1DMSO_Exp1", "EpiLC-G1DMSO_Exp3"),
+              c("EpiLC-G1dTAG_Exp1", "EpiLC-G1dTAG_Exp3"),
+              binSize, shiftSize,
+              alpha)
+make4CdiffSig(rdsDir, bwDir, VP, vp.pos, flank, "EpiLCvsESC",
+              c("ESC-G1DMSO_Exp1", "ESC-G1DMSO_Exp3"),
+              c("EpiLC-G1DMSO_Exp1", "EpiLC-G1DMSO_Exp3"),
+              binSize, shiftSize,
+              alpha)
+
+vp.pos <- 119670924
+VP <- "Tbx3"
+make4CdiffSig(rdsDir, bwDir, VP, vp.pos, flank, "ESCdTAGvsDMSO",
+              c("ESC-G1DMSO_Exp1", "ESC-G1DMSO_Exp3"),
+              c("ESC-G1dTAG_Exp1", "ESC-G1dTAG_Exp3"),
+              binSize, shiftSize,
+              alpha)
+
+
+binSize <- 5e3
+shiftSize <- binSize/20
+vp.pos <- 55532445
+VP <- "Klf4"
+make4CdiffSig(rdsDir, bwDir, VP, vp.pos, flank, "ESCdTAGvsDMSO",
+              c("ESC-G1DMSO_Exp1", "ESC-G1DMSO_Exp2", "ESC-G1DMSO_Exp3"),
+              c("ESC-G1dTAG_Exp1", "ESC-G1dTAG_Exp3"),
+              binSize, shiftSize,
+              alpha)
+```
+

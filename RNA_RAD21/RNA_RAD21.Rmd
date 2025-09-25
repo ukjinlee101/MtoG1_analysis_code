@@ -89,6 +89,16 @@ diff.G1.Epi3h <- fread(here(dataDir, "RNA_diff", "diff_G1.dTAG_G1.Epi.dTAG_vs_G1
   dplyr::select(ensembl_gene_id, baseMean, log2FoldChange, shrinked_log2FC, padj)
 
 
+sum((diff.G1.3h %>% dplyr::filter(padj < 0.05))$ensembl_gene_id %in% (diff.Async.24h %>% dplyr::filter(padj < 0.05))$ensembl_gene_id)
+sum((diff.G1.Epi3h %>% dplyr::filter(padj < 0.05))$ensembl_gene_id %in% (diff.Async.24h %>% dplyr::filter(padj < 0.05))$ensembl_gene_id)
+
+a <- (unique(c((diff.G1.Epi3h %>% dplyr::filter(padj < 0.05))$ensembl_gene_id, (diff.G1.3h %>% dplyr::filter(padj < 0.05))$ensembl_gene_id)))
+
+sum(a %in% (diff.Async.3h %>% dplyr::filter(padj < 0.05))$ensembl_gene_id)
+sum(a %in% (diff.Async.12h %>% dplyr::filter(padj < 0.05))$ensembl_gene_id)
+sum(a %in% (diff.Async.24h %>% dplyr::filter(padj < 0.05))$ensembl_gene_id)
+
+151
 
 ensembl.list <- unique(c(diff.Async.3h$ensembl_gene_id,
                        diff.Async.12h$ensembl_gene_id,
