@@ -730,4 +730,17 @@ draw_v4c_dTAGvsDMSO ("EpiLC", "ENSMUSG00000006445.Epha2", "chr4",  10,
                     ymax = 700, diffYmax = 350,
                     color_epi_dark, color_epi_light, width = 1.4)
 
+
+draw_v4c_dTAGvsDMSO ("EpiLC", "ENSMUSG00000061524.Zic2", "chr14", 10,
+                    xmin = 121171682, xmax = 122809628, 
+                    ymax = 1000, diffYmax = 500,
+                    color_epi_dark, color_epi_light, width = 3)
+draw_v4c_dTAGvsDMSO ("EpiLC", "ENSMUSG00000031530.Dusp4", "chr8", 10,
+                    xmin = 34057161, xmax = 34919580, 
+                    ymax = 1000, diffYmax = 500,
+                    color_epi_dark, color_epi_light, width = 2.7)
+
+
+
+
 ```
