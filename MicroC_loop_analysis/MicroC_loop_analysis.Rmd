@@ -7564,6 +7564,8 @@ fwrite(outfile, here(commonLoopDir, "convergent_ss_domain_ESC.bed"), sep = "\t",
 
 #### [FIG] Plotting
 ```{r}
+data.all <- readRDS(here("../data", "rds", "insulateddomain.rds"))
+
 data <- data.all %>% dplyr::filter(Anno %in% c("P-SE", "P-E", "E-SP", "SP-SE"))
 
 temp <- data %>% dplyr::select(chrom1, start1, end1, chrom2, start2, end2, group) %>% distinct()
@@ -10368,13 +10370,317 @@ dev.off()
 ```{r}
 # Drawing parameters
 hicDir <- here("../data/hic_pooled")
-windowSize <- 1*1e6
-
+windowSize <- 0.5*1e6
+figVisdir <- here(figDir, "visualization")
 # Importing loops
 commonLoopDir <- here("../data/loop_analysis")
 loop_chromo <- as_tibble(fread(here(commonLoopDir, "loopScore_chromosight.tsv")))
 
+
+
+## Loading hic and plotting
+cf.G1DMSO <- HicFile(path = here(hicDir, "G1DMSO_pooled_allRes.hic"))
+cf.G1dTAG <- HicFile(path = here(hicDir, "G1dTAG_pooled_allRes.hic"))
+
+
 ################################################################################
+#Filtering loops to plot
+comparison <- "ESC_dTAG_vs_DMSO"
+note <- "reg2"
+
+loop_chromo_filtered <- loop_chromo %>%
+  dplyr::mutate(size = start2 - start1) %>%
+  dplyr::filter(score_dTAG > 0.3,
+                size < 500*1000,
+                Anno %in% c("P-P", "P-E", "E-E")) %>%
+  dplyr::arrange(desc(score_dTAG))
+temp <- loop_chromo_filtered
+colnames(temp) <- c("V1", "V2", "V3", "V4", "V5", "V6")
+loops <- importBedpe(temp)
+
+# Visualization
+# for(i in seq(1, nrow(temp))){
+library(TxDb.Mmusculus.UCSC.mm10.ensGene)
+library(ggbio)
+library(patchwork)
+library(org.Mm.eg.db)
+
+
+################################################################################
+# Loci 1
+
+
+width <- panelSize(15/5)*mmToInch
+height <- panelSize(15/5)*mmToInch
+
+chr <- "chr13"
+start <- 23500000
+end <- 23800000
+
+res = 2500
+# Resolution 5kb
+
+hic1 <- import(cf.G1DMSO, focus = paste0(chr, ":", start, "-", end), resolution = res)
+hic2 <- import(cf.G1dTAG, focus = paste0(chr, ":", start, "-", end), resolution = res)
+p1 <- plotMatrix(hic1, compare.to = hic2, dpi = 600, loop = loops)
+
+# 1. Get all genes on the relevant chromosome as a data frame
+all_genes_on_chr <- as.data.frame(genes(TxDb.Mmusculus.UCSC.mm10.knownGene, filter = list(tx_chrom = chr)))
+
+# 2. Filter for genes within your specific window
+genes_in_region <- all_genes_on_chr[
+  all_genes_on_chr$start < end & all_genes_on_chr$end > start,
+]
+
+geneNum <- nrow(genes_in_region)
+
+
+width <- panelSize(2.2)*mmToInch
+height <- panelSize(2.2)*mmToInch
+fileName <- here(figVisdir, paste0("loop_example_1_", res, "kb_", chr, "_", start, "_", end, "_geneNum_", geneNum))
+svglite(paste0(fileName, ".svg"), width = width, height = height)
+print(p1)
+dev.off()
+
+
+################################################################################
+comparison <- "ESC_dTAG_vs_DMSO"
+note <- "reg-DMSOstrong"
+
+loop_chromo_filtered <- loop_chromo %>%
+  dplyr::mutate(size = start2 - start1) %>%
+  dplyr::filter(score_DMSO > 0.7,
+                size < 500*1000,
+                Anno %in% c("P-P", "P-E")) %>%
+  dplyr::arrange(desc(score_DMSO))
+temp <- loop_chromo_filtered
+colnames(temp) <- c("V1", "V2", "V3", "V4", "V5", "V6")
+loops <- importBedpe(temp)
+
+
+for(i in seq(2, 5)){
+  
+  width <- panelSize(15/5)*mmToInch
+  height <- panelSize(15/5)*mmToInch
+  
+  chr <- as_tibble(loops[i])$seqnames1
+  center <- (as_tibble(loops[i])$start1 + as_tibble(loops[i])$end2)/2
+  start <- floor(center - 0.5*windowSize)
+  end <- floor(center + 0.5*windowSize)
+  
+  res <- 5000
+  
+  hic1 <- import(cf.G1DMSO, focus = paste0(chr, ":", start, "-", end), resolution = res)
+  hic2 <- import(cf.G1dTAG, focus = paste0(chr, ":", start, "-", end), resolution = res)
+  p1 <- plotMatrix(hic1, compare.to = hic2, dpi = 600, loop = loops[i])
+  
+  
+  # 1. Get all genes on the relevant chromosome as a data frame
+  all_genes_on_chr <- as.data.frame(genes(TxDb.Mmusculus.UCSC.mm10.knownGene, filter = list(tx_chrom = chr)))
+  
+  # 2. Filter for genes within your specific window
+  genes_in_region <- all_genes_on_chr[
+    all_genes_on_chr$start < end & all_genes_on_chr$end > start,
+  ]
+  fileName <- here(figVisdir, paste0("visuzliation_", comparison, "_",  note, "_", i, "_", resolution, "_" , nrow(genes_in_region)))
+  png(paste0(fileName, ".png"), res = 600, units = "in", width = width, height = height)
+  print(p1)
+  dev.off()
+}
+
+################################################################################
+# Loci 2
+loop_chromo_filtered <- loop_chromo %>%
+  dplyr::mutate(size = start2 - start1) %>%
+  dplyr::filter(score_DMSO > 0.7,
+                size < 500*1000) %>%
+  dplyr::arrange(desc(score_DMSO))
+temp <- loop_chromo_filtered
+colnames(temp) <- c("V1", "V2", "V3", "V4", "V5", "V6")
+loops <- importBedpe(temp)
+
+
+width <- panelSize(15/5)*mmToInch
+height <- panelSize(15/5)*mmToInch
+
+chr <- "chr13"
+start <- 34600000
+end <- 34950000
+
+# start <- 23400000
+# end <- 24000000
+
+res = 5000
+# Resolution 5kb
+
+hic1 <- import(cf.G1DMSO, focus = paste0(chr, ":", start, "-", end), resolution = res)
+hic2 <- import(cf.G1dTAG, focus = paste0(chr, ":", start, "-", end), resolution = res)
+p1 <- plotMatrix(hic1, compare.to = hic2, dpi = 600, loop = loops, limits = c(0, 1.5))
+
+# 1. Get all genes on the relevant chromosome as a data frame
+all_genes_on_chr <- as.data.frame(genes(TxDb.Mmusculus.UCSC.mm10.knownGene, filter = list(tx_chrom = chr)))
+
+# 2. Filter for genes within your specific window
+genes_in_region <- all_genes_on_chr[
+  all_genes_on_chr$start < end & all_genes_on_chr$end > start,
+]
+
+geneNum <- nrow(genes_in_region)
+
+
+width <- panelSize(2.2)*mmToInch
+height <- panelSize(2.2)*mmToInch
+fileName <- here(figVisdir, paste0("loop_example_4_", res, "kb_", chr, "_", start, "_", end, "_geneNum_", geneNum))
+svglite(paste0(fileName, ".svg"), width = width, height = height)
+print(p1)
+dev.off()
+
+
+
+
+
+
+
+
+
+for(i in seq(11, 100)){
+  
+  
+  width <- panelSize(15/5)*mmToInch
+  height <- panelSize(15/5)*mmToInch
+  
+  chr <- as_tibble(loops[i])$seqnames1
+  center <- (as_tibble(loops[i])$start1 + as_tibble(loops[i])$end2)/2
+  start <- floor(center - 0.5*windowSize)
+  end <- floor(center + 0.5*windowSize)
+  # Resolution 5kb
+  for(resolution in c(5)){
+    res <- resolution*1000
+    
+    hic1 <- import(cf.G1DMSO, focus = paste0(chr, ":", start, "-", end), resolution = res)
+    hic2 <- import(cf.G1dTAG, focus = paste0(chr, ":", start, "-", end), resolution = res)
+    p1 <- plotMatrix(hic1, compare.to = hic2, dpi = 600, loop = loops[i])
+    
+    
+    # 1. Get all genes on the relevant chromosome as a data frame
+    all_genes_on_chr <- as.data.frame(genes(TxDb.Mmusculus.UCSC.mm10.knownGene, filter = list(tx_chrom = chr)))
+    
+    # 2. Filter for genes within your specific window
+    genes_in_region <- all_genes_on_chr[
+      all_genes_on_chr$start < end & all_genes_on_chr$end > start,
+    ]
+    
+    # Add gene symbols (the 'gene_id' column contains Entrez IDs)
+    # You might need to install and load the org.Mm.eg.db package
+    # BiocManager::install("org.Mm.eg.db")
+    genes_in_region$symbol <- mapIds(org.Mm.eg.db,
+                                     keys = genes_in_region$gene_id,
+                                     column = "SYMBOL",
+                                     keytype = "ENTREZID",
+                                     multiVals = "first")
+    
+    # 3. Create the ggplot object for the gene track
+    p_genes <- ggplot(as.data.frame(genes_in_region)) +
+      # Draw a horizontal line at y=0 for the track
+      geom_hline(yintercept = 0, color = "gray80") +
+      
+      # Draw the gene bodies as thick segments
+      geom_segment(as.data.frame(genes_in_region), aes(x = start, xend = end, y = 0, yend = 0),
+                   color = "royalblue", size = 2) +
+      
+      # # Add non-overlapping gene labels above the track
+      # geom_text_repel(aes(x = (start + end) / 2, y = 0, label = symbol),
+      #                 nudge_y = 0.15, # Pushes labels up
+      #                 direction = "x",
+      #                 angle = 90,
+      #                 segment.size = 0.2,
+      #                 min.segment.length = 0) +
+      
+      # Set the x-axis to match your Hi-C plot exactly
+      coord_cartesian(xlim = c(start, end), expand = FALSE) +
+      # Clean up the theme
+      theme_classic() +
+      theme(
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_text(angle = 0, vjust = 0.5)
+      ) +
+      ylab(paste0(nrow(genes_in_region), " genes"))
+    
+    ## MODIFIED: Arrange the plots in a grid
+    # 1. Combine the two heatmaps into a single top row
+    # 2. Combine the top row with the gene track plot underneath
+    final_plot <- p1 / p_genes + 
+      plot_layout(heights = c(10, 1)) # This is how you set relative heights
+    
+    
+    
+    fileName <- here(figVisdir, sprintf("visuzliation_%s_%s_%05d_%dkb", comparison, note, i, resolution))
+    png(paste0(fileName, ".png"), res = 600, units = "in", width = width, height = height)
+    print(final_plot)
+    dev.off()
+  }
+}
+
+
+
+# 1. Get all genes on the relevant chromosome as a data frame
+all_genes_on_chr <- as.data.frame(genes(TxDb.Mmusculus.UCSC.mm10.knownGene, filter = list(tx_chrom = chr)))
+
+# 2. Filter for genes within your specific window
+genes_in_region <- all_genes_on_chr[
+    all_genes_on_chr$start < end & all_genes_on_chr$end > start,
+]
+
+# Add gene symbols (the 'gene_id' column contains Entrez IDs)
+# You might need to install and load the org.Mm.eg.db package
+# BiocManager::install("org.Mm.eg.db")
+genes_in_region$symbol <- mapIds(org.Mm.eg.db,
+                                 keys = genes_in_region$gene_id,
+                                 column = "SYMBOL",
+                                 keytype = "ENTREZID",
+                                 multiVals = "first")
+
+# 3. Create the ggplot object for the gene track
+p_genes <- ggplot(as.data.frame(genes_in_region)) +
+    # Draw a horizontal line at y=0 for the track
+    geom_hline(yintercept = 0, color = "gray80") +
+    
+    # Draw the gene bodies as thick segments
+    geom_segment(as.data.frame(genes_in_region), aes(x = start, xend = end, y = 0, yend = 0),
+                 color = "royalblue", size = 2) +
+    
+    # Add non-overlapping gene labels above the track
+    geom_text_repel(aes(x = (start + end) / 2, y = 0, label = symbol),
+                    nudge_y = 0.15, # Pushes labels up
+                    direction = "x",
+                    angle = 90,
+                    segment.size = 0.2,
+                    min.segment.length = 0) +
+    
+    # Set the x-axis to match your Hi-C plot exactly
+    coord_cartesian(xlim = c(start, end), expand = FALSE) +
+    
+    # Clean up the theme
+    theme_classic() +
+    theme(
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.y = element_text(angle = 0, vjust = 0.5)
+    ) +
+    ylab("Genes")
+
+
+
+
+
+
+################################################################################
+
+
+
 #Filtering loops to plot
 comparison <- "ESC_vs_EpiLC"
 note <- "strongInBoth_diff"
@@ -16978,5 +17284,44 @@ pheatmap(
   print(p1)
   dev.off()
 
+```
+
+## Finding 4C locus for insluated domain
+```{r}
+commonLoopDir <- here("../data/loop_analysis")
+figDir <- here("../figure/loop_analysis")
+dataLooop <- fread(here(commonLoopDir, "loopScore_chromosight.tsv"))
+
+data <- readRDS(here("../data", "rds", "geneLoopNum.rds"))
+
+
+list1 <- gene.group1[gene.group1 %in% gene.wBoundary]
+list2 <- gene.group1[gene.group1 %in% gene.wBoundary]
+list12 <- unique(c(list1, list2))
+gene.group1 <- fread(here(dataDir, "loop_analysis",
+                          "geneList_chromosight_EpidTAG_vs_EpiDMSO_p-n_complex_Group1.tsv"))$gene
+
+dataSelected <- data %>% dplyr::filter(gene %in% list12) %>% left_join(diff.RNA, by = c("gene" = "ensembl_gene_id"))
+
+loopList <- unlist((dataSelected %>% dplyr::filter(external_gene_name == "Dusp4"))$loop)
+temp <- dataLooop %>% mutate(id2 = paste(chrom1, start1, start2, sep = "_")) %>% dplyr::filter(id2 %in% loopList)
+fwrite(temp %>% dplyr::select(seq(1, 6)), here("promloop_Dusp4.bedpe"), sep = "\t", col.names = FALSE)
+
+```
+
+## Filtering gene specific P-N loops
+```{r}
+data <- fread(here(dataDir, "loop_analysis", "chromosight_score_complex_allP.bedpe"))
+colnames(data) <- c("chrom1", "start1", "end1", "chrom2", "start2", "end2")
+target_chrom <- "chr14"
+target_start <- 122475401
+target_end <- 122475997
+
+data%>% dplyr::filter(
+  (chrom1 == target_chrom) & ((start1 < target_end & end1 > target_start) | (start2 < target_end & end2 > target_start))
+)
+
+
+loopDir
 ```
 

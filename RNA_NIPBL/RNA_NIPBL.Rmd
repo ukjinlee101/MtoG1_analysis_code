@@ -923,7 +923,14 @@ temp <- tibble(gene = names(k_clusters),
                group = row_cluster_factor) %>%
   dplyr::left_join(geneIDNamePair, by = c("gene" = "external_gene_name"))
 fwrite(temp, here(dataDir, paste0("kmeans_EpiLCvsESCcommon_fc0.5.tsv")), sep = "\t")
-
+temp2 <- temp %>% dplyr::filter(group %in% c("K1", "K2")) %>%
+  dplyr::mutate(group = case_when(
+    group == "K1" ~ "Common_EpiLC_UP",
+    group == "K2" ~ "Common_EpiLC_DOWN",
+    TRUE ~ NA
+  )) %>%
+  dplyr::arrange(ensembl_gene_id)
+fwrite(temp2, here(dataDir, paste0("kmeans_EpiLCvsESCcommon_fc0.5_pub.tsv")), sep = "\t")
 
 ################################################################################
 # Plotting
@@ -1002,7 +1009,7 @@ fwrite(geneIDNamePair, here(dataDir, "expressed_genes.tsv"), sep = "\t")
 
 ```{r}
 # IMPORTING EpiLC UP/DOWN common gene
-clusters <- fread(here(dataDir, paste0("EpiLCvsESCcommon_fc0.5_kmeans_group4.tsv")))
+clusters <- fread(here(dataDir, paste0("kmeans_EpiLCvsESCcommon_fc0.5.tsv")))
 geneList.EpiUP <- (clusters %>% dplyr::filter(group == "K1"))$ensembl_gene_id
 geneList.EpiDOWN <- (clusters %>% dplyr::filter(group == "K2"))$ensembl_gene_id
 
@@ -1148,7 +1155,14 @@ row_titles <- paste0(names(cluster_counts), " (n = ", cluster_counts, ")")
 
 temp <- tibble(gene = names(row_km_clusters),
                group = row_cluster_factor)
+temp2 <- (temp %>% left_join(geneIDNamePair, by = c("gene" = "ensembl_gene_id"))) %>% dplyr::arrange(gene) %>% dplyr::select(external_gene_name, group) %>%
+  dplyr::mutate(group = case_when(
+    group == "K1" ~ "C1",
+    group == "K2" ~ "C2"
+  ))
+colnames(temp2) <- c("gene", "group")
 fwrite(temp %>% left_join(geneIDNamePair, by = c("gene" = "ensembl_gene_id")), here(dataDir, paste0("kmeans_EpiLCdiff_common_EpiUP_DEGfiltered.tsv")), sep = "\t")
+fwrite(temp2, here(dataDir, paste0("kmeans_EpiLCdiff_common_EpiUP_DEGfiltered_pub.tsv")), sep = "\t")
 
 
 
@@ -1211,7 +1225,7 @@ dataToPlot <- fread(here(dataDir, "EnrichR_EpiLCdiff_common_EpiUP_DEGfiltered", 
 colnames(dataToPlot) <- c("ChEA", "overlap", "pval", "padj", "oldpval", "oldpadj", "oddsRatio", "combScore", "genes")
 
 
-dataToPlot <- dataToPlot %>% 
+dataToPlot2 <- dataToPlot %>% 
   dplyr::filter(str_detect(ChEA, regex("mouse", ignore_case = TRUE))) %>%
   dplyr::mutate(tf = stringr::word(ChEA, 1),
                 tf = case_when(
@@ -1220,8 +1234,14 @@ dataToPlot <- dataToPlot %>%
                 )) %>%
   dplyr::group_by(tf) %>%
   slice_max(combScore, with_ties = FALSE) %>% ungroup() %>%
-  dplyr::arrange(desc(combScore)) %>%
+  dplyr::arrange(desc(combScore))
+
+outTemp <- dataToPlot2 %>% dplyr::select(seq(1, 8))
+fwrite(outTemp, here(dataDir, "EnrichR_EpiLCdiff_common_EpiUP_DEGfiltered", "K1", "EpiUP_K1_ChEA_2022_table_pub.tsv"), sep = "\t")
+
+ataToPlot <- dataToPlot2 %>%
   slice_head(n = 15)
+
 
 p <- ggplot(dataToPlot, aes(x = combScore, y = reorder(ChEA, combScore), fill = padj)) +
   geom_bar(stat = "identity") + geom_text(
@@ -1291,6 +1311,8 @@ GO.2 <- enrichGO(gene = gene_cluster2, OrgDb = org.Mm.eg.db,
                   keyType = "ENSEMBL", ont = "BP", readable = TRUE, universe = gene_background)
 GO.1.df <- as.data.frame(GO.1)
 GO.2.df <- as.data.frame(GO.2)
+fwrite(GO.1.df, here(dataDir, "GO_C1.tsv"), sep = "\t")
+
 
 # K1
 GO.1.df$GeneRatio1 <- sapply(strsplit(GO.1.df$GeneRatio, "/"), function(x) as.numeric(x[1]) / as.numeric(x[2]))
@@ -1545,6 +1567,14 @@ row_titles <- paste0(names(cluster_counts), " (n = ", cluster_counts, ")")
 
 temp <- tibble(gene = names(row_km_clusters),
                group = row_cluster_factor)
+temp2 <- (temp %>% left_join(geneIDNamePair, by = c("gene" = "ensembl_gene_id"))) %>% dplyr::arrange(gene) %>% dplyr::select(external_gene_name, group) %>%
+  dplyr::mutate(group = case_when(
+    group == "K1" ~ "C3",
+    group == "K2" ~ "C4"
+  ))
+colnames(temp2) <- c("gene", "group")
+fwrite(temp2, here(dataDir, paste0("kmeans_EpiLCdiff_common_EpiDOWN_DEGfiltered_pub.tsv")), sep = "\t")
+
 fwrite(temp %>% left_join(geneIDNamePair, by = c("gene" = "ensembl_gene_id")), here(dataDir, paste0("kmeans_EpiLCdiff_common_EpiDOWN_DEGfiltered.tsv")), sep = "\t")
 
 
@@ -1605,7 +1635,7 @@ dataToPlot <- fread(here(dataDir, "EnrichR_EpiLCdiff_common_EpiDOWN_DEGfiltered"
 colnames(dataToPlot) <- c("ChEA", "overlap", "pval", "padj", "oldpval", "oldpadj", "oddsRatio", "combScore", "genes")
 
 
-dataToPlot <- dataToPlot %>% 
+dataToPlot2 <- dataToPlot %>% 
   dplyr::filter(str_detect(ChEA, regex("mouse", ignore_case = TRUE))) %>%
   dplyr::mutate(tf = stringr::word(ChEA, 1),
                 tf = case_when(
@@ -1614,7 +1644,12 @@ dataToPlot <- dataToPlot %>%
                 )) %>%
   dplyr::group_by(tf) %>%
   slice_max(combScore, with_ties = FALSE) %>% ungroup() %>%
-  dplyr::arrange(desc(combScore)) %>%
+  dplyr::arrange(desc(combScore)) 
+
+outTemp <- dataToPlot2 %>% dplyr::select(seq(1, 8))
+fwrite(outTemp, here(dataDir, "EnrichR_EpiLCdiff_common_EpiDOWN_DEGfiltered", "K2", "EpiDOWM_K2_ChEA_2022_table_pub.tsv"), sep = "\t")
+
+dataToPlot <- dataToPlot2 %>%
   slice_head(n = 15)
 
 p <- ggplot(dataToPlot, aes(x = combScore, y = reorder(ChEA, combScore), fill = padj)) +
@@ -1683,6 +1718,7 @@ GO.2 <- enrichGO(gene = gene_cluster2, OrgDb = org.Mm.eg.db,
                   keyType = "ENSEMBL", ont = "BP", readable = TRUE, universe = gene_background)
 GO.1.df <- as.data.frame(GO.1)
 GO.2.df <- as.data.frame(GO.2)
+fwrite(GO.2.df, here(dataDir, "GO_C4.tsv"), sep = "\t")
 
 # K2
 GO.2.df$GeneRatio1 <- sapply(strsplit(GO.2.df$GeneRatio, "/"), function(x) as.numeric(x[1]) / as.numeric(x[2]))
