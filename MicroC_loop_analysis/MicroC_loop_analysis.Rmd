@@ -10368,6 +10368,11 @@ dev.off()
 
 ## Loops
 ```{r}
+
+library(TxDb.Mmusculus.UCSC.mm10.ensGene)
+library(ggbio)
+library(patchwork)
+library(org.Mm.eg.db)
 # Drawing parameters
 hicDir <- here("../data/hic_pooled")
 windowSize <- 0.5*1e6
@@ -10384,26 +10389,63 @@ cf.G1dTAG <- HicFile(path = here(hicDir, "G1dTAG_pooled_allRes.hic"))
 
 
 ################################################################################
-#Filtering loops to plot
+#Filtering loops to plot (retained regulatory loops)
 comparison <- "ESC_dTAG_vs_DMSO"
-note <- "reg2"
+note <- "all0"
 
 loop_chromo_filtered <- loop_chromo %>%
   dplyr::mutate(size = start2 - start1) %>%
   dplyr::filter(score_dTAG > 0.3,
-                size < 500*1000,
-                Anno %in% c("P-P", "P-E", "E-E")) %>%
+                size < 500*1000) %>%
   dplyr::arrange(desc(score_dTAG))
 temp <- loop_chromo_filtered
 colnames(temp) <- c("V1", "V2", "V3", "V4", "V5", "V6")
 loops <- importBedpe(temp)
 
+
+for(i in seq(1, nrow(loop_chromo_filtered))){
+  
+  width <- panelSize(15/5)*mmToInch
+  height <- panelSize(15/5)*mmToInch
+  
+  chr <- as_tibble(loops[i])$seqnames1
+  center <- (as_tibble(loops[i])$start1 + as_tibble(loops[i])$end2)/2
+  start <- floor(center - 0.5*windowSize)
+  end <- floor(center + 0.5*windowSize)
+  
+  res <- 5000
+  
+  hic1 <- import(cf.G1DMSO, focus = paste0(chr, ":", start, "-", end), resolution = res)
+  hic2 <- import(cf.G1dTAG, focus = paste0(chr, ":", start, "-", end), resolution = res)
+  p1 <- plotMatrix(hic1, compare.to = hic2, dpi = 600, loop = loops[i])
+  
+  
+  
+  # 1. Get all genes on the relevant chromosome as a data frame
+  all_genes_on_chr <- as.data.frame(genes(TxDb.Mmusculus.UCSC.mm10.ensGene, filter = list(tx_chrom = chr)))
+  
+  # 2. Filter for genes within your specific window
+  genes_in_region <- all_genes_on_chr[
+    all_genes_on_chr$start < end & all_genes_on_chr$end > start,
+  ]
+  
+  geneNum <- nrow(genes_in_region)
+  
+  
+  width <- panelSize(2.2)*mmToInch
+  height <- panelSize(2.2)*mmToInch
+fileName <- here(figVisdir, paste0(note, "_loop_", sprintf("%05d", i), "_", res, "kb_", chr, "_", start, "_", end, "_geneNum_", geneNum))
+  svglite(paste0(fileName, ".svg"), width = width, height = height)
+  print(p1)
+  dev.off()
+  
+}
+################################################################################
+
+
 # Visualization
 # for(i in seq(1, nrow(temp))){
-library(TxDb.Mmusculus.UCSC.mm10.ensGene)
-library(ggbio)
-library(patchwork)
-library(org.Mm.eg.db)
+
 
 
 ################################################################################
